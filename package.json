@@ -1,0 +1,22 @@
+{
+  "name": "kubeless-serverless",
+  "version": "0.0.1",
+  "description": "This plugin enables support for Kubeless within the [Serverless Framework](https://github.com/serverless).",
+  "main": "index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bitnami/kubeless-serverless.git"
+  },
+  "author": "tuna@bitnami.com",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bitnami/kubeless-serverless/issues"
+  },
+  "homepage": "https://github.com/bitnami/kubeless-serverless#readme"
+}
