@@ -1,16 +1,30 @@
 # Kubeless Serverless Plugin
 
-This plugin enables support for Kubeless within the [Serverless Framework](https://github.com/serverless).
+This plugin brings [Kubeless](https://github.com/kubeless/kubeless) support within the [Serverless Framework](https://github.com/serverless).
 
-## Give it a try
-First you need to install serverless
+Kubeless is a Kubernetes-native Serverless solution.
+
+## Pre requisites
+
+Make sure you have a kubernetes endpoint running (e.g minikube) and kubeless installed: 
+ 
+```
+$ minikube version
+$ kubectl version
+$ brew install kubeless/tap/kubeless
+$ kubeless install
+```
+
+Then install serverless
 ```
 $ npm install serverless -g
 ```
 
-Clone the repo and check the example function
+## Try out the example
+
+Clone this repo and check the example function
 ```
-$ git clone https://github.com/bitnami/kubeless-serverless
+$ git clone https://github.com/serverless/serverless-kubeless
 $ cd examples
 $ cat serverless.yml
 service: hello
@@ -32,7 +46,7 @@ Download dependencies
 $ npm install
 ```
 
-Make sure you have k8s running in minikube and kubeless installed. Export K8S API endpoint.
+Export the Kubernetes API endpoint.
 ```
 $ export K8SAPISERVER=https://192.168.99.100:8443
 ```
