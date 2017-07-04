@@ -48,7 +48,7 @@ $ npm install
 
 Export the Kubernetes API endpoint.
 ```
-$ export K8SAPISERVER=https://192.168.99.100:8443
+$ export KUBE_API_URL=https://192.168.99.100:8443
 ```
 
 Deploy function.

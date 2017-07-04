@@ -1,8 +1,8 @@
 'use strict';
 
 const BbPromise = require('bluebird');
-const fs = require('fs');
 const Api = require('kubernetes-client');
+const helpers = require('../lib/helpers');
 
 class KubelessDeploy {
   constructor(serverless, options) {
@@ -12,15 +12,21 @@ class KubelessDeploy {
 
     this.hooks = {
       'deploy:deploy': () => BbPromise.bind(this)
-        .then(this.deployFunction)
+        .then(this.validate)
+        .then(this.deployFunction),
     };
   }
 
-  deployFunction() {
-    this.serverless.cli.log(`Deploying function: ${this.serverless.service.service}...`);
+  validate() {
+    helpers.validateEnv();
+    return BbPromise.resolve();
+  }
 
-    var funcs = {
-      apiVersion: `k8s.io/v1`,
+  deployFunction() {
+    const f = this.serverless.service.service;
+    this.serverless.cli.log(`Deploying function: ${f}...`);
+    const funcs = {
+      apiVersion: 'k8s.io/v1',
       kind: 'Function',
       metadata: {
         name: this.serverless.service.service,
@@ -28,30 +34,28 @@ class KubelessDeploy {
       },
       spec: {
         deps: '',
-        function: fs.readFileSync(this.serverless.service.functions.hello.handler.toString().split(".")[0] + ".py", 'utf8'),
-        handler: this.serverless.service.functions.hello.handler,
+        function: this.serverless.utils.readFileSync(
+          `${this.serverless.service.functions[f].handler.toString().split('.')[0]}.py`
+        ),
+        handler: this.serverless.service.functions[f].handler,
         runtime: this.serverless.service.provider.runtime,
         topic: '',
         type: 'HTTP',
       },
     };
 
-    var thirdPartyResources = new Api.ThirdPartyResources({
-      url: process.env['K8SAPISERVER'],
-      ca: fs.readFileSync(process.env['HOME'] + "/.minikube/ca.crt"),
-      cert: fs.readFileSync(process.env['HOME'] + "/.minikube/apiserver.crt"),
-      key: fs.readFileSync(process.env['HOME'] + "/.minikube/apiserver.key"),
-      group: 'k8s.io',
-    });
+    const thirdPartyResources = new Api.ThirdPartyResources(
+      Object.assign(helpers.getMinikubeCredentials(), {
+        url: process.env.KUBE_API_URL,
+        group: 'k8s.io',
+      })
+    );
 
     thirdPartyResources.addResource('functions');
     // Create function
-    thirdPartyResources.ns.functions.post({body: funcs}, print)
+    thirdPartyResources.ns.functions.post({ body: funcs }, helpers.print);
+    return BbPromise.resolve();
   }
-}
-
-function print(err, result) {
-  console.log(JSON.stringify(err || result, null, 2));
 }
 
 module.exports = KubelessDeploy;

@@ -1,8 +1,8 @@
 'use strict';
 
-const BbPromise = require('bluebird');
-const fs = require('fs');
 const Api = require('kubernetes-client');
+const BbPromise = require('bluebird');
+const helpers = require('../lib/helpers');
 
 class KubelessRemove {
   constructor(serverless, options) {
@@ -12,31 +12,32 @@ class KubelessRemove {
 
     this.hooks = {
       'remove:remove': () => BbPromise.bind(this)
-        .then(this.removeFunction)
+        .then(this.validate)
+        .then(this.removeFunction),
     };
   }
 
+  validate() {
+    helpers.validateEnv();
+    return BbPromise.resolve();
+  }
+
   removeFunction() {
-    this.serverless.cli.log(`Removing function: ${this.serverless.service.service}...`);
+    const f = this.serverless.service.service;
+    this.serverless.cli.log(`Removing function: ${f}...`);
 
-    var funcName = this.serverless.service.service
-
-    var thirdPartyResources = new Api.ThirdPartyResources({
-      url: process.env['K8SAPISERVER'],
-      ca: fs.readFileSync(process.env['HOME'] + "/.minikube/ca.crt"),
-      cert: fs.readFileSync(process.env['HOME'] + "/.minikube/apiserver.crt"),
-      key: fs.readFileSync(process.env['HOME'] + "/.minikube/apiserver.key"),
-      group: 'k8s.io',
-    });
+    const thirdPartyResources = new Api.ThirdPartyResources(
+      Object.assign(helpers.getMinikubeCredentials(), {
+        url: process.env.KUBE_API_URL,
+        group: 'k8s.io',
+      })
+    );
 
     thirdPartyResources.addResource('functions');
     // Delete function
-    thirdPartyResources.ns.functions.delete(funcName, print)
+    thirdPartyResources.ns.functions.delete(f, helpers.print);
+    return BbPromise.resolve();
   }
-}
-
-function print(err, result) {
-  console.log(JSON.stringify(err || result, null, 2));
 }
 
 module.exports = KubelessRemove;
