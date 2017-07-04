@@ -12,14 +12,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bitnami/kubeless-serverless.git"
+    "url": "git+https://github.com/serverless/serverless-kubeless.git"
   },
   "author": "tuna@bitnami.com",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/bitnami/kubeless-serverless/issues"
+    "url": "https://github.com/serverless/serverless-kubeless/issues"
   },
-  "homepage": "https://github.com/bitnami/kubeless-serverless#readme",
+  "homepage": "https://github.com/serverless/serverless-kubeless#readme",
   "dependencies": {
     "bluebird": "^3.5.0",
     "kubernetes-client": "^3.12.0",

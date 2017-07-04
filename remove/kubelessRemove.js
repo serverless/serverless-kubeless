@@ -28,7 +28,7 @@ class KubelessRemove {
 
     const thirdPartyResources = new Api.ThirdPartyResources(
       Object.assign(helpers.getMinikubeCredentials(), {
-        url: process.env.K8SAPISERVER,
+        url: process.env.KUBE_API_URL,
         group: 'k8s.io',
       })
     );
