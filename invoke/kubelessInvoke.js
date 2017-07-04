@@ -1,7 +1,6 @@
 'use strict';
 
 const _ = require('lodash');
-const fs = require('fs');
 const BbPromise = require('bluebird');
 const path = require('path');
 const request = require('request');
@@ -22,23 +21,19 @@ class KubelessInvoke {
   }
 
   getData() {
-    let data = this.options.data || '{}';
-    if (_.isEmpty(this.options.data) && this.options.path) {
-      const absolutePath = path.isAbsolute(this.options.path) ?
-        this.options.path :
-        path.join(this.serverless.config.servicePath, this.options.path);
-      if (!fs.existsSync(absolutePath)) {
-        throw new this.serverless.classes.Error('The file you provided does not exist.');
-      }
-      data = fs.readFileSync(absolutePath);
-    }
-    return data;
-  }
-
-  getParsedData() {
-    let data = null;
+    let data = {};
     try {
-      data = JSON.parse(this.getData());
+      if (!_.isEmpty(this.options.data)) {
+        data = JSON.parse(this.options.data);
+      } else if (this.options.path) {
+        const absolutePath = path.isAbsolute(this.options.path) ?
+          this.options.path :
+          path.join(this.serverless.config.servicePath, this.options.path);
+        if (!this.serverless.utils.fileExistsSync(absolutePath)) {
+          throw new this.serverless.classes.Error('The file you provided does not exist.');
+        }
+        data = this.serverless.utils.readFileSync(absolutePath);
+      }
     } catch (e) {
       throw new this.serverless.classes.Error(
         `Unable to parse data given in the arguments: \n${e.message}`
@@ -49,7 +44,8 @@ class KubelessInvoke {
 
   validate() {
     helpers.validateEnv();
-    this.getParsedData();
+    // Parse data to ensure it has a correct format
+    this.getData();
     const unsupportedOptions = ['stage', 'region', 'type'];
     helpers.warnUnsupportedOptions(
       unsupportedOptions,
@@ -67,7 +63,7 @@ class KubelessInvoke {
       request.post(Object.assign(helpers.getMinikubeCredentials(), {
         url: `${process.env.KUBE_API_URL}/api/v1/proxy/namespaces/default/services/${f}/`,
         json: true,
-        body: this.getParsedData(),
+        body: this.getData(),
       }), (err, data) => {
         if (err) {
           reject(new this.serverless.classes.Error(err.message, err.statusCode));
