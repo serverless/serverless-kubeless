@@ -50,7 +50,7 @@ class KubelessInvoke {
   validate() {
     helpers.validateEnv();
     this.getParsedData();
-    const unsupportedOptions = ['stage', 'region'];
+    const unsupportedOptions = ['stage', 'region', 'type'];
     helpers.warnUnsupportedOptions(
       unsupportedOptions,
       this.options,
