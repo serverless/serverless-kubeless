@@ -51,7 +51,11 @@ class KubelessInvoke {
     helpers.validateEnv();
     this.getParsedData();
     const unsupportedOptions = ['stage', 'region'];
-    helpers.warnUnsupportedOptions(unsupportedOptions, this.options, this.serverless.cli.log);
+    helpers.warnUnsupportedOptions(
+      unsupportedOptions,
+      this.options,
+      this.serverless.cli.log.bind(this.serverless.cli)
+    );
     return BbPromise.resolve();
   }
 
