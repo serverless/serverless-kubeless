@@ -105,11 +105,34 @@ describe('KubelessInvoke', () => {
   describe('#invoke', () => {
     beforeEach(() => {
       sinon.stub(request, 'post');
+      sinon.stub(request, 'get');
     });
     afterEach(() => {
       request.post.restore();
+      request.get.restore();
     });
-    it('calls the API end point with the correct arguments', () => {
+    it('calls the API end point with the correct arguments (without data)', () => {
+      const kubelessInvoke = new KubelessInvoke(serverless, {
+        function: 'my-function',
+      });
+      request.get.onFirstCall().callsFake((opts, f) => {
+        f(null, {
+          statusCode: 200,
+          statusMessage: 'OK',
+        });
+      });
+      expect(kubelessInvoke.invokeFunction()).to.become({
+        statusCode: 200,
+        statusMessage: 'OK',
+      });
+      expect(
+        request.get.firstCall.args[0]
+      ).to.have.keys(['cert', 'ca', 'key', 'url']);
+      expect(request.get.firstCall.args[0].url).to.be.eql(
+        `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function/`
+      );
+    });
+    it('calls the API end point with the correct arguments (with data)', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
         function: 'my-function',
         data: '{"test": 1}',

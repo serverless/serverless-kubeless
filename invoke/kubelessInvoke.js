@@ -21,7 +21,7 @@ class KubelessInvoke {
   }
 
   getData() {
-    let data = {};
+    let data = null;
     try {
       if (!_.isEmpty(this.options.data)) {
         data = JSON.parse(this.options.data);
@@ -60,20 +60,33 @@ class KubelessInvoke {
     this.serverless.cli.log(`Calling function: ${f}...`);
 
     return new BbPromise((resolve, reject) => {
-      request.post(Object.assign(helpers.getMinikubeCredentials(), {
-        url: `${process.env.KUBE_API_URL}/api/v1/proxy/namespaces/default/services/${f}/`,
-        json: true,
-        body: this.getData(),
-      }), (err, data) => {
+      const requestData = this.getData();
+      const url = `${process.env.KUBE_API_URL}/api/v1/proxy/namespaces/default/services/${f}/`;
+      const parseReponse = (err, response) => {
         if (err) {
           reject(new this.serverless.classes.Error(err.message, err.statusCode));
         } else {
-          if (data.statusCode !== 200) {
-            reject(new this.serverless.classes.Error(data.statusMessage, data.statusCode));
+          if (response.statusCode !== 200) {
+            reject(new this.serverless.classes.Error(response.statusMessage, response.statusCode));
           }
-          resolve(data);
+          resolve(response);
         }
-      });
+      };
+      if (_.isEmpty(requestData)) {
+        // There is no data to send, sending a GET request
+        request.get(Object.assign(helpers.getMinikubeCredentials(), { url }), (err, response) => {
+          parseReponse(err, response);
+        });
+      } else {
+        // Sending request data with a POST
+        request.post(Object.assign(helpers.getMinikubeCredentials(), {
+          url,
+          json: true,
+          body: requestData,
+        }), (err, response) => {
+          parseReponse(err, response);
+        });
+      }
     });
   }
   log(response) {
