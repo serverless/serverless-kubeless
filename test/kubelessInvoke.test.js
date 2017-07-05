@@ -5,6 +5,7 @@ const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
 const fs = require('fs');
+const helpers = require('../lib/helpers');
 const path = require('path');
 const request = require('request');
 const sinon = require('sinon');
@@ -19,9 +20,15 @@ describe('KubelessInvoke', () => {
   const kubeApiURL = 'http://1.2.3.4:4433';
   beforeEach(() => {
     process.env.KUBE_API_URL = kubeApiURL;
+    sinon.stub(helpers, 'getMinikubeCredentials').returns({
+      cert: 'cert',
+      ca: 'ca',
+      key: 'key',
+    });
   });
   afterEach(() => {
     process.env = previousEnv;
+    helpers.getMinikubeCredentials.restore();
   });
   describe('#constructor', () => {
     const options = { test: 1 };

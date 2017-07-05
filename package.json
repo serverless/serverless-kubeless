@@ -32,8 +32,10 @@
     "eslint": "^3.3.1",
     "eslint-config-airbnb": "^10.0.1",
     "eslint-config-airbnb-base": "^5.0.2",
+    "eslint-plugin-import": "^1.16.0",
     "eslint-plugin-jsx-a11y": "^2.1.0",
     "eslint-plugin-react": "^6.1.1",
+    "mocha": "^3.4.2",
     "sinon": "^2.3.6"
   }
 }
