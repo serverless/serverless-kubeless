@@ -63,13 +63,6 @@ describe('KubelessInvoke', () => {
         'Please specify the Kubernetes API server IP as the environment variable KUBE_API_URL'
       );
     });
-    it('throws an error if the given data is not a valid JSON object', () => {
-      const kubelessInvoke = new KubelessInvoke(serverless, { data: 'not-a-json' });
-      expect(() => kubelessInvoke.validate()).to.throw(
-        'Unable to parse data given in the arguments: \n' +
-        'Unexpected token o in JSON at position 1'
-      );
-    });
     it('throws an error if the given path with the data does not exists', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, { path: '/not-exist' });
       expect(() => kubelessInvoke.validate()).to.throw(
@@ -132,7 +125,30 @@ describe('KubelessInvoke', () => {
         `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function/`
       );
     });
-    it('calls the API end point with the correct arguments (with data)', () => {
+    it('calls the API end point with the correct arguments (with raw data)', () => {
+      const kubelessInvoke = new KubelessInvoke(serverless, {
+        function: 'my-function',
+        data: 'hello',
+      });
+      request.post.onFirstCall().callsFake((opts, f) => {
+        f(null, {
+          statusCode: 200,
+          statusMessage: 'OK',
+        });
+      });
+      expect(kubelessInvoke.invokeFunction()).to.become({
+        statusCode: 200,
+        statusMessage: 'OK',
+      });
+      expect(
+        request.post.firstCall.args[0]
+      ).to.have.keys(['cert', 'ca', 'key', 'url', 'body']);
+      expect(request.post.firstCall.args[0].url).to.be.eql(
+        `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function/`
+      );
+      expect(request.post.firstCall.args[0].body).to.be.eql('hello');
+    });
+    it('calls the API end point with the correct arguments (with JSON data)', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
         function: 'my-function',
         data: '{"test": 1}',
