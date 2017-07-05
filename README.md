@@ -12,7 +12,8 @@ Make sure you have a kubernetes endpoint running (e.g minikube) and kubeless ins
 $ minikube version
 $ kubectl version
 $ brew install kubeless/tap/kubeless
-$ kubeless install
+$ kubectl create ns kubeless
+$ kubectl create -f $(curl -s https://api.github.com/repos/kubeless/kubeless/releases/latest | jq -r ".assets[] | select(.name | test(\"yaml\")) | .browser_download_url")
 ```
 
 Then install serverless
