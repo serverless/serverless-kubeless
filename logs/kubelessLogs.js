@@ -110,28 +110,28 @@ class KubelessLogs {
         group: 'k8s.io',
       })
     );
-    return new BbPromise((resolve, reject) => {
+    return new BbPromise((resolve) => {
       core.ns.pods.get((err, podsInfo) => {
-        if (err) reject(err);
+        if (err) throw new this.serverless.classes.Error(err);
         const functionPod = _.find(
           podsInfo.items,
           (podInfo) => podInfo.metadata.labels.function === this.options.function
         );
         if (!functionPod) {
-          reject(
+          throw new this.serverless.classes.Error(
             `Unable to find the pod for the function ${this.options.function}. ` +
             'Please ensure that there is a function deployed with that ID'
           );
         }
         core.ns.pods(functionPod.metadata.name).log.get((errLog, logs) => {
-          if (errLog) reject(errLog);
+          if (errLog) throw new this.serverless.classes.Error(errLog);
           const filteredLogs = this.filterLogs(logs, opts);
           if (!_.isEmpty(filteredLogs)) {
             if (!opts.silent) {
               console.log(filteredLogs);
             }
           }
-          return BbPromise.resolve(filteredLogs);
+          return resolve(filteredLogs);
         });
       });
     });
