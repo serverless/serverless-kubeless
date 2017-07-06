@@ -11,7 +11,7 @@ const KubelessDeploy = require('./deploy/kubelessDeploy');
 const KubelessRemove = require('./remove/kubelessRemove');
 const KubelessInvoke = require('./invoke/kubelessInvoke');
 // const KubelessLogs = require('./logs/kubelessLogs');
-// const KubelessInfo = require('./info/kubelessInfo');
+const KubelessInfo = require('./info/kubelessInfo');
 
 class KubelessIndex {
   constructor(serverless, options) {
@@ -23,7 +23,7 @@ class KubelessIndex {
     this.serverless.pluginManager.addPlugin(KubelessRemove);
     this.serverless.pluginManager.addPlugin(KubelessInvoke);
     // this.serverless.pluginManager.addPlugin(KubelessLogs);
-    // this.serverless.pluginManager.addPlugin(KubelessInfo);
+    this.serverless.pluginManager.addPlugin(KubelessInfo);
   }
 }
 
