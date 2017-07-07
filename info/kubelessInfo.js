@@ -6,6 +6,10 @@ const BbPromise = require('bluebird');
 const chalk = require('chalk');
 const helpers = require('../lib/helpers');
 
+function toMultipleWords(word) {
+  return word.replace(/([A-Z])/, ' $1').replace(/^./, (l) => l.toUpperCase());
+}
+
 class KubelessInfo {
   constructor(serverless, options) {
     this.serverless = serverless;
@@ -51,10 +55,10 @@ class KubelessInfo {
     message += `${chalk.yellow('Cluster IP: ')} ${service.ip}\n`;
     message += `${chalk.yellow('Ports: ')}\n`;
     _.each(service.ports, (port) => {
-      message += `  ${chalk.yellow('Protocol: ')} ${port.protocol}\n`;
-      message += `  ${chalk.yellow('Port: ')} ${port.port}\n`;
-      message += `  ${chalk.yellow('Target Port: ')} ${port.targetPort}\n`;
-      message += `  ${chalk.yellow('Node Port: ')} ${port.nodePort}\n`;
+      // Ports can have variable properties
+      _.each(port, (value, key) => {
+        message += `  ${chalk.yellow(`${toMultipleWords(key)}: `)} ${value}\n`;
+      });
     });
     message += `${chalk.yellow('Functions: ')}\n`;
     _.each(functions, f => {

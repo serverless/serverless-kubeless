@@ -142,7 +142,7 @@ describe('KubelessInfo', () => {
     });
     it('should return logs with the correct formating', () => {
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
-      expect(kubelessInfo.infoFunction({ color: false })).to.become(
+      return expect(kubelessInfo.infoFunction({ color: false })).to.become(
         '\nService Information\n' +
         `Service:  ${func}\n` +
         'Cluster IP:  10.0.0.177\n' +
@@ -172,7 +172,7 @@ describe('KubelessInfo', () => {
         }
       });
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
-      expect(kubelessInfo.infoFunction()).to.be.eventually.rejectedWith(
+      return expect(kubelessInfo.infoFunction()).to.be.eventually.rejectedWith(
         'Unable to find the service for the function'
       );
     });
@@ -189,7 +189,7 @@ describe('KubelessInfo', () => {
         }
       });
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
-      expect(kubelessInfo.infoFunction()).to.be.eventually.rejectedWith(
+      return expect(kubelessInfo.infoFunction()).to.be.eventually.rejectedWith(
         'Found more than one service for the function'
       );
     });
