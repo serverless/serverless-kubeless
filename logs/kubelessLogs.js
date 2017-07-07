@@ -31,13 +31,13 @@ class KubelessLogs {
         .then(this.logsFunction)
         .then(() => {
           if (this.options.tail) {
-            let m = moment.utc().valueOf();
+            let m = moment().valueOf();
             setInterval(() => {
               this.printLogs({
                 startTime: m,
                 count: null,
               });
-              m = moment.utc().valueOf();
+              m = moment().valueOf();
             }, this.options.interval || 1000);
           }
         }),
@@ -72,17 +72,19 @@ class KubelessLogs {
       const since = !!opts.startTime.toString().match(/(?:m|h|d)/);
       let startMoment = null;
       if (since) {
-        startMoment = moment.utc().subtract(
+        startMoment = moment().subtract(
           opts.startTime.replace(/\D/g, ''),
           opts.startTime.replace(/\d/g, '')
         ).valueOf();
       } else {
-        startMoment = moment.utc(opts.startTime).valueOf();
+        startMoment = moment(opts.startTime).valueOf();
       }
       const logIndex = _.findIndex(logEntries, entry => {
-        const entryDate = entry.match(/(\d{2}\/[a-zA-Z]{3}\/\d{4}:\d{2}:\d{2}:\d{2})/);
+        const entryDate = entry.match(
+          /(\d{2}\/[a-zA-Z]{3}\/\d{4}:\d{2}:\d{2}:\d{2} \+\d{4}|-\d{4})/
+        );
         if (entryDate) {
-          const entryMoment = moment.utc(entryDate[1], 'DD/MMM/YYYY:hh:mm:ss').valueOf();
+          const entryMoment = moment(entryDate[1], 'DD/MMM/YYYY:HH:mm:ss Z').valueOf();
           return entryMoment >= startMoment;
         }
         return false;
