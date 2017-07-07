@@ -5,6 +5,7 @@ const fs = require('fs');
 class CLI {
   constructor() {
     this.log = function () {};
+    this.consoleLog = function () {};
   }
 }
 const serverless = {
