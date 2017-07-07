@@ -47,12 +47,12 @@ class KubelessInfo {
     return BbPromise.resolve();
   }
 
-  formatMessage(service, functions, options) {
+  formatMessage(service, f, options) {
     if (options && !options.color) chalk.enabled = false;
     let message = '';
-    message += `\n${chalk.yellow.underline('Service Information')}\n`;
-    message += `${chalk.yellow('Service: ')} ${service.name}\n`;
+    message += `\n${chalk.yellow.underline(`Service Information "${service.name}"`)}\n`;
     message += `${chalk.yellow('Cluster IP: ')} ${service.ip}\n`;
+    message += `${chalk.yellow('Type: ')} ${service.type}\n`;
     message += `${chalk.yellow('Ports: ')}\n`;
     _.each(service.ports, (port) => {
       // Ports can have variable properties
@@ -60,26 +60,22 @@ class KubelessInfo {
         message += `  ${chalk.yellow(`${toMultipleWords(key)}: `)} ${value}\n`;
       });
     });
-    message += `${chalk.yellow('Functions: ')}\n`;
-    _.each(functions, f => {
-      message += `  ${chalk.yellow(`${f.name}:`)}\n`;
-      message += `    ${chalk.yellow('Handler: ')} ${f.handler}\n`;
-      message += `    ${chalk.yellow('Runtime: ')} ${f.runtime}\n`;
-      message += `    ${chalk.yellow('Topic: ')} ${f.topic}\n`;
-      message += `    ${chalk.yellow('Dependencies: ')} ${f.deps}\n`;
-    });
     if (this.options.verbose) {
-      message += `\n${chalk.yellow.underline('Service Metadata')}\n`;
-      message += `${chalk.yellow('Self Link: ')} ${service.selfLink}\n`;
-      message += `${chalk.yellow('UID: ')} ${service.uid}\n`;
-      message += `${chalk.yellow('Timestamp: ')} ${service.timestamp}\n`;
-      message += `${chalk.yellow('Functions Metadata:')}\n`;
-      _.each(functions, f => {
-        message += `  ${chalk.yellow(`${f.name}:`)}\n`;
-        message += `    ${chalk.yellow('Self Link: ')} ${f.selfLink}\n`;
-        message += `    ${chalk.yellow('UID: ')} ${f.uid}\n`;
-        message += `    ${chalk.yellow('Timestamp: ')} ${f.timestamp}\n`;
-      });
+      message += `${chalk.yellow('Metadata')}\n`;
+      message += `  ${chalk.yellow('Self Link: ')} ${service.selfLink}\n`;
+      message += `  ${chalk.yellow('UID: ')} ${service.uid}\n`;
+      message += `  ${chalk.yellow('Timestamp: ')} ${service.timestamp}\n`;
+    }
+    message += `${chalk.yellow.underline('Function Info')}\n`;
+    message += `${chalk.yellow('Handler: ')} ${f.handler}\n`;
+    message += `${chalk.yellow('Runtime: ')} ${f.runtime}\n`;
+    message += `${chalk.yellow('Topic: ')} ${f.topic}\n`;
+    message += `${chalk.yellow('Dependencies: ')} ${f.deps}\n`;
+    if (this.options.verbose) {
+      message += `${chalk.yellow('Metadata:')}\n`;
+      message += `  ${chalk.yellow('Self Link: ')} ${f.selfLink}\n`;
+      message += `  ${chalk.yellow('UID: ')} ${f.uid}\n`;
+      message += `  ${chalk.yellow('Timestamp: ')} ${f.timestamp}\n`;
     }
     return message;
   }
@@ -98,52 +94,45 @@ class KubelessInfo {
       })
     );
     thirdPartyResources.addResource('functions');
-    const func = this.serverless.service.service;
     return new BbPromise((resolve) => {
-      core.services.get(
-        { qs: { labelSelector: `function=${func}` } },
-        (err, info) => {
-          if (_.isEmpty(info.items)) {
-            throw new this.serverless.classes.Error(
-              `Unable to find the service for the function ${func}`
+      core.services.get((err, servicesInfo) => {
+        thirdPartyResources.ns.functions.get((ferr, functionsInfo) => {
+          if (ferr) throw new this.serverless.classes.Error(ferr);
+          let message = '';
+          _.each(functionsInfo.items, f => {
+            const functionService = _.find(
+              servicesInfo.items,
+              (service) => service.metadata.labels.function === f.metadata.name
             );
-          } else if (info.items.length > 1) {
-            throw new this.serverless.classes.Error(
-              `Found more than one service for the function ${func}`
-            );
-          }
-          const service = {
-            name: info.items[0].metadata.name,
-            ip: info.items[0].spec.clusterIP,
-            ports: info.items[0].spec.ports,
-            selfLink: info.items[0].metadata.selfLink,
-            uid: info.items[0].metadata.uid,
-            timestamp: info.items[0].metadata.creationTimestamp,
-          };
-          const functions = [];
-          thirdPartyResources.ns.functions.get((ferr, functionsInfo) => {
-            if (ferr) throw new this.serverless.classes.Error(ferr);
-            _.each(functionsInfo.items, f => {
-              functions.push({
-                name: f.metadata.name,
-                handler: f.spec.handler,
-                runtime: f.spec.runtime,
-                topic: f.spec.topic,
-                deps: f.spec.deps,
-                selfLink: f.metadata.selfLink,
-                uid: f.metadata.uid,
-                timestamp: f.metadata.creationTimestamp,
-              });
-            });
-            const message = this.formatMessage(
+            const service = {
+              name: functionService.metadata.name,
+              ip: functionService.spec.clusterIP,
+              type: functionService.spec.type,
+              ports: functionService.spec.ports,
+              selfLink: functionService.metadata.selfLink,
+              uid: functionService.metadata.uid,
+              timestamp: functionService.metadata.creationTimestamp,
+            };
+            const func = {
+              name: f.metadata.name,
+              handler: f.spec.handler,
+              runtime: f.spec.runtime,
+              topic: f.spec.topic,
+              deps: f.spec.deps,
+              selfLink: f.metadata.selfLink,
+              uid: f.metadata.uid,
+              timestamp: f.metadata.creationTimestamp,
+            };
+            message += this.formatMessage(
               service,
-              functions,
+              func,
               _.defaults({}, options, { color: true })
             );
-            this.serverless.cli.consoleLog(message);
-            resolve(message);
           });
-        }
+          this.serverless.cli.consoleLog(message);
+          resolve(message);
+        });
+      }
       );
     });
   }

@@ -142,55 +142,21 @@ describe('KubelessInfo', () => {
     });
     it('should return logs with the correct formating', () => {
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
+      // console.log(kubelessInfo.infoFunction({ color: false })._rejectionHandler0);
       return expect(kubelessInfo.infoFunction({ color: false })).to.become(
-        '\nService Information\n' +
-        `Service:  ${func}\n` +
+        '\nService Information "my-function"\n' +
         'Cluster IP:  10.0.0.177\n' +
+        'Type:  NodePort\n' +
         'Ports: \n' +
         '  Protocol:  TCP\n' +
         '  Port:  8080\n' +
         '  Target Port:  8080\n' +
         '  Node Port:  30817\n' +
-        'Functions: \n' +
-        `  ${func}:\n` +
-        `    Handler:  ${func}.hello\n` +
-        '    Runtime:  python2.7\n' +
-        '    Topic:  \n' +
-        '    Dependencies:  \n'
-      );
-    });
-    it('throw an error if no service is found', () => {
-      Api.Core.prototype.get.callsFake((p, ff) => {
-        if (p.path[0] === '/api/v1/services') {
-          // Mock call to get.services
-          ff(null, {
-            statusCode: 200,
-            body: {
-              items: [],
-            },
-          });
-        }
-      });
-      const kubelessInfo = new KubelessInfo(serverless, { function: func });
-      return expect(kubelessInfo.infoFunction()).to.be.eventually.rejectedWith(
-        'Unable to find the service for the function'
-      );
-    });
-    it('throw an error if no service is found', () => {
-      Api.Core.prototype.get.callsFake((p, ff) => {
-        if (p.path[0] === '/api/v1/services') {
-          // Mock call to get.services
-          ff(null, {
-            statusCode: 200,
-            body: {
-              items: [1, 2],
-            },
-          });
-        }
-      });
-      const kubelessInfo = new KubelessInfo(serverless, { function: func });
-      return expect(kubelessInfo.infoFunction()).to.be.eventually.rejectedWith(
-        'Found more than one service for the function'
+        'Function Info\n' +
+        `Handler:  ${func}.hello\n` +
+        'Runtime:  python2.7\n' +
+        'Topic:  \n' +
+        'Dependencies:  \n'
       );
     });
   });
