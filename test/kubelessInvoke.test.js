@@ -42,7 +42,7 @@ describe('KubelessInvoke', () => {
     it('should set a provider ', () => {
       expect(kubelessInvoke.provider).to.not.be.eql(undefined);
     });
-    it('should have hooks', () => expect(kubelessInvoke.hooks).to.be.not.empty);
+    it('should have hooks', () => expect(kubelessInvoke.hooks).to.not.be.empty);
     it('should run promise chain in order', () => {
       const validateStub = sinon
       .stub(kubelessInvoke, 'validate').returns(BbPromise.resolve());
