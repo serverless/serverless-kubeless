@@ -13,7 +13,9 @@ const serverless = {
   classes: { Error, CLI },
   service: {
     getFunction: () => {},
-    provider: {},
+    provider: {
+      runtime: 'python2.7',
+    },
     resources: {},
     getAllFunctions: () => [],
   },
