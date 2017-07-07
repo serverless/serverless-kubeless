@@ -57,7 +57,7 @@ describe('KubelessLogs', () => {
     it('should set a provider ', () => {
       expect(kubelessLogs.provider).to.not.be.eql(undefined);
     });
-    it('should have hooks', () => expect(kubelessLogs.hooks).to.be.not.empty);
+    it('should have hooks', () => expect(kubelessLogs.hooks).to.not.be.empty);
     it('should run promise chain in order', () => kubelessLogs.hooks['logs:logs']().then(() => {
       expect(validateStub.calledOnce).to.be.equal(true);
       expect(logsStub.calledAfter(validateStub)).to.be.equal(true);
@@ -69,7 +69,8 @@ describe('KubelessLogs', () => {
       kubelessLogs.hooks['logs:logs']().then(() => {
         clock.tick(2100);
         // It should be executed one initial time plus two times after 2 seconds
-        expect(kubelessLogs.printLogs.callCount).to.be.equal(3);
+        clock.restore();
+        return expect(kubelessLogs.printLogs.callCount).to.be.equal(3);
       });
     });
     it('iterate printing logs if tail option is provided (custom interval)', () => {
@@ -78,8 +79,9 @@ describe('KubelessLogs', () => {
       const clock = sinon.useFakeTimers();
       kubelessLogs.hooks['logs:logs']().then(() => {
         clock.tick(2100);
-        // It should be executed one initial time plus another time after 2 seconds
-        expect(kubelessLogs.printLogs.callCount).to.be.equal(2);
+          // It should be executed one initial time plus another time after 2 seconds
+        clock.restore();
+        return expect(kubelessLogs.printLogs.callCount).to.be.equal(2);
       });
     });
   });
@@ -110,11 +112,11 @@ describe('KubelessLogs', () => {
     /* eslint-disable max-len */
     const logsSample =
       // Yesterday
-      `172.17.0.1 - - [${moment().subtract('1', 'd').format('DD/MMM/YYYY:hh:mm:ss')} +0000] "GET /healthz HTTP/1.1" 200 2 "" "Go-http-client/1.1" 0/95\n` +
+      `172.17.0.1 - - [${moment().utc().subtract('1', 'd').format('DD/MMM/YYYY:HH:mm:ss')} +0000] "GET /healthz HTTP/1.1" 200 2 "" "Go-http-client/1.1" 0/95\n` +
       // One hour before
-      `172.17.0.1 - - [${moment().subtract('1', 'h').format('DD/MMM/YYYY:hh:mm:ss')} +0000] "POST / HTTP/1.1" 500 742 "" "" 0/484\n` +
+      `172.17.0.1 - - [${moment().utc().subtract('1', 'h').format('DD/MMM/YYYY:HH:mm:ss')} +0000] "POST / HTTP/1.1" 500 742 "" "" 0/484\n` +
       // One minute before
-      `172.17.0.1 - - [${moment().subtract('1', 'm').format('DD/MMM/YYYY:hh:mm:ss')} +0000] "GET /healthz HTTP/1.1" 200 2 "" "Go-http-client/1.1" 0/84`;
+      `172.17.0.1 - - [${moment().utc().subtract('1', 'm').format('DD/MMM/YYYY:HH:mm:ss')} +0000] "GET /healthz HTTP/1.1" 200 2 "" "Go-http-client/1.1" 0/84`;
     /* eslint-enable max-len */
 
     beforeEach(() => {
@@ -146,21 +148,21 @@ describe('KubelessLogs', () => {
     });
     it('should print the function logs', () => {
       const kubelessLogs = new KubelessLogs(serverless, { function: f });
-      expect(kubelessLogs.printLogs({ silent: true })).to.become(logsSample);
+      return expect(kubelessLogs.printLogs({ silent: true })).to.become(logsSample);
     });
     it('should throw an error if the the function has not been deployed', () => {
       const kubelessLogs = new KubelessLogs(serverless, { function: 'test' });
-      expect(kubelessLogs.printLogs()).to.be.eventually.rejectedWith(
+      return expect(kubelessLogs.printLogs()).to.be.eventually.rejectedWith(
         'Unable to find the pod for the function test'
       );
     });
     it('should filter a specific number of log lines', () => {
       const kubelessLogs = new KubelessLogs(serverless, { count: 1, function: f });
-      expect(kubelessLogs.printLogs({ silent: true })).to.become(logsSample.split('\n')[2]);
+      return expect(kubelessLogs.printLogs({ silent: true })).to.become(logsSample.split('\n')[2]);
     });
     it('should filter a lines with a pattern', () => {
       const kubelessLogs = new KubelessLogs(serverless, { filter: 'POST', function: f });
-      expect(kubelessLogs.printLogs({ silent: true })).to.become(logsSample.split('\n')[1]);
+      return expect(kubelessLogs.printLogs({ silent: true })).to.become(logsSample.split('\n')[1]);
     });
     it('should filter a lines with a start time as a date string', () => {
       const kubelessLogs = new KubelessLogs(serverless, {
@@ -169,7 +171,7 @@ describe('KubelessLogs', () => {
         function: f,
       });
       // Should return last entry
-      expect(kubelessLogs.printLogs({ silent: true })).to.become(logsSample.split('\n')[2]);
+      return expect(kubelessLogs.printLogs({ silent: true })).to.become(logsSample.split('\n')[2]);
     });
     it('should filter a lines with a start time as a number', () => {
       const kubelessLogs = new KubelessLogs(serverless, {
@@ -178,7 +180,7 @@ describe('KubelessLogs', () => {
         function: f,
       });
       // Should return last entry
-      expect(kubelessLogs.printLogs({ silent: true })).to.become(logsSample.split('\n')[2]);
+      return expect(kubelessLogs.printLogs({ silent: true })).to.become(logsSample.split('\n')[2]);
     });
     it('should filter a lines from a period of time', () => {
       const kubelessLogs = new KubelessLogs(serverless, {
@@ -187,7 +189,7 @@ describe('KubelessLogs', () => {
         function: f,
       });
       // Should return last two entries
-      expect(kubelessLogs.printLogs({ silent: true })).to.become(
+      return expect(kubelessLogs.printLogs({ silent: true })).to.become(
         logsSample.split('\n').slice(1).join('\n')
       );
     });
@@ -199,8 +201,9 @@ describe('KubelessLogs', () => {
           startTime: moment().format(),
           function: f,
         });
-        expect(kubelessLogs.printLogs({ silent: true })).to.become([]);
+        const promise = kubelessLogs.printLogs({ silent: true });
         expect(console.log.callCount).to.be.eql(0);
+        return expect(promise).to.become('');
       } finally {
         console.log.restore();
       }
