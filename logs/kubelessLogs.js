@@ -30,14 +30,21 @@ class KubelessLogs {
         .then(this.validate)
         .then(this.printLogs)
         .then(() => {
+          let m = moment().valueOf();
+          let previousResult = null;
           if (this.options.tail) {
-            let m = moment().valueOf();
             setInterval(() => {
               this.printLogs({
                 startTime: m,
                 count: null,
+                silent: true,
+              }).then((logs) => {
+                m = moment().valueOf();
+                if (logs !== previousResult && !_.isEmpty(logs)) {
+                  console.log(logs);
+                }
+                previousResult = logs;
               });
-              m = moment().valueOf();
             }, this.options.interval || 1000);
           }
         }),
@@ -79,7 +86,7 @@ class KubelessLogs {
       } else {
         startMoment = moment(opts.startTime).valueOf();
       }
-      const logIndex = _.findIndex(logEntries, entry => {
+      const logIndex = _.findIndex(logEntries, (entry) => {
         const entryDate = entry.match(
           /(\d{2}\/[a-zA-Z]{3}\/\d{4}:\d{2}:\d{2}:\d{2} \+\d{4}|-\d{4})/
         );
@@ -138,10 +145,6 @@ class KubelessLogs {
         }
       });
     });
-  }
-
-  logsFunction() {
-
   }
 }
 
