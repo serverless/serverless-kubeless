@@ -1,5 +1,6 @@
 'use strict';
 
+const AdmZip = require('adm-zip');
 const _ = require('lodash');
 const BbPromise = require('bluebird');
 const Api = require('kubernetes-client');
@@ -30,20 +31,30 @@ class KubelessDeploy {
     return BbPromise.resolve();
   }
 
-  deployFunction(cwd) {
+  getFunctionContent(handlerRelativePath) {
+    const pkg = this.options.package ||
+      this.serverless.service.package.path;
+    if (pkg) {
+      const pkgZip = new AdmZip(pkg);
+      return pkgZip.readAsText(handlerRelativePath);
+    }
+    return this.serverless.utils.readFileSync(
+      path.join(this.serverless.config.servicePath || '.', handlerRelativePath)
+    );
+  }
+
+  deployFunction() {
     const thirdPartyResources = new Api.ThirdPartyResources(
       Object.assign(helpers.getMinikubeCredentials(), {
         url: process.env.KUBE_API_URL,
         group: 'k8s.io',
       })
     );
-
     thirdPartyResources.addResource('functions');
     const errors = [];
     let counter = 0;
     return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (description, name) => {
-        this.serverless.cli.log(`Deploying function: ${name}...`);
         const funcs = {
           apiVersion: 'k8s.io/v1',
           kind: 'Function',
@@ -53,9 +64,7 @@ class KubelessDeploy {
           },
           spec: {
             deps: '',
-            function: this.serverless.utils.readFileSync(
-              path.join(cwd || process.cwd(), `${description.handler.toString().split('.')[0]}.py`)
-            ),
+            function: this.getFunctionContent(`${description.handler.toString().split('.')[0]}.py`),
             handler: description.handler,
             runtime: this.serverless.service.provider.runtime,
             topic: '',

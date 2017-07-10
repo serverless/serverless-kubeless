@@ -1,6 +1,7 @@
 'use strict';
 
 const _ = require('lodash');
+const AdmZip = require('adm-zip');
 const Api = require('kubernetes-client');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
@@ -105,8 +106,11 @@ describe('KubelessDeploy', () => {
     });
   });
   describe('#deploy', () => {
-    let cwd = null;
+    const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
     const serverlessWithFunction = _.defaultsDeep({}, serverless, {
+      config: {
+        servicePath: cwd,
+      },
       service: {
         functions: {
           myFunction: {
@@ -116,10 +120,12 @@ describe('KubelessDeploy', () => {
       },
     });
     let kubelessDeploy = new KubelessDeploy(serverlessWithFunction);
-    beforeEach(() => {
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+
+    before(() => {
       fs.mkdirSync(cwd);
       fs.writeFileSync(path.join(cwd, 'function.py'), 'function code');
+    });
+    beforeEach(() => {
       sinon.stub(Api.ThirdPartyResources.prototype, 'post');
       Api.ThirdPartyResources.prototype.post.callsFake((data, ff) => {
         ff(null, { statusCode: 200 });
@@ -127,11 +133,13 @@ describe('KubelessDeploy', () => {
     });
     afterEach(() => {
       Api.ThirdPartyResources.prototype.post.restore();
+    });
+    after(() => {
       rm(cwd);
     });
     it('should deploy a function', () => {
-      expect( // eslint-disable-line no-unused-expressions
-        kubelessDeploy.deployFunction(cwd)
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
       expect(Api.ThirdPartyResources.prototype.post.calledOnce).to.be.eql(true);
       expect(Api.ThirdPartyResources.prototype.post.firstCall.args[0].body).to.be.eql(
@@ -147,15 +155,17 @@ describe('KubelessDeploy', () => {
             type: 'HTTP' } }
       );
       expect(Api.ThirdPartyResources.prototype.post.firstCall.args[1]).to.be.a('function');
+      return result;
     });
     it('should skip a deployment if an error 409 is returned', () => {
       Api.ThirdPartyResources.prototype.post.callsFake((data, ff) => {
         ff({ code: 409 });
       });
       sinon.stub(serverlessWithFunction.cli, 'log');
+      let result = null;
       try {
-        expect( // eslint-disable-line no-unused-expressions
-          kubelessDeploy.deployFunction(cwd)
+        result = expect( // eslint-disable-line no-unused-expressions
+          kubelessDeploy.deployFunction()
         ).to.be.fulfilled;
         expect(serverlessWithFunction.cli.log.lastCall.args).to.be.eql(
           ['The function myFunction is already deployed. Remove it if you want to deploy it again.']
@@ -163,13 +173,14 @@ describe('KubelessDeploy', () => {
       } finally {
         serverlessWithFunction.cli.log.restore();
       }
+      return result;
     });
     it('should fail if a deployment returns an error code', () => {
       Api.ThirdPartyResources.prototype.post.callsFake((data, ff) => {
         ff({ code: 500, message: 'Internal server error' });
       });
-      expect( // eslint-disable-line no-unused-expressions
-        kubelessDeploy.deployFunction(cwd)
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
       ).to.be.eventually.rejectedWith(
         'Found errors while deploying the given functions:\n' +
         'Unable to deploy the function myFunction. Received:\n' +
@@ -206,8 +217,8 @@ describe('KubelessDeploy', () => {
         ff(null, { statusCode: 200 });
       });
       kubelessDeploy = new KubelessDeploy(serverlessWithFunctions);
-      expect( // eslint-disable-line no-unused-expressions
-        kubelessDeploy.deployFunction(cwd)
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
       ).to.be.eventually.rejectedWith(
         'Found errors while deploying the given functions:\n' +
         'Unable to deploy the function myFunction2. Received:\n' +
@@ -215,6 +226,34 @@ describe('KubelessDeploy', () => {
         '  Message: Internal server error'
       );
       expect(functionsDeployed).to.be.eql(['myFunction1', 'myFunction3']);
+      return result;
+    });
+    it('should deploy a function using the given package', () => {
+      const zip = new AdmZip();
+      zip.addFile('function.py', 'different function content');
+      zip.writeZip(path.join(cwd, 'package.zip'));
+      sinon.createStubInstance(AdmZip);
+      kubelessDeploy = new KubelessDeploy(serverlessWithFunction, {
+        package: path.join(cwd, 'package.zip'),
+      });
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(Api.ThirdPartyResources.prototype.post.calledOnce).to.be.eql(true);
+      expect(Api.ThirdPartyResources.prototype.post.firstCall.args[0].body).to.be.eql(
+        { apiVersion: 'k8s.io/v1',
+          kind: 'Function',
+          metadata: { name: 'myFunction', namespace: 'default' },
+          spec:
+          { deps: '',
+            function: 'different function content',
+            handler: 'function.hello',
+            runtime: 'python2.7',
+            topic: '',
+            type: 'HTTP' } }
+      );
+      expect(Api.ThirdPartyResources.prototype.post.firstCall.args[1]).to.be.a('function');
+      return result;
     });
   });
 });

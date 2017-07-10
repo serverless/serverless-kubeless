@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/serverless/serverless-kubeless#readme",
   "dependencies": {
+    "adm-zip": "^0.4.7",
     "bluebird": "^3.5.0",
     "kubernetes-client": "^3.12.0",
     "lodash": "^4.17.4",
