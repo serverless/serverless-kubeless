@@ -1,10 +1,11 @@
 'use strict';
 
-const AdmZip = require('adm-zip');
 const _ = require('lodash');
 const BbPromise = require('bluebird');
 const Api = require('kubernetes-client');
+const fs = require('fs');
 const helpers = require('../lib/helpers');
+const JSZip = require('jszip');
 const path = require('path');
 
 class KubelessDeploy {
@@ -34,13 +35,19 @@ class KubelessDeploy {
   getFunctionContent(handlerRelativePath) {
     const pkg = this.options.package ||
       this.serverless.service.package.path;
+    let resultPromise = null;
     if (pkg) {
-      const pkgZip = new AdmZip(pkg);
-      return pkgZip.readAsText(handlerRelativePath);
+      resultPromise = JSZip.loadAsync(fs.readFileSync(pkg)).then(
+        (zip) => zip.file(handlerRelativePath).async('string')
+      );
+    } else {
+      resultPromise = new BbPromise(resolve => {
+        fs.readFile(
+          path.join(this.serverless.config.servicePath || '.', handlerRelativePath),
+          (err, d) => resolve(d.toString()));
+      });
     }
-    return this.serverless.utils.readFileSync(
-      path.join(this.serverless.config.servicePath || '.', handlerRelativePath)
-    );
+    return resultPromise;
   }
 
   deployFunction() {
@@ -55,53 +62,56 @@ class KubelessDeploy {
     let counter = 0;
     return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (description, name) => {
-        const funcs = {
-          apiVersion: 'k8s.io/v1',
-          kind: 'Function',
-          metadata: {
-            name,
-            namespace: 'default',
-          },
-          spec: {
-            deps: '',
-            function: this.getFunctionContent(`${description.handler.toString().split('.')[0]}.py`),
-            handler: description.handler,
-            runtime: this.serverless.service.provider.runtime,
-            topic: '',
-            type: 'HTTP',
-          },
-        };
-        // Create function
-        thirdPartyResources.ns.functions.post({ body: funcs }, (err) => {
-          if (err) {
-            if (err.code === 409) {
+        this.getFunctionContent(
+          `${description.handler.toString().split('.')[0]}.py`
+        ).then(functionContent => {
+          const funcs = {
+            apiVersion: 'k8s.io/v1',
+            kind: 'Function',
+            metadata: {
+              name,
+              namespace: 'default',
+            },
+            spec: {
+              deps: '',
+              function: functionContent,
+              handler: description.handler,
+              runtime: this.serverless.service.provider.runtime,
+              topic: '',
+              type: 'HTTP',
+            },
+          };
+          // Create function
+          thirdPartyResources.ns.functions.post({ body: funcs }, (err) => {
+            if (err) {
+              if (err.code === 409) {
+                this.serverless.cli.log(
+                  `The function ${name} is already deployed. ` +
+                  'Remove it if you want to deploy it again.'
+                );
+              } else {
+                errors.push(
+                  `Unable to deploy the function ${name}. Received:\n` +
+                  `  Code: ${err.code}\n` +
+                  `  Message: ${err.message}`
+                );
+              }
+            } else {
               this.serverless.cli.log(
-                `The function ${name} is already deployed. ` +
-                'Remove it if you want to deploy it again.'
-              );
-            } else {
-              errors.push(
-                `Unable to deploy the function ${name}. Received:\n` +
-                `  Code: ${err.code}\n` +
-                `  Message: ${err.message}`
+                `Function ${name} succesfully deployed`
               );
             }
-          } else {
-            this.serverless.cli.log(
-              `Function ${name} succesfully deployed`
-            );
-          }
-          counter++;
-          if (counter === _.keys(this.serverless.service.functions).length) {
-            if (_.isEmpty(errors)) {
-              resolve();
-            } else {
-              reject(
-                `Found errors while deploying the given functions:\n${
-                errors.join('\n')}`
-              );
+            counter++;
+            if (counter === _.keys(this.serverless.service.functions).length) {
+              if (_.isEmpty(errors)) {
+                resolve();
+              } else {
+                reject(
+                  `Found errors while deploying the given functions:\n${errors.join('\n')}`
+                );
+              }
             }
-          }
+          });
         });
       });
     });

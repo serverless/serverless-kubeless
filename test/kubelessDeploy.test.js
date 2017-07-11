@@ -1,7 +1,7 @@
 'use strict';
 
 const _ = require('lodash');
-const AdmZip = require('adm-zip');
+const JSZip = require('jszip');
 const Api = require('kubernetes-client');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
@@ -120,6 +120,9 @@ describe('KubelessDeploy', () => {
       },
     });
     let kubelessDeploy = new KubelessDeploy(serverlessWithFunction);
+    sinon.stub(kubelessDeploy, 'getFunctionContent').returns({
+      then: (f) => f('function code'),
+    });
 
     before(() => {
       fs.mkdirSync(cwd);
@@ -148,7 +151,7 @@ describe('KubelessDeploy', () => {
           metadata: { name: 'myFunction', namespace: 'default' },
           spec:
           { deps: '',
-            function: Buffer.from('function code', 'utf8'),
+            function: 'function code',
             handler: 'function.hello',
             runtime: 'python2.7',
             topic: '',
@@ -217,6 +220,9 @@ describe('KubelessDeploy', () => {
         ff(null, { statusCode: 200 });
       });
       kubelessDeploy = new KubelessDeploy(serverlessWithFunctions);
+      sinon.stub(kubelessDeploy, 'getFunctionContent').returns({
+        then: (f) => f('function code'),
+      });
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.eventually.rejectedWith(
@@ -229,30 +235,39 @@ describe('KubelessDeploy', () => {
       return result;
     });
     it('should deploy a function using the given package', () => {
-      const zip = new AdmZip();
-      zip.addFile('function.py', 'different function content');
-      zip.writeZip(path.join(cwd, 'package.zip'));
-      sinon.createStubInstance(AdmZip);
       kubelessDeploy = new KubelessDeploy(serverlessWithFunction, {
         package: path.join(cwd, 'package.zip'),
       });
-      const result = expect( // eslint-disable-line no-unused-expressions
-        kubelessDeploy.deployFunction()
-      ).to.be.fulfilled;
-      expect(Api.ThirdPartyResources.prototype.post.calledOnce).to.be.eql(true);
-      expect(Api.ThirdPartyResources.prototype.post.firstCall.args[0].body).to.be.eql(
-        { apiVersion: 'k8s.io/v1',
-          kind: 'Function',
-          metadata: { name: 'myFunction', namespace: 'default' },
-          spec:
-          { deps: '',
-            function: 'different function content',
-            handler: 'function.hello',
-            runtime: 'python2.7',
-            topic: '',
-            type: 'HTTP' } }
-      );
-      expect(Api.ThirdPartyResources.prototype.post.firstCall.args[1]).to.be.a('function');
+      fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), '');
+      sinon.stub(JSZip, 'loadAsync').returns({
+        then: (f) => f({
+          file: () => ({
+            async: () => ({
+              then: (ff) => ff('different function content'),
+            }),
+          }),
+        }),
+      });
+      let result = null;
+      try {
+        result = expect(kubelessDeploy.deployFunction()).to.be.fulfilled;
+        expect(Api.ThirdPartyResources.prototype.post.calledOnce).to.be.eql(true);
+        expect(Api.ThirdPartyResources.prototype.post.firstCall.args[0].body).to.be.eql(
+          { apiVersion: 'k8s.io/v1',
+            kind: 'Function',
+            metadata: { name: 'myFunction', namespace: 'default' },
+            spec:
+            { deps: '',
+              function: 'different function content',
+              handler: 'function.hello',
+              runtime: 'python2.7',
+              topic: '',
+              type: 'HTTP' } }
+              );
+        expect(Api.ThirdPartyResources.prototype.post.firstCall.args[1]).to.be.a('function');
+      } finally {
+        JSZip.loadAsync.restore();
+      }
       return result;
     });
   });
