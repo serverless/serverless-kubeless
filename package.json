@@ -1,6 +1,6 @@
 {
-  "name": "kubeless-serverless",
-  "version": "0.0.1",
+  "name": "serverless-kubeless",
+  "version": "0.1.0",
   "description": "This plugin enables support for Kubeless within the [Serverless Framework](https://github.com/serverless).",
   "main": "index.js",
   "directories": {
@@ -15,7 +15,7 @@
     "url": "git+https://github.com/serverless/serverless-kubeless.git"
   },
   "author": "tuna@bitnami.com",
-  "license": "ISC",
+  "license": "APACHE2",
   "bugs": {
     "url": "https://github.com/serverless/serverless-kubeless/issues"
   },

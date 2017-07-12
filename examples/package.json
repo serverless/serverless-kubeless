@@ -3,14 +3,12 @@
   "version": "1.0.0",
   "description": "Example function for serverless kubeless",
   "dependencies": {
-    "bluebird": "^3.5.0",
-    "kubernetes-client": "^3.10.1",
-    "kubeless-serverless": "^0.0.1"
+    "serverless-kubeless": "^0.1.0"
   },
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC"
+  "license": "APACHE2"
 }
