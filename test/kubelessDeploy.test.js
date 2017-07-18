@@ -17,8 +17,6 @@
 'use strict';
 
 const _ = require('lodash');
-const JSZip = require('jszip');
-const Api = require('kubernetes-client');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
@@ -46,6 +44,34 @@ function rm(p) {
     });
     fs.rmdirSync(p);
   }
+}
+
+function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction, options) {
+  const kubelessDeploy = new KubelessDeploy(serverlessWithFunction, options);
+  // Mock call to getFunctionContent when retrieving the function code
+  sinon.stub(kubelessDeploy, 'getFunctionContent')
+    .withArgs(path.basename(handlerFile))
+    .callsFake(() => ({ then: (f) => f('function code') }));
+    // Mock call to getFunctionContent when retrieving the requirements text
+  kubelessDeploy.getFunctionContent
+    .withArgs(path.basename(depsFile))
+    .callsFake(() => ({ catch: () => ({ then: (f) => f(null) }) }));
+  return kubelessDeploy;
+}
+
+function mockThirdPartyResources(kubelessDeploy) {
+  const thirdPartyResources = {
+    ns: {
+      functions: {
+        post: sinon.stub().callsFake((body, callback) => {
+          callback(null, { statusCode: 200 });
+        }),
+      },
+    },
+    addResource: sinon.stub(),
+  };
+  sinon.stub(kubelessDeploy, 'getThirdPartyResources').returns(thirdPartyResources);
+  return thirdPartyResources;
 }
 
 describe('KubelessDeploy', () => {
@@ -123,6 +149,8 @@ describe('KubelessDeploy', () => {
   });
   describe('#deploy', () => {
     const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+    const handlerFile = path.join(cwd, 'function.py');
+    const depsFile = path.join(cwd, 'requirements.txt');
     const serverlessWithFunction = _.defaultsDeep({}, serverless, {
       config: {
         servicePath: cwd,
@@ -135,23 +163,16 @@ describe('KubelessDeploy', () => {
         },
       },
     });
-    let kubelessDeploy = new KubelessDeploy(serverlessWithFunction);
-    sinon.stub(kubelessDeploy, 'getFunctionContent').returns({
-      then: (f) => f('function code'),
-    });
+    let kubelessDeploy = null;
+    let thirdPartyResources = null;
 
     before(() => {
       fs.mkdirSync(cwd);
-      fs.writeFileSync(path.join(cwd, 'function.py'), 'function code');
+      fs.writeFileSync(handlerFile, 'function code');
     });
     beforeEach(() => {
-      sinon.stub(Api.ThirdPartyResources.prototype, 'post');
-      Api.ThirdPartyResources.prototype.post.callsFake((data, ff) => {
-        ff(null, { statusCode: 200 });
-      });
-    });
-    afterEach(() => {
-      Api.ThirdPartyResources.prototype.post.restore();
+      kubelessDeploy = instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction);
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
     });
     after(() => {
       rm(cwd);
@@ -160,8 +181,8 @@ describe('KubelessDeploy', () => {
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
-      expect(Api.ThirdPartyResources.prototype.post.calledOnce).to.be.eql(true);
-      expect(Api.ThirdPartyResources.prototype.post.firstCall.args[0].body).to.be.eql(
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(thirdPartyResources.ns.functions.post.firstCall.args[0].body).to.be.eql(
         { apiVersion: 'k8s.io/v1',
           kind: 'Function',
           metadata: { name: 'myFunction', namespace: 'default' },
@@ -173,11 +194,13 @@ describe('KubelessDeploy', () => {
             topic: '',
             type: 'HTTP' } }
       );
-      expect(Api.ThirdPartyResources.prototype.post.firstCall.args[1]).to.be.a('function');
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[1]
+      ).to.be.a('function');
       return result;
     });
     it('should skip a deployment if an error 409 is returned', () => {
-      Api.ThirdPartyResources.prototype.post.callsFake((data, ff) => {
+      thirdPartyResources.ns.functions.post.callsFake((data, ff) => {
         ff({ code: 409 });
       });
       sinon.stub(serverlessWithFunction.cli, 'log');
@@ -195,7 +218,7 @@ describe('KubelessDeploy', () => {
       return result;
     });
     it('should fail if a deployment returns an error code', () => {
-      Api.ThirdPartyResources.prototype.post.callsFake((data, ff) => {
+      thirdPartyResources.ns.functions.post.callsFake((data, ff) => {
         ff({ code: 500, message: 'Internal server error' });
       });
       return expect( // eslint-disable-line no-unused-expressions
@@ -224,22 +247,20 @@ describe('KubelessDeploy', () => {
         },
       });
       const functionsDeployed = [];
-      Api.ThirdPartyResources.prototype.post.onFirstCall().callsFake((data, ff) => {
+      kubelessDeploy = instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunctions);
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      thirdPartyResources.ns.functions.post.onFirstCall().callsFake((data, ff) => {
         functionsDeployed.push(data.body.metadata.name);
         ff(null, { statusCode: 200 });
       });
-      Api.ThirdPartyResources.prototype.post.onSecondCall().callsFake((data, ff) => {
+      thirdPartyResources.ns.functions.post.onSecondCall().callsFake((data, ff) => {
         ff({ code: 500, message: 'Internal server error' });
       });
-      Api.ThirdPartyResources.prototype.post.onThirdCall().callsFake((data, ff) => {
+      thirdPartyResources.ns.functions.post.onThirdCall().callsFake((data, ff) => {
         functionsDeployed.push(data.body.metadata.name);
         ff(null, { statusCode: 200 });
       });
-      kubelessDeploy = new KubelessDeploy(serverlessWithFunctions);
-      sinon.stub(kubelessDeploy, 'getFunctionContent').returns({
-        then: (f) => f('function code'),
-      });
-      const result = expect( // eslint-disable-line no-unused-expressions
+      const result = expect(
         kubelessDeploy.deployFunction()
       ).to.be.eventually.rejectedWith(
         'Found errors while deploying the given functions:\n' +
@@ -254,36 +275,77 @@ describe('KubelessDeploy', () => {
       kubelessDeploy = new KubelessDeploy(serverlessWithFunction, {
         package: path.join(cwd, 'package.zip'),
       });
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
       fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), '');
-      sinon.stub(JSZip, 'loadAsync').returns({
+      sinon.stub(kubelessDeploy, 'loadZip').returns({
         then: (f) => f({
           file: () => ({
             async: () => ({
               then: (ff) => ff('different function content'),
+              catch: () => ({ then: (ff) => ff(null) }),
             }),
           }),
         }),
       });
-      let result = null;
-      try {
-        result = expect(kubelessDeploy.deployFunction()).to.be.fulfilled;
-        expect(Api.ThirdPartyResources.prototype.post.calledOnce).to.be.eql(true);
-        expect(Api.ThirdPartyResources.prototype.post.firstCall.args[0].body).to.be.eql(
-          { apiVersion: 'k8s.io/v1',
-            kind: 'Function',
-            metadata: { name: 'myFunction', namespace: 'default' },
-            spec:
-            { deps: '',
-              function: 'different function content',
-              handler: 'function.hello',
-              runtime: 'python2.7',
-              topic: '',
-              type: 'HTTP' } }
+      const result = expect(kubelessDeploy.deployFunction()).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(thirdPartyResources.ns.functions.post.firstCall.args[0].body).to.be.eql(
+        { apiVersion: 'k8s.io/v1',
+          kind: 'Function',
+          metadata: { name: 'myFunction', namespace: 'default' },
+          spec:
+          { deps: '',
+            function: 'different function content',
+            handler: 'function.hello',
+            runtime: 'python2.7',
+            topic: '',
+            type: 'HTTP' } }
               );
-        expect(Api.ThirdPartyResources.prototype.post.firstCall.args[1]).to.be.a('function');
-      } finally {
-        JSZip.loadAsync.restore();
-      }
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[1]
+      ).to.be.a('function');
+      return result;
+    });
+    it('should deploy a function with requirements', () => {
+      kubelessDeploy = new KubelessDeploy(serverlessWithFunction);
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      fs.writeFileSync(depsFile, 'request');
+      const result = expect(
+      kubelessDeploy.deployFunction().then(() => {
+        expect(
+          thirdPartyResources.ns.functions.post.calledOnce
+        ).to.be.eql(true);
+        expect(
+          thirdPartyResources.ns.functions.post.firstCall.args[0].body.spec.deps
+        ).to.be.eql('request');
+        fs.unlinkSync(path.join(cwd, 'requirements.txt'), 'request');
+      })
+      ).to.be.fulfilled;
+      return result;
+    });
+    it('should deploy a function with requirements using the given package', () => {
+      kubelessDeploy = new KubelessDeploy(serverlessWithFunction, {
+        package: path.join(cwd, 'package.zip'),
+      });
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), '');
+      sinon.stub(kubelessDeploy, 'loadZip').returns({
+        then: (f) => f({
+          file: () => ({
+            async: () => ({
+              then: (ff) => ff('different function content'),
+              catch: () => ({ then: (ff) => ff('request') }),
+            }),
+          }),
+        }),
+      });
+      const result = expect(kubelessDeploy.deployFunction()).to.be.fulfilled;
+      expect(
+        thirdPartyResources.ns.functions.post.calledOnce
+      ).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.spec.deps
+      ).to.be.eql('request');
       return result;
     });
   });

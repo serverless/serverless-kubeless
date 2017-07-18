@@ -35,6 +35,8 @@ class KubelessDeploy {
         .then(this.validate)
         .then(this.deployFunction),
     };
+    // Store the result of loading the Zip file
+    this.loadZip = _.memoize(JSZip.loadAsync);
   }
 
   validate() {
@@ -48,87 +50,118 @@ class KubelessDeploy {
     return BbPromise.resolve();
   }
 
-  getFunctionContent(handlerRelativePath) {
+  getFunctionContent(relativePath) {
     const pkg = this.options.package ||
       this.serverless.service.package.path;
     let resultPromise = null;
     if (pkg) {
-      resultPromise = JSZip.loadAsync(fs.readFileSync(pkg)).then(
-        (zip) => zip.file(handlerRelativePath).async('string')
+      resultPromise = this.loadZip(fs.readFileSync(pkg)).then(
+        (zip) => zip.file(relativePath).async('string')
       );
     } else {
-      resultPromise = new BbPromise(resolve => {
+      resultPromise = new BbPromise((resolve, reject) => {
         fs.readFile(
-          path.join(this.serverless.config.servicePath || '.', handlerRelativePath),
-          (err, d) => resolve(d.toString()));
+          path.join(this.serverless.config.servicePath || '.', relativePath),
+          (err, d) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(d.toString());
+            }
+          });
       });
     }
     return resultPromise;
   }
 
-  deployFunction() {
-    const thirdPartyResources = new Api.ThirdPartyResources(
+  getThirdPartyResources() {
+    return new Api.ThirdPartyResources(
       Object.assign(helpers.getMinikubeCredentials(), {
         url: process.env.KUBE_API_URL,
         group: 'k8s.io',
       })
     );
+  }
+
+  deployFunction() {
+    const thirdPartyResources = this.getThirdPartyResources();
     thirdPartyResources.addResource('functions');
+
+    let files = {
+      handler: null,
+      deps: null,
+    };
     const errors = [];
     let counter = 0;
     return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (description, name) => {
-        this.getFunctionContent(
-          `${description.handler.toString().split('.')[0]}.py`
-        ).then(functionContent => {
-          const funcs = {
-            apiVersion: 'k8s.io/v1',
-            kind: 'Function',
-            metadata: {
-              name,
-              namespace: 'default',
-            },
-            spec: {
-              deps: '',
-              function: functionContent,
-              handler: description.handler,
-              runtime: this.serverless.service.provider.runtime,
-              topic: '',
-              type: 'HTTP',
-            },
+        if (this.serverless.service.provider.runtime.match(/python/)) {
+          files = {
+            handler: `${description.handler.toString().split('.')[0]}.py`,
+            deps: 'requirements.txt',
           };
-          // Create function
-          thirdPartyResources.ns.functions.post({ body: funcs }, (err) => {
-            if (err) {
-              if (err.code === 409) {
-                this.serverless.cli.log(
-                  `The function ${name} is already deployed. ` +
-                  'Remove it if you want to deploy it again.'
-                );
-              } else {
-                errors.push(
-                  `Unable to deploy the function ${name}. Received:\n` +
-                  `  Code: ${err.code}\n` +
-                  `  Message: ${err.message}`
-                );
-              }
-            } else {
-              this.serverless.cli.log(
-                `Function ${name} succesfully deployed`
-              );
-            }
-            counter++;
-            if (counter === _.keys(this.serverless.service.functions).length) {
-              if (_.isEmpty(errors)) {
-                resolve();
-              } else {
-                reject(
-                  `Found errors while deploying the given functions:\n${errors.join('\n')}`
-                );
-              }
-            }
+        } else {
+          reject(
+            `The runtime ${this.serverless.service.provider.runtime} is not supported yet`
+          );
+        }
+
+        this.getFunctionContent(files.handler)
+          .then(functionContent => {
+            this.getFunctionContent(files.deps)
+              .catch(() => {
+                // No requirements found
+              })
+              .then((requirementsContent) => {
+                const funcs = {
+                  apiVersion: 'k8s.io/v1',
+                  kind: 'Function',
+                  metadata: {
+                    name,
+                    namespace: 'default',
+                  },
+                  spec: {
+                    deps: requirementsContent || '',
+                    function: functionContent,
+                    handler: description.handler,
+                    runtime: this.serverless.service.provider.runtime,
+                    topic: '',
+                    type: 'HTTP',
+                  },
+                };
+                // Create function
+                thirdPartyResources.ns.functions.post({ body: funcs }, (err) => {
+                  if (err) {
+                    if (err.code === 409) {
+                      this.serverless.cli.log(
+                        `The function ${name} is already deployed. ` +
+                        'Remove it if you want to deploy it again.'
+                      );
+                    } else {
+                      errors.push(
+                        `Unable to deploy the function ${name}. Received:\n` +
+                        `  Code: ${err.code}\n` +
+                        `  Message: ${err.message}`
+                      );
+                    }
+                  } else {
+                    this.serverless.cli.log(
+                      `Function ${name} succesfully deployed`
+                    );
+                  }
+                  counter++;
+                  if (counter === _.keys(this.serverless.service.functions).length) {
+                    if (_.isEmpty(errors)) {
+                      resolve();
+                    } else {
+                      reject(
+                        `Found errors while deploying the given functions:\n${errors.join('\n')}`
+                      );
+                    }
+                  }
+                });
+              });
           });
-        });
       });
     });
   }
