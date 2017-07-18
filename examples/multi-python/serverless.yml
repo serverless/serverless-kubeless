@@ -1,0 +1,14 @@
+service: multi
+
+provider:
+  name: google
+  runtime: python2.7
+
+plugins:
+  - serverless-kubeless
+
+functions:
+  foo:
+    handler: handler.foo
+  bar:
+    handler: handler.bar
