@@ -127,6 +127,16 @@ describe('Helper functions', () => {
         },
       });
     });
+    it('should return the correct namespace based current context', () => {
+      const config = {
+        'current-context': 'cluster-id',
+        contexts: [{
+          context: { cluster: 'cluster-name', user: 'cluster-user', namespace: 'custom' },
+          name: 'cluster-id-1',
+        }],
+      };
+      expect(helpers.getConnectionOptions(config).namespace).to.be.eql('custom');
+    });
     it('should return connection options with a certificate-authority (file)', () => {
       const ca = path.join(os.tmpdir(), moment().valueOf().toString());
       fs.writeFileSync(ca, 'abcdef1234');

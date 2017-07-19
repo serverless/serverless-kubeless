@@ -128,6 +128,55 @@ describe('KubelessDeploy', () => {
       }
     });
   });
+  describe('#getThirdPartyResources', () => {
+    const previousEnv = _.cloneDeep(process.env);
+    let cwd = null;
+    beforeEach(() => {
+      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      fs.mkdirSync(cwd);
+      process.env.HOME = cwd;
+    });
+    afterEach(() => {
+      rm(cwd);
+      process.env = _.cloneDeep(previousEnv);
+    });
+    it('should instantiate taking the values from the kubernetes config', () => {
+      fs.mkdirSync(path.join(cwd, '.kube'));
+      fs.writeFileSync(
+        path.join(cwd, '.kube/config'),
+        'apiVersion: v1\n' +
+        'current-context: cluster-id\n' +
+        'clusters:\n' +
+        '- cluster:\n' +
+        '    certificate-authority-data: LS0tLS1\n' +
+        '    server: http://1.2.3.4:4433\n' +
+        '  name: cluster-name\n' +
+        'contexts:\n' +
+        '- context:\n' +
+        '    cluster: cluster-name\n' +
+        '    namespace: custom\n' +
+        '    user: cluster-user\n' +
+        '  name: cluster-id\n' +
+        'users:\n' +
+        '- name: cluster-user\n' +
+        '  user:\n' +
+        '    username: admin\n' +
+        '    password: password1234\n'
+      );
+      const thirdPartyResources = KubelessDeploy.prototype.getThirdPartyResources();
+      expect(thirdPartyResources.url).to.be.eql('http://1.2.3.4:4433');
+      expect(thirdPartyResources.requestOptions).to.be.eql({
+        ca: Buffer.from('LS0tLS1', 'base64'),
+        cert: undefined,
+        key: undefined,
+        auth: {
+          user: 'admin',
+          password: 'password1234',
+        },
+      });
+      expect(thirdPartyResources.namespaces.namespace).to.be.eql('custom');
+    });
+  });
   describe('#deploy', () => {
     const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
     const handlerFile = path.join(cwd, 'function.py');

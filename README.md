@@ -9,10 +9,10 @@ Kubeless is a Kubernetes-native Serverless solution.
 Make sure you have a kubernetes endpoint running and kubeless installed:
 
 ```
-$ minikube version
 $ kubectl version
 $ brew install kubeless/tap/kubeless
 $ KUBELESS_VERSION=0.0.16
+$ kubectl create ns kubeless
 $ curl -sL https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless-$KUBELESS_VERSION.yaml | kubectl create -f -
 ```
 
