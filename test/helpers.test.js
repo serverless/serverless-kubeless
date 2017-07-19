@@ -37,7 +37,7 @@ describe('Helper functions', () => {
       fs.mkdirSync(cwd);
     });
     afterEach(() => {
-      process.env = previousEnv;
+      process.env = _.cloneDeep(previousEnv);
       rm(cwd);
     });
     it('should find kubernetes config on its default path', () => {
@@ -127,14 +127,14 @@ describe('Helper functions', () => {
         },
       });
     });
-    it('should return the correct namespace based current context', () => {
-      const config = {
+    it('should return the correct namespace based on the current context', () => {
+      const config = loadKubeConfig({
         'current-context': 'cluster-id',
         contexts: [{
           context: { cluster: 'cluster-name', user: 'cluster-user', namespace: 'custom' },
-          name: 'cluster-id-1',
+          name: 'cluster-id',
         }],
-      };
+      });
       expect(helpers.getConnectionOptions(config).namespace).to.be.eql('custom');
     });
     it('should return connection options with a certificate-authority (file)', () => {
