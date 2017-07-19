@@ -73,7 +73,6 @@ class KubelessInvoke {
   }
 
   validate() {
-    helpers.validateEnv();
     // Parse data to ensure it has a correct format
     this.getData();
     const unsupportedOptions = ['stage', 'region', 'type'];
@@ -88,10 +87,15 @@ class KubelessInvoke {
   invokeFunction() {
     const f = this.options.function;
     this.serverless.cli.log(`Calling function: ${f}...`);
+    const APIRootUrl = helpers.getKubernetesAPIURL(helpers.loadKubeConfig());
+    const url = `${APIRootUrl}/api/v1/proxy/namespaces/default/services/${f}/`;
+    const connectionOptions = Object.assign(
+      helpers.getConnectionOptions(helpers.loadKubeConfig()),
+      { url }
+    );
+    const requestData = this.getData();
 
     return new BbPromise((resolve, reject) => {
-      const requestData = this.getData();
-      const url = `${process.env.KUBE_API_URL}/api/v1/proxy/namespaces/default/services/${f}/`;
       const parseReponse = (err, response) => {
         if (err) {
           reject(new this.serverless.classes.Error(err.message, err.statusCode));
@@ -104,13 +108,12 @@ class KubelessInvoke {
       };
       if (_.isEmpty(requestData)) {
         // There is no data to send, sending a GET request
-        request.get(Object.assign(helpers.getMinikubeCredentials(), { url }), parseReponse);
+        request.get(connectionOptions, parseReponse);
       } else {
         // Sending request data with a POST
         request.post(
           Object.assign(
-            helpers.getMinikubeCredentials(),
-            { url },
+            connectionOptions,
             requestData
           ),
           parseReponse

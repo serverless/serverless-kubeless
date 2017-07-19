@@ -68,7 +68,6 @@ class KubelessLogs {
   }
 
   validate() {
-    helpers.validateEnv();
     const unsupportedOptions = ['stage', 'region'];
     helpers.warnUnsupportedOptions(
       unsupportedOptions,
@@ -129,12 +128,7 @@ class KubelessLogs {
       filter: this.options.filter,
       silent: false,
     });
-    const core = new Api.Core(
-      Object.assign(helpers.getMinikubeCredentials(), {
-        url: process.env.KUBE_API_URL,
-        group: 'k8s.io',
-      })
-    );
+    const core = new Api.Core(helpers.getConnectionOptions(helpers.loadKubeConfig()));
     return new BbPromise((resolve, reject) => {
       core.ns.pods.get((err, podsInfo) => {
         if (err) throw new this.serverless.classes.Error(err);

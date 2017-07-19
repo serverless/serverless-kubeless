@@ -35,7 +35,6 @@ class KubelessRemove {
   }
 
   validate() {
-    helpers.validateEnv();
     const unsupportedOptions = ['stage', 'region'];
     helpers.warnUnsupportedOptions(
       unsupportedOptions,
@@ -47,10 +46,7 @@ class KubelessRemove {
 
   removeFunction() {
     const thirdPartyResources = new Api.ThirdPartyResources(
-      Object.assign(helpers.getMinikubeCredentials(), {
-        url: process.env.KUBE_API_URL,
-        group: 'k8s.io',
-      })
+      helpers.getConnectionOptions(helpers.loadKubeConfig())
     );
     thirdPartyResources.addResource('functions');
 

@@ -20,7 +20,6 @@ const _ = require('lodash');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
-const helpers = require('../lib/helpers');
 const fs = require('fs');
 const moment = require('moment');
 const os = require('os');
@@ -61,6 +60,9 @@ function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction
 
 function mockThirdPartyResources(kubelessDeploy) {
   const thirdPartyResources = {
+    namespaces: {
+      namespace: 'default',
+    },
     ns: {
       functions: {
         post: sinon.stub().callsFake((body, callback) => {
@@ -75,20 +77,6 @@ function mockThirdPartyResources(kubelessDeploy) {
 }
 
 describe('KubelessDeploy', () => {
-  const previousEnv = _.clone(process.env);
-  const kubeApiURL = 'http://1.2.3.4:4433';
-  beforeEach(() => {
-    process.env.KUBE_API_URL = kubeApiURL;
-    sinon.stub(helpers, 'getMinikubeCredentials').returns({
-      cert: 'cert',
-      ca: 'ca',
-      key: 'key',
-    });
-  });
-  afterEach(() => {
-    process.env = previousEnv;
-    helpers.getMinikubeCredentials.restore();
-  });
   describe('#constructor', () => {
     const options = { test: 1 };
     const kubelessDeploy = new KubelessDeploy(serverless, options);
@@ -127,13 +115,6 @@ describe('KubelessDeploy', () => {
     );
   });
   describe('#validate', () => {
-    it('throws an error if the variable KUBE_API_URL is not set', () => {
-      const kubelessDeploy = new KubelessDeploy(serverless);
-      delete process.env.KUBE_API_URL;
-      expect(() => kubelessDeploy.validate()).to.throw(
-        'Please specify the Kubernetes API server IP as the environment variable KUBE_API_URL'
-      );
-    });
     it('prints a message if an unsupported option is given', () => {
       const kubelessDeploy = new KubelessDeploy(serverless, { region: 'us-east1' });
       sinon.stub(serverless.cli, 'log');

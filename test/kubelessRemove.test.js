@@ -22,46 +22,20 @@ const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
 const helpers = require('../lib/helpers');
+const loadKubeConfig = require('./lib/load-kube-config');
 const fs = require('fs');
 const moment = require('moment');
 const os = require('os');
 const path = require('path');
 const sinon = require('sinon');
+const rm = require('./lib/rm');
 
 const KubelessRemove = require('../remove/kubelessRemove');
 const serverless = require('./lib/serverless');
 
 require('chai').use(chaiAsPromised);
 
-function rm(p) {
-  if (fs.existsSync(p)) {
-    fs.readdirSync(p).forEach((file) => {
-      const curPath = `${p}/${file}`;
-      if (fs.lstatSync(curPath).isDirectory()) { // recurse
-        rm(curPath);
-      } else { // delete file
-        fs.unlinkSync(curPath);
-      }
-    });
-    fs.rmdirSync(p);
-  }
-}
-
 describe('KubelessRemove', () => {
-  const previousEnv = _.clone(process.env);
-  const kubeApiURL = 'http://1.2.3.4:4433';
-  beforeEach(() => {
-    process.env.KUBE_API_URL = kubeApiURL;
-    sinon.stub(helpers, 'getMinikubeCredentials').returns({
-      cert: 'cert',
-      ca: 'ca',
-      key: 'key',
-    });
-  });
-  afterEach(() => {
-    process.env = previousEnv;
-    helpers.getMinikubeCredentials.restore();
-  });
   describe('#constructor', () => {
     const options = { test: 1 };
     const kubelessRemove = new KubelessRemove(serverless, options);
@@ -100,13 +74,6 @@ describe('KubelessRemove', () => {
     );
   });
   describe('#validate', () => {
-    it('throws an error if the variable KUBE_API_URL is not set', () => {
-      const kubelessRemove = new KubelessRemove(serverless);
-      delete process.env.KUBE_API_URL;
-      expect(() => kubelessRemove.validate()).to.throw(
-        'Please specify the Kubernetes API server IP as the environment variable KUBE_API_URL'
-      );
-    });
     it('prints a message if an unsupported option is given', () => {
       const kubelessRemove = new KubelessRemove(serverless, { region: 'us-east1' });
       sinon.stub(serverless.cli, 'log');
@@ -140,9 +107,11 @@ describe('KubelessRemove', () => {
       Api.ThirdPartyResources.prototype.delete.callsFake((data, ff) => {
         ff(null, { statusCode: 200 });
       });
+      sinon.stub(helpers, 'loadKubeConfig').callsFake(loadKubeConfig);
     });
     afterEach(() => {
       Api.ThirdPartyResources.prototype.delete.restore();
+      helpers.loadKubeConfig.restore();
       rm(cwd);
     });
     it('should remove a function', () => {

@@ -40,7 +40,6 @@ class KubelessDeploy {
   }
 
   validate() {
-    helpers.validateEnv();
     const unsupportedOptions = ['stage', 'region'];
     helpers.warnUnsupportedOptions(
       unsupportedOptions,
@@ -76,17 +75,13 @@ class KubelessDeploy {
 
   getThirdPartyResources() {
     return new Api.ThirdPartyResources(
-      Object.assign(helpers.getMinikubeCredentials(), {
-        url: process.env.KUBE_API_URL,
-        group: 'k8s.io',
-      })
+      helpers.getConnectionOptions(helpers.loadKubeConfig())
     );
   }
 
   deployFunction() {
     const thirdPartyResources = this.getThirdPartyResources();
     thirdPartyResources.addResource('functions');
-
     let files = {
       handler: null,
       deps: null,
@@ -118,7 +113,7 @@ class KubelessDeploy {
                   kind: 'Function',
                   metadata: {
                     name,
-                    namespace: 'default',
+                    namespace: thirdPartyResources.namespaces.namespace,
                   },
                   spec: {
                     deps: requirementsContent || '',
