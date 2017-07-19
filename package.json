@@ -14,8 +14,8 @@
     "type": "git",
     "url": "git+https://github.com/serverless/serverless-kubeless.git"
   },
-  "author": "tuna@bitnami.com",
-  "license": "APACHE2",
+  "author": "containers@bitnami.com",
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/serverless/serverless-kubeless/issues"
   },
