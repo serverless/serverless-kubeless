@@ -22,6 +22,7 @@ const Api = require('kubernetes-client');
 const fs = require('fs');
 const helpers = require('../lib/helpers');
 const JSZip = require('jszip');
+const moment = require('moment');
 const path = require('path');
 
 class KubelessDeploy {
@@ -79,6 +80,44 @@ class KubelessDeploy {
     );
   }
 
+  waitForDeployment(funcName, requestMoment) {
+    const core = new Api.Core(helpers.getConnectionOptions(helpers.loadKubeConfig()));
+    const loop = setInterval(() => {
+      let runningPods = 0;
+      core.pods.get((err, podsInfo) => {
+        if (err) throw new Error(err);
+        // Get the pods for the current function
+        const functionPods = _.filter(
+            podsInfo.items,
+            (pod) => (
+                pod.metadata.labels.function === funcName &&
+                // Ignore pods that may still exist from a previous deployment
+                moment(pod.metadata.creationTimestamp) >= requestMoment
+              )
+          );
+        _.each(functionPods, pod => {
+          // We assume that the function pods will only have one container
+          if (pod.status.containerStatuses[0].ready) {
+            runningPods++;
+          } else if (pod.status.containerStatuses[0].restartCount > 2) {
+            throw new Error('Failed to deploy the function');
+          }
+        });
+        if (runningPods === functionPods.length) {
+          this.serverless.cli.log(
+            `Function ${funcName} succesfully deployed`
+          );
+          clearInterval(loop);
+        } else if (this.options.verbose) {
+          this.serverless.cli.log(
+            `Waiting for function ${funcName} to be fully deployed. Pods status: ` +
+            `${_.map(functionPods, p => JSON.stringify(p.status.containerStatuses[0].state))}`
+          );
+        }
+      });
+    }, 2000);
+  }
+
   deployFunction() {
     const thirdPartyResources = this.getThirdPartyResources();
     thirdPartyResources.addResource('functions');
@@ -125,6 +164,7 @@ class KubelessDeploy {
                   },
                 };
                 // Create function
+                const requestMoment = moment().milliseconds(0);
                 thirdPartyResources.ns.functions.post({ body: funcs }, (err) => {
                   if (err) {
                     if (err.code === 409) {
@@ -140,9 +180,7 @@ class KubelessDeploy {
                       );
                     }
                   } else {
-                    this.serverless.cli.log(
-                      `Function ${name} succesfully deployed`
-                    );
+                    this.waitForDeployment(name, requestMoment);
                   }
                   counter++;
                   if (counter === _.keys(this.serverless.service.functions).length) {

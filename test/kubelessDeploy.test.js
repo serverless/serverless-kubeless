@@ -17,6 +17,7 @@
 'use strict';
 
 const _ = require('lodash');
+const Api = require('kubernetes-client');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
@@ -51,10 +52,11 @@ function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction
   sinon.stub(kubelessDeploy, 'getFunctionContent')
     .withArgs(path.basename(handlerFile))
     .callsFake(() => ({ then: (f) => f('function code') }));
-    // Mock call to getFunctionContent when retrieving the requirements text
+  // Mock call to getFunctionContent when retrieving the requirements text
   kubelessDeploy.getFunctionContent
     .withArgs(path.basename(depsFile))
     .callsFake(() => ({ catch: () => ({ then: (f) => f(null) }) }));
+  sinon.stub(kubelessDeploy, 'waitForDeployment');
   return kubelessDeploy;
 }
 
@@ -177,6 +179,97 @@ describe('KubelessDeploy', () => {
       expect(thirdPartyResources.namespaces.namespace).to.be.eql('custom');
     });
   });
+
+  describe('#waitForDeployment', () => {
+    let clock = null;
+    const kubelessDeploy = instantiateKubelessDeploy('', '', serverless);
+    kubelessDeploy.waitForDeployment.restore();
+    beforeEach(() => {
+      sinon.stub(Api.Core.prototype, 'get');
+      clock = sinon.useFakeTimers();
+    });
+    afterEach(() => {
+      Api.Core.prototype.get.restore();
+      clock.restore();
+    });
+    it('should wait until a deployment is ready', () => {
+      const f = 'test';
+      Api.Core.prototype.get.onFirstCall().callsFake((opts, ff) => {
+        ff(null, {
+          statusCode: 200,
+          body: {
+            items: [{
+              metadata: {
+                labels: { function: f },
+                creationTimestamp: moment().add('1', 's'),
+              },
+              status: {
+                containerStatuses: [{
+                  ready: false,
+                  restartCount: 0,
+                  state: 'Pending',
+                }],
+              },
+            }],
+          },
+        });
+      });
+      Api.Core.prototype.get.onSecondCall().callsFake((opts, ff) => {
+        ff(null, {
+          statusCode: 200,
+          body: {
+            items: [{
+              metadata: {
+                labels: { function: f },
+                creationTimestamp: moment(),
+              },
+              status: {
+                containerStatuses: [{
+                  ready: true,
+                  restartCount: 0,
+                  state: 'Ready',
+                }],
+              },
+            }],
+          },
+        });
+      });
+      kubelessDeploy.waitForDeployment(f, moment());
+      clock.tick(2001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(1);
+      clock.tick(2001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(2);
+      // The timer should be already cleared
+      clock.tick(2001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(2);
+    });
+    it('should throw an error if the pod failed to start', () => {
+      const f = 'test';
+      Api.Core.prototype.get.onFirstCall().callsFake((opts, ff) => {
+        ff(null, {
+          statusCode: 200,
+          body: {
+            items: [{
+              metadata: {
+                labels: { function: f },
+                creationTimestamp: moment().add('1', 's'),
+              },
+              status: {
+                containerStatuses: [{
+                  ready: false,
+                  restartCount: 3,
+                  state: 'waiting',
+                }],
+              },
+            }],
+          },
+        });
+      });
+      kubelessDeploy.waitForDeployment(f, moment());
+      expect(() => clock.tick(4001)).to.throw('Failed to deploy the function');
+    });
+  });
+
   describe('#deploy', () => {
     const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
     const handlerFile = path.join(cwd, 'function.py');
