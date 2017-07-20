@@ -16,12 +16,12 @@
 
 'use strict';
 
-const _ = require('lodash');
 const Api = require('kubernetes-client');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
 const helpers = require('../lib/helpers');
+const loadKubeConfig = require('./lib/load-kube-config');
 const sinon = require('sinon');
 
 const KubelessInfo = require('../info/kubelessInfo');
@@ -30,20 +30,6 @@ const serverless = require('./lib/serverless');
 require('chai').use(chaiAsPromised);
 
 describe('KubelessInfo', () => {
-  const previousEnv = _.clone(process.env);
-  const kubeApiURL = 'http://1.2.3.4:4433';
-  beforeEach(() => {
-    process.env.KUBE_API_URL = kubeApiURL;
-    sinon.stub(helpers, 'getMinikubeCredentials').returns({
-      cert: 'cert',
-      ca: 'ca',
-      key: 'key',
-    });
-  });
-  afterEach(() => {
-    process.env = previousEnv;
-    helpers.getMinikubeCredentials.restore();
-  });
   describe('#constructor', () => {
     const options = { test: 1 };
     const kubelessInfo = new KubelessInfo(serverless, options);
@@ -79,13 +65,6 @@ describe('KubelessInfo', () => {
     }));
   });
   describe('#validate', () => {
-    it('throws an error if the variable KUBE_API_URL is not set', () => {
-      const kubelessInfo = new KubelessInfo(serverless);
-      delete process.env.KUBE_API_URL;
-      expect(() => kubelessInfo.validate()).to.throw(
-        'Please specify the Kubernetes API server IP as the environment variable KUBE_API_URL'
-      );
-    });
     it('prints a message if an unsupported option is given', () => {
       const kubelessInfo = new KubelessInfo(serverless, { region: 'us-east1' });
       sinon.stub(serverless.cli, 'log');
@@ -151,14 +130,15 @@ describe('KubelessInfo', () => {
           },
         });
       });
+      sinon.stub(helpers, 'loadKubeConfig').callsFake(loadKubeConfig);
     });
     afterEach(() => {
       Api.Core.prototype.get.restore();
       Api.ThirdPartyResources.prototype.get.restore();
+      helpers.loadKubeConfig.restore();
     });
     it('should return logs with the correct formating', () => {
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
-      // console.log(kubelessInfo.infoFunction({ color: false })._rejectionHandler0);
       return expect(kubelessInfo.infoFunction({ color: false })).to.become(
         '\nService Information "my-function"\n' +
         'Cluster IP:  10.0.0.177\n' +

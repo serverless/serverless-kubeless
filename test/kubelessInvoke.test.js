@@ -16,12 +16,12 @@
 
 'use strict';
 
-const _ = require('lodash');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
 const fs = require('fs');
 const helpers = require('../lib/helpers');
+const loadKubeConfig = require('./lib/load-kube-config');
 const path = require('path');
 const request = require('request');
 const sinon = require('sinon');
@@ -32,20 +32,6 @@ const serverless = require('./lib/serverless');
 require('chai').use(chaiAsPromised);
 
 describe('KubelessInvoke', () => {
-  const previousEnv = _.clone(process.env);
-  const kubeApiURL = 'http://1.2.3.4:4433';
-  beforeEach(() => {
-    process.env.KUBE_API_URL = kubeApiURL;
-    sinon.stub(helpers, 'getMinikubeCredentials').returns({
-      cert: 'cert',
-      ca: 'ca',
-      key: 'key',
-    });
-  });
-  afterEach(() => {
-    process.env = previousEnv;
-    helpers.getMinikubeCredentials.restore();
-  });
   describe('#constructor', () => {
     const options = { test: 1 };
     const kubelessInvoke = new KubelessInvoke(serverless, options);
@@ -79,13 +65,6 @@ describe('KubelessInvoke', () => {
     });
   });
   describe('#validate', () => {
-    it('throws an error if the variable KUBE_API_URL is not set', () => {
-      const kubelessInvoke = new KubelessInvoke(serverless);
-      delete process.env.KUBE_API_URL;
-      expect(() => kubelessInvoke.validate()).to.throw(
-        'Please specify the Kubernetes API server IP as the environment variable KUBE_API_URL'
-      );
-    });
     it('throws an error if the given path with the data does not exists', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, { path: '/not-exist' });
       expect(() => kubelessInvoke.validate()).to.throw(
@@ -119,13 +98,16 @@ describe('KubelessInvoke', () => {
     });
   });
   describe('#invoke', () => {
+    const kubeApiURL = 'http://1.2.3.4:4433';
     beforeEach(() => {
       sinon.stub(request, 'post');
       sinon.stub(request, 'get');
+      sinon.stub(helpers, 'loadKubeConfig').callsFake(loadKubeConfig);
     });
     afterEach(() => {
       request.post.restore();
       request.get.restore();
+      helpers.loadKubeConfig.restore();
     });
     it('calls the API end point with the correct arguments (without data)', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
@@ -143,7 +125,7 @@ describe('KubelessInvoke', () => {
       });
       expect(
         request.get.firstCall.args[0]
-      ).to.have.keys(['cert', 'ca', 'key', 'url']);
+      ).to.contain.keys(['ca', 'auth', 'url']);
       expect(request.get.firstCall.args[0].url).to.be.eql(
         `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function/`
       );
@@ -165,7 +147,7 @@ describe('KubelessInvoke', () => {
       });
       expect(
         request.post.firstCall.args[0]
-      ).to.have.keys(['cert', 'ca', 'key', 'url', 'body']);
+      ).to.contain.keys(['url', 'body']);
       expect(request.post.firstCall.args[0].url).to.be.eql(
         `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function/`
       );
@@ -188,7 +170,7 @@ describe('KubelessInvoke', () => {
       });
       expect(
         request.post.firstCall.args[0]
-      ).to.have.keys(['cert', 'ca', 'key', 'url', 'json', 'body']);
+      ).to.contain.keys(['url', 'json', 'body']);
       expect(request.post.firstCall.args[0].url).to.be.eql(
         `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function/`
       );

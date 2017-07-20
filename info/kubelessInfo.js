@@ -53,7 +53,6 @@ class KubelessInfo {
   }
 
   validate() {
-    helpers.validateEnv();
     const unsupportedOptions = ['stage', 'region'];
     helpers.warnUnsupportedOptions(
       unsupportedOptions,
@@ -97,18 +96,9 @@ class KubelessInfo {
   }
 
   infoFunction(options) {
-    const core = new Api.Core(
-      Object.assign(helpers.getMinikubeCredentials(), {
-        url: process.env.KUBE_API_URL,
-        group: 'k8s.io',
-      })
-    );
-    const thirdPartyResources = new Api.ThirdPartyResources(
-      Object.assign(helpers.getMinikubeCredentials(), {
-        url: process.env.KUBE_API_URL,
-        group: 'k8s.io',
-      })
-    );
+    const connectionOptions = helpers.getConnectionOptions(helpers.loadKubeConfig());
+    const core = new Api.Core(connectionOptions);
+    const thirdPartyResources = new Api.ThirdPartyResources(connectionOptions);
     thirdPartyResources.addResource('functions');
     return new BbPromise((resolve) => {
       core.services.get((err, servicesInfo) => {

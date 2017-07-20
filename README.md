@@ -6,14 +6,14 @@ Kubeless is a Kubernetes-native Serverless solution.
 
 ## Pre requisites
 
-Make sure you have a kubernetes endpoint running (for the moment only minikube is supported) and kubeless installed:
+Make sure you have a kubernetes endpoint running and kubeless installed:
 
 ```
-$ minikube version
 $ kubectl version
 $ brew install kubeless/tap/kubeless
+$ KUBELESS_VERSION=0.0.16
 $ kubectl create ns kubeless
-$ kubectl create -f $(curl -s https://api.github.com/repos/kubeless/kubeless/releases/latest | jq -r ".assets[] | select(.name | test(\"yaml\")) | .browser_download_url")
+$ curl -sL https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless-$KUBELESS_VERSION.yaml | kubectl create -f -
 ```
 
 Then install serverless
@@ -45,11 +45,6 @@ functions:
 Download dependencies
 ```
 $ npm install
-```
-
-Export the Kubernetes API endpoint.
-```
-$ export KUBE_API_URL=https://192.168.99.100:8443
 ```
 
 Deploy function.
@@ -105,9 +100,15 @@ Topic:
 Dependencies:
 ```
 
-Since we are using minikube to run kubernetes we can call directly the function through HTTP and the Node Port in which the function is running:
+If you are using minikube you can call directly the function through HTTP and the Node Port in which the function is running:
 ```
 $ curl  http://192.168.99.100:30018
+hello world
+```
+
+You can access the function through its HTTP interface as well using `kubectl proxy` and accessing:
+```
+$ curl http://127.0.0.1:8001/api/v1/namespaces/default/services/hello/proxy/
 hello world
 ```
 
