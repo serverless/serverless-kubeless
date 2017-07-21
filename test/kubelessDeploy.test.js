@@ -17,6 +17,7 @@
 'use strict';
 
 const _ = require('lodash');
+const Api = require('kubernetes-client');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
@@ -61,6 +62,7 @@ function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction
       return f(null);
     } }) })
   );
+  sinon.stub(kubelessDeploy, 'waitForDeployment');
   return kubelessDeploy;
 }
 
@@ -80,6 +82,41 @@ function mockThirdPartyResources(kubelessDeploy) {
   };
   sinon.stub(kubelessDeploy, 'getThirdPartyResources').returns(thirdPartyResources);
   return thirdPartyResources;
+}
+
+function mockKubeConfig() {
+  const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+  fs.mkdirSync(cwd);
+  fs.mkdirSync(path.join(cwd, '.kube'));
+  fs.writeFileSync(
+    path.join(cwd, '.kube/config'),
+    'apiVersion: v1\n' +
+    'current-context: cluster-id\n' +
+    'clusters:\n' +
+    '- cluster:\n' +
+    '    certificate-authority-data: LS0tLS1\n' +
+    '    server: http://1.2.3.4:4433\n' +
+    '  name: cluster-name\n' +
+    'contexts:\n' +
+    '- context:\n' +
+    '    cluster: cluster-name\n' +
+    '    namespace: custom\n' +
+    '    user: cluster-user\n' +
+    '  name: cluster-id\n' +
+    'users:\n' +
+    '- name: cluster-user\n' +
+    '  user:\n' +
+    '    username: admin\n' +
+    '    password: password1234\n'
+  );
+  process.env.HOME = cwd;
+  return cwd;
+}
+
+const previousEnv = _.cloneDeep(process.env);
+function restoreKubeConfig(cwd) {
+  rm(cwd);
+  process.env = _.cloneDeep(previousEnv);
 }
 
 describe('KubelessDeploy', () => {
@@ -135,40 +172,14 @@ describe('KubelessDeploy', () => {
     });
   });
   describe('#getThirdPartyResources', () => {
-    const previousEnv = _.cloneDeep(process.env);
     let cwd = null;
     beforeEach(() => {
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
-      fs.mkdirSync(cwd);
-      process.env.HOME = cwd;
+      cwd = mockKubeConfig();
     });
     afterEach(() => {
-      rm(cwd);
-      process.env = _.cloneDeep(previousEnv);
+      restoreKubeConfig(cwd);
     });
     it('should instantiate taking the values from the kubernetes config', () => {
-      fs.mkdirSync(path.join(cwd, '.kube'));
-      fs.writeFileSync(
-        path.join(cwd, '.kube/config'),
-        'apiVersion: v1\n' +
-        'current-context: cluster-id\n' +
-        'clusters:\n' +
-        '- cluster:\n' +
-        '    certificate-authority-data: LS0tLS1\n' +
-        '    server: http://1.2.3.4:4433\n' +
-        '  name: cluster-name\n' +
-        'contexts:\n' +
-        '- context:\n' +
-        '    cluster: cluster-name\n' +
-        '    namespace: custom\n' +
-        '    user: cluster-user\n' +
-        '  name: cluster-id\n' +
-        'users:\n' +
-        '- name: cluster-user\n' +
-        '  user:\n' +
-        '    username: admin\n' +
-        '    password: password1234\n'
-      );
       const thirdPartyResources = KubelessDeploy.prototype.getThirdPartyResources();
       expect(thirdPartyResources.url).to.be.eql('http://1.2.3.4:4433');
       expect(thirdPartyResources.requestOptions).to.be.eql({
@@ -183,6 +194,100 @@ describe('KubelessDeploy', () => {
       expect(thirdPartyResources.namespaces.namespace).to.be.eql('custom');
     });
   });
+
+  describe('#waitForDeployment', () => {
+    let clock = null;
+    const kubelessDeploy = instantiateKubelessDeploy('', '', serverless);
+    kubelessDeploy.waitForDeployment.restore();
+    let cwd = null;
+    beforeEach(() => {
+      cwd = mockKubeConfig();
+      sinon.stub(Api.Core.prototype, 'get');
+      clock = sinon.useFakeTimers();
+    });
+    afterEach(() => {
+      restoreKubeConfig(cwd);
+      Api.Core.prototype.get.restore();
+      clock.restore();
+    });
+    it('should wait until a deployment is ready', () => {
+      const f = 'test';
+      Api.Core.prototype.get.onFirstCall().callsFake((opts, ff) => {
+        ff(null, {
+          statusCode: 200,
+          body: {
+            items: [{
+              metadata: {
+                labels: { function: f },
+                creationTimestamp: moment().add('1', 's'),
+              },
+              status: {
+                containerStatuses: [{
+                  ready: false,
+                  restartCount: 0,
+                  state: 'Pending',
+                }],
+              },
+            }],
+          },
+        });
+      });
+      Api.Core.prototype.get.onSecondCall().callsFake((opts, ff) => {
+        ff(null, {
+          statusCode: 200,
+          body: {
+            items: [{
+              metadata: {
+                labels: { function: f },
+                creationTimestamp: moment(),
+              },
+              status: {
+                containerStatuses: [{
+                  ready: true,
+                  restartCount: 0,
+                  state: 'Ready',
+                }],
+              },
+            }],
+          },
+        });
+      });
+      kubelessDeploy.waitForDeployment(f, moment());
+      clock.tick(2001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(1);
+      clock.tick(2001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(2);
+      // The timer should be already cleared
+      clock.tick(2001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(2);
+    });
+    it('should throw an error if the pod failed to start', () => {
+      const f = 'test';
+      Api.Core.prototype.get.onFirstCall().callsFake((opts, ff) => {
+        ff(null, {
+          statusCode: 200,
+          body: {
+            items: [{
+              metadata: {
+                labels: { function: f },
+                creationTimestamp: moment().add('1', 's'),
+              },
+              status: {
+                containerStatuses: [{
+                  ready: false,
+                  restartCount: 3,
+                  state: 'waiting',
+                }],
+              },
+            }],
+          },
+        });
+      });
+      kubelessDeploy.waitForDeployment(f, moment());
+      expect(() => clock.tick(4001)).to.throw('Failed to deploy the function');
+    });
+  });
+
   describe('#deploy', () => {
     const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
     let handlerFile = null;
@@ -387,6 +492,7 @@ describe('KubelessDeploy', () => {
           }),
         }),
       });
+      mockKubeConfig(cwd);
       const result = expect(kubelessDeploy.deployFunction()).to.be.fulfilled;
       expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
       expect(thirdPartyResources.ns.functions.post.firstCall.args[0].body).to.be.eql(
@@ -409,6 +515,7 @@ describe('KubelessDeploy', () => {
     it('should deploy a function with requirements', () => {
       kubelessDeploy = new KubelessDeploy(serverlessWithFunction);
       thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      mockKubeConfig(cwd);
       fs.writeFileSync(depsFile, 'request');
       const result = expect(
       kubelessDeploy.deployFunction().then(() => {
@@ -428,6 +535,7 @@ describe('KubelessDeploy', () => {
         package: path.join(cwd, 'package.zip'),
       });
       thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      mockKubeConfig(cwd);
       fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), '');
       sinon.stub(kubelessDeploy, 'loadZip').returns({
         then: (f) => f({
