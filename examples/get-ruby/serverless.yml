@@ -1,0 +1,12 @@
+service: version
+
+provider:
+  name: google
+  runtime: ruby2.4
+
+plugins:
+  - serverless-kubeless
+
+functions:
+  version:
+    handler: version.run
