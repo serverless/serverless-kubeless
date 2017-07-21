@@ -78,6 +78,41 @@ function mockThirdPartyResources(kubelessDeploy) {
   return thirdPartyResources;
 }
 
+function mockKubeConfig() {
+  const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+  fs.mkdirSync(cwd);
+  fs.mkdirSync(path.join(cwd, '.kube'));
+  fs.writeFileSync(
+    path.join(cwd, '.kube/config'),
+    'apiVersion: v1\n' +
+    'current-context: cluster-id\n' +
+    'clusters:\n' +
+    '- cluster:\n' +
+    '    certificate-authority-data: LS0tLS1\n' +
+    '    server: http://1.2.3.4:4433\n' +
+    '  name: cluster-name\n' +
+    'contexts:\n' +
+    '- context:\n' +
+    '    cluster: cluster-name\n' +
+    '    namespace: custom\n' +
+    '    user: cluster-user\n' +
+    '  name: cluster-id\n' +
+    'users:\n' +
+    '- name: cluster-user\n' +
+    '  user:\n' +
+    '    username: admin\n' +
+    '    password: password1234\n'
+  );
+  process.env.HOME = cwd;
+  return cwd;
+}
+
+const previousEnv = _.cloneDeep(process.env);
+function restoreKubeConfig(cwd) {
+  rm(cwd);
+  process.env = _.cloneDeep(previousEnv);
+}
+
 describe('KubelessDeploy', () => {
   describe('#constructor', () => {
     const options = { test: 1 };
@@ -131,40 +166,14 @@ describe('KubelessDeploy', () => {
     });
   });
   describe('#getThirdPartyResources', () => {
-    const previousEnv = _.cloneDeep(process.env);
     let cwd = null;
     beforeEach(() => {
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
-      fs.mkdirSync(cwd);
-      process.env.HOME = cwd;
+      cwd = mockKubeConfig();
     });
     afterEach(() => {
-      rm(cwd);
-      process.env = _.cloneDeep(previousEnv);
+      restoreKubeConfig(cwd);
     });
     it('should instantiate taking the values from the kubernetes config', () => {
-      fs.mkdirSync(path.join(cwd, '.kube'));
-      fs.writeFileSync(
-        path.join(cwd, '.kube/config'),
-        'apiVersion: v1\n' +
-        'current-context: cluster-id\n' +
-        'clusters:\n' +
-        '- cluster:\n' +
-        '    certificate-authority-data: LS0tLS1\n' +
-        '    server: http://1.2.3.4:4433\n' +
-        '  name: cluster-name\n' +
-        'contexts:\n' +
-        '- context:\n' +
-        '    cluster: cluster-name\n' +
-        '    namespace: custom\n' +
-        '    user: cluster-user\n' +
-        '  name: cluster-id\n' +
-        'users:\n' +
-        '- name: cluster-user\n' +
-        '  user:\n' +
-        '    username: admin\n' +
-        '    password: password1234\n'
-      );
       const thirdPartyResources = KubelessDeploy.prototype.getThirdPartyResources();
       expect(thirdPartyResources.url).to.be.eql('http://1.2.3.4:4433');
       expect(thirdPartyResources.requestOptions).to.be.eql({
@@ -184,11 +193,14 @@ describe('KubelessDeploy', () => {
     let clock = null;
     const kubelessDeploy = instantiateKubelessDeploy('', '', serverless);
     kubelessDeploy.waitForDeployment.restore();
+    let cwd = null;
     beforeEach(() => {
+      cwd = mockKubeConfig();
       sinon.stub(Api.Core.prototype, 'get');
       clock = sinon.useFakeTimers();
     });
     afterEach(() => {
+      restoreKubeConfig(cwd);
       Api.Core.prototype.get.restore();
       clock.restore();
     });
@@ -410,6 +422,7 @@ describe('KubelessDeploy', () => {
           }),
         }),
       });
+      mockKubeConfig(cwd);
       const result = expect(kubelessDeploy.deployFunction()).to.be.fulfilled;
       expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
       expect(thirdPartyResources.ns.functions.post.firstCall.args[0].body).to.be.eql(
@@ -432,6 +445,7 @@ describe('KubelessDeploy', () => {
     it('should deploy a function with requirements', () => {
       kubelessDeploy = new KubelessDeploy(serverlessWithFunction);
       thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      mockKubeConfig(cwd);
       fs.writeFileSync(depsFile, 'request');
       const result = expect(
       kubelessDeploy.deployFunction().then(() => {
@@ -451,6 +465,7 @@ describe('KubelessDeploy', () => {
         package: path.join(cwd, 'package.zip'),
       });
       thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      mockKubeConfig(cwd);
       fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), '');
       sinon.stub(kubelessDeploy, 'loadZip').returns({
         then: (f) => f({
