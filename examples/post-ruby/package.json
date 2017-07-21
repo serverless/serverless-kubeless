@@ -1,5 +1,5 @@
 {
-  "name": "version",
+  "name": "ping",
   "version": "1.0.0",
   "description": "Example function for serverless kubeless",
   "dependencies": {
