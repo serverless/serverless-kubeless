@@ -9,5 +9,5 @@ $ serverless invoke -f capitalize -l --data 'hello world!'
 Serverless: Calling function: capitalize...
 --------------------------------------------------------------------
 Hello world!
-$ servereless remove
+$ serverless remove
 ```
