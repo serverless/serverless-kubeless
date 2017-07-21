@@ -50,11 +50,17 @@ function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction
   // Mock call to getFunctionContent when retrieving the function code
   sinon.stub(kubelessDeploy, 'getFunctionContent')
     .withArgs(path.basename(handlerFile))
-    .callsFake(() => ({ then: (f) => f('function code') }));
-    // Mock call to getFunctionContent when retrieving the requirements text
+    .callsFake(() => ({ then: (f) => f(fs.readFileSync(handlerFile).toString()) }));
+  // Mock call to getFunctionContent when retrieving the requirements text
   kubelessDeploy.getFunctionContent
     .withArgs(path.basename(depsFile))
-    .callsFake(() => ({ catch: () => ({ then: (f) => f(null) }) }));
+    .callsFake(() => ({ catch: () => ({ then: (f) => {
+      if (fs.existsSync(depsFile)) {
+        return f(fs.readFileSync(depsFile).toString());
+      }
+      return f(null);
+    } }) })
+  );
   return kubelessDeploy;
 }
 
@@ -179,8 +185,8 @@ describe('KubelessDeploy', () => {
   });
   describe('#deploy', () => {
     const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
-    const handlerFile = path.join(cwd, 'function.py');
-    const depsFile = path.join(cwd, 'requirements.txt');
+    let handlerFile = null;
+    let depsFile = null;
     const serverlessWithFunction = _.defaultsDeep({}, serverless, {
       config: {
         servicePath: cwd,
@@ -198,16 +204,18 @@ describe('KubelessDeploy', () => {
 
     before(() => {
       fs.mkdirSync(cwd);
-      fs.writeFileSync(handlerFile, 'function code');
     });
     beforeEach(() => {
+      handlerFile = path.join(cwd, 'function.py');
+      fs.writeFileSync(handlerFile, 'function code');
+      depsFile = path.join(cwd, 'requirements.txt');
       kubelessDeploy = instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction);
       thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
     });
     after(() => {
       rm(cwd);
     });
-    it('should deploy a function', () => {
+    it('should deploy a function (python)', () => {
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -221,6 +229,68 @@ describe('KubelessDeploy', () => {
             function: 'function code',
             handler: 'function.hello',
             runtime: 'python2.7',
+            topic: '',
+            type: 'HTTP' } }
+      );
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[1]
+      ).to.be.a('function');
+      return result;
+    });
+    it('should deploy a function (nodejs)', () => {
+      handlerFile = path.join(cwd, 'function.js');
+      depsFile = path.join(cwd, 'package.json');
+      fs.writeFileSync(handlerFile, 'nodejs function code');
+      fs.writeFileSync(depsFile, 'nodejs function deps');
+      kubelessDeploy = instantiateKubelessDeploy(handlerFile, depsFile, _.defaultsDeep(
+        { service: { provider: { runtime: 'nodejs6.10' } } },
+        serverlessWithFunction
+      ));
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(thirdPartyResources.ns.functions.post.firstCall.args[0].body).to.be.eql(
+        { apiVersion: 'k8s.io/v1',
+          kind: 'Function',
+          metadata: { name: 'myFunction', namespace: 'default' },
+          spec:
+          { deps: 'nodejs function deps',
+            function: 'nodejs function code',
+            handler: 'function.hello',
+            runtime: 'nodejs6.10',
+            topic: '',
+            type: 'HTTP' } }
+      );
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[1]
+      ).to.be.a('function');
+      return result;
+    });
+    it('should deploy a function (ruby)', () => {
+      handlerFile = path.join(cwd, 'function.rb');
+      depsFile = path.join(cwd, 'Gemfile');
+      fs.writeFileSync(handlerFile, 'ruby function code');
+      fs.writeFileSync(depsFile, 'ruby function deps');
+      kubelessDeploy = instantiateKubelessDeploy(handlerFile, depsFile, _.defaultsDeep(
+        { service: { provider: { runtime: 'ruby2.4' } } },
+        serverlessWithFunction
+      ));
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(thirdPartyResources.ns.functions.post.firstCall.args[0].body).to.be.eql(
+        { apiVersion: 'k8s.io/v1',
+          kind: 'Function',
+          metadata: { name: 'myFunction', namespace: 'default' },
+          spec:
+          { deps: 'ruby function deps',
+            function: 'ruby function code',
+            handler: 'function.hello',
+            runtime: 'ruby2.4',
             topic: '',
             type: 'HTTP' } }
       );

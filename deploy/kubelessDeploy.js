@@ -90,17 +90,27 @@ class KubelessDeploy {
     let counter = 0;
     return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (description, name) => {
-        if (this.serverless.service.provider.runtime.match(/python/)) {
+        const runtime = this.serverless.service.provider.runtime;
+        if (runtime.match(/python/)) {
           files = {
             handler: `${description.handler.toString().split('.')[0]}.py`,
             deps: 'requirements.txt',
           };
+        } else if (runtime.match(/node/)) {
+          files = {
+            handler: `${description.handler.toString().split('.')[0]}.js`,
+            deps: 'package.json',
+          };
+        } else if (runtime.match(/ruby/)) {
+          files = {
+            handler: `${description.handler.toString().split('.')[0]}.rb`,
+            deps: 'Gemfile',
+          };
         } else {
-          reject(
+          throw new Error(
             `The runtime ${this.serverless.service.provider.runtime} is not supported yet`
           );
         }
-
         this.getFunctionContent(files.handler)
           .then(functionContent => {
             this.getFunctionContent(files.deps)
