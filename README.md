@@ -26,7 +26,7 @@ $ npm install serverless -g
 Clone this repo and check the example function
 ```
 $ git clone https://github.com/serverless/serverless-kubeless
-$ cd examples
+$ cd examples/get-python
 $ cat serverless.yml
 service: hello
 

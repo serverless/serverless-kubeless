@@ -1,0 +1,12 @@
+service: capitalize
+
+provider:
+  name: google
+  runtime: nodejs6.10
+
+plugins:
+  - serverless-kubeless
+
+functions:
+  capitalize:
+    handler: handler.capitalize
