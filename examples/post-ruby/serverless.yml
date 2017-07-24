@@ -1,0 +1,12 @@
+service: ping
+
+provider:
+  name: google
+  runtime: ruby2.4
+
+plugins:
+  - serverless-kubeless
+
+functions:
+  ping:
+    handler: ping.run
