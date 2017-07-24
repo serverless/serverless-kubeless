@@ -21,6 +21,7 @@ const Api = require('kubernetes-client');
 const BbPromise = require('bluebird');
 const helpers = require('../lib/helpers');
 const moment = require('moment');
+const request = require('request');
 
 class KubelessLogs {
   constructor(serverless, options) {
@@ -44,31 +45,12 @@ class KubelessLogs {
     this.hooks = {
       'logs:logs': () => BbPromise.bind(this)
         .then(this.validate)
-        .then(this.printLogs)
-        .then(() => {
-          let m = moment().valueOf();
-          let previousResult = null;
-          if (this.options.tail) {
-            setInterval(() => {
-              this.printLogs({
-                startTime: m,
-                count: null,
-                silent: true,
-              }).then((logs) => {
-                m = moment().valueOf();
-                if (logs !== previousResult && !_.isEmpty(logs)) {
-                  console.log(logs);
-                }
-                previousResult = logs;
-              });
-            }, this.options.interval || 1000);
-          }
-        }),
+        .then(this.printLogs),
     };
   }
 
   validate() {
-    const unsupportedOptions = ['stage', 'region'];
+    const unsupportedOptions = ['stage', 'region', 'interval'];
     helpers.warnUnsupportedOptions(
       unsupportedOptions,
       this.options,
@@ -121,6 +103,16 @@ class KubelessLogs {
     return logEntries.join('\n');
   }
 
+  printFilteredLogs(logs, opts) {
+    const filteredLogs = this.filterLogs(logs, opts);
+    if (!_.isEmpty(filteredLogs)) {
+      if (!opts.silent) {
+        console.log(filteredLogs);
+      }
+    }
+    return filteredLogs;
+  }
+
   printLogs(options) {
     const opts = _.defaults({}, options, {
       startTime: this.options.startTime,
@@ -141,15 +133,21 @@ class KubelessLogs {
             `Unable to find the pod for the function ${this.options.function}. ` +
             'Please ensure that there is a function deployed with that ID'
           );
+        } else if (this.options.tail) {
+          const APIRootUrl = helpers.getKubernetesAPIURL(helpers.loadKubeConfig());
+          const url = `${APIRootUrl}/api/v1/namespaces/default/pods/` +
+            `${functionPod.metadata.name}/log?follow=true`;
+          const connectionOptions = Object.assign(
+            helpers.getConnectionOptions(helpers.loadKubeConfig()),
+            { url }
+          );
+          request.get(
+            connectionOptions
+          ).on('data', (d) => this.printFilteredLogs(d.toString().trim(), opts));
         } else {
           core.ns.pods(functionPod.metadata.name).log.get((errLog, logs) => {
             if (errLog) throw new this.serverless.classes.Error(errLog);
-            const filteredLogs = this.filterLogs(logs, opts);
-            if (!_.isEmpty(filteredLogs)) {
-              if (!opts.silent) {
-                console.log(filteredLogs);
-              }
-            }
+            const filteredLogs = this.printFilteredLogs(logs, opts);
             return resolve(filteredLogs);
           });
         }

@@ -23,6 +23,7 @@ const expect = require('chai').expect;
 const helpers = require('../lib/helpers');
 const loadKubeConfig = require('./lib/load-kube-config');
 const moment = require('moment');
+const request = require('request');
 const sinon = require('sinon');
 
 const KubelessLogs = require('../logs/kubelessLogs');
@@ -33,7 +34,7 @@ require('chai').use(chaiAsPromised);
 describe('KubelessLogs', () => {
   describe('#constructor', () => {
     const options = { test: 1 };
-    let kubelessLogs = new KubelessLogs(serverless, options);
+    const kubelessLogs = new KubelessLogs(serverless, options);
     let validateStub = null;
     let logsStub = null;
     const stubHooks = (kbLogs) => {
@@ -64,28 +65,6 @@ describe('KubelessLogs', () => {
       expect(validateStub.calledOnce).to.be.equal(true);
       expect(logsStub.calledAfter(validateStub)).to.be.equal(true);
     }));
-    it('iterate printing logs if tail option is provided (each 1000 ms)', () => {
-      kubelessLogs = new KubelessLogs(serverless, { tail: true });
-      stubHooks(kubelessLogs);
-      const clock = sinon.useFakeTimers();
-      kubelessLogs.hooks['logs:logs']().then(() => {
-        clock.tick(2100);
-        // It should be executed one initial time plus two times after 2 seconds
-        clock.restore();
-        return expect(kubelessLogs.printLogs.callCount).to.be.equal(3);
-      });
-    });
-    it('iterate printing logs if tail option is provided (custom interval)', () => {
-      kubelessLogs = new KubelessLogs(serverless, { tail: true, interval: 2000 });
-      stubHooks(kubelessLogs);
-      const clock = sinon.useFakeTimers();
-      kubelessLogs.hooks['logs:logs']().then(() => {
-        clock.tick(2100);
-          // It should be executed one initial time plus another time after 2 seconds
-        clock.restore();
-        return expect(kubelessLogs.printLogs.callCount).to.be.equal(2);
-      });
-    });
   });
   describe('#validate', () => {
     it('prints a message if an unsupported option is given', () => {
@@ -204,6 +183,18 @@ describe('KubelessLogs', () => {
       } finally {
         console.log.restore();
       }
+    });
+    it('calls Kubernetes API following the logs in case it is required', () => {
+      sinon.stub(request, 'get').returns({
+        on: () => {},
+      });
+      const kubelessLogs = new KubelessLogs(serverless, { function: f, tail: true });
+      kubelessLogs.printLogs();
+      expect(request.get.calledOnce).to.be.eql(true);
+      expect(request.get.firstCall.args[0].url).to.be.eql(
+        `${loadKubeConfig().clusters[0].cluster.server}` +
+        `/api/v1/namespaces/default/pods/${pod}/log?follow=true`
+      );
     });
   });
 });
