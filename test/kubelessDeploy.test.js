@@ -415,7 +415,8 @@ describe('KubelessDeploy', () => {
           kubelessDeploy.deployFunction()
         ).to.be.fulfilled;
         expect(serverlessWithFunction.cli.log.lastCall.args).to.be.eql(
-          ['The function myFunction is already deployed. Remove it if you want to deploy it again.']
+          ['The function myFunction is already deployed. ' +
+          'If you want to redeploy it execute "sls deploy function -f myFunction".']
         );
       } finally {
         serverlessWithFunction.cli.log.restore();
