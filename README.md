@@ -112,6 +112,13 @@ $ curl http://127.0.0.1:8001/api/v1/namespaces/default/services/hello/proxy/
 hello world
 ```
 
+If you have a change in your function and you want to redeploy it you can run:
+```
+$ serverless deploy function -f hello
+Serverless: Redeploying hello...
+Serverless: Function hello succesfully deployed
+```
+
 Finally you can remove the function.
 ```
 $ serverless remove

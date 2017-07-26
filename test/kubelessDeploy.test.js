@@ -430,7 +430,7 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.eventually.rejectedWith(
         'Found errors while deploying the given functions:\n' +
-        'Unable to deploy the function myFunction. Received:\n' +
+        'Error: Unable to deploy the function myFunction. Received:\n' +
         '  Code: 500\n' +
         '  Message: Internal server error'
       );
@@ -469,7 +469,7 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.eventually.rejectedWith(
         'Found errors while deploying the given functions:\n' +
-        'Unable to deploy the function myFunction2. Received:\n' +
+        'Error: Unable to deploy the function myFunction2. Received:\n' +
         '  Code: 500\n' +
         '  Message: Internal server error'
       );
