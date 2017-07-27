@@ -50,7 +50,7 @@ class KubelessDeployFunction extends KubelessDeploy {
   }
 
   deployFunction() {
-    // Pick only the funciton that we are interested in
+    // Pick only the function that we are interested in
     this.serverless.service.functions = _.pick(
       this.serverless.service.functions,
       this.options.function

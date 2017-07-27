@@ -8,7 +8,7 @@ Kubeless is a Kubernetes-native Serverless solution.
 
 Make sure you have a kubernetes endpoint running and kubeless installed:
 
-```
+```bash
 $ kubectl version
 $ brew install kubeless/tap/kubeless
 $ KUBELESS_VERSION=0.0.16
@@ -17,14 +17,14 @@ $ curl -sL https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERS
 ```
 
 Then install serverless
-```
+```bash
 $ npm install serverless -g
 ```
 
 ## Try out the example
 
 Clone this repo and check the example function
-```
+```bash
 $ git clone https://github.com/serverless/serverless-kubeless
 $ cd examples/get-python
 $ cat serverless.yml
@@ -43,19 +43,19 @@ functions:
 ```
 
 Download dependencies
-```
+```bash
 $ npm install
 ```
 
 Deploy function.
-```
+```bash
 $ serverless deploy
 Serverless: Packaging service...
 Serverless: Function hello succesfully deployed
 ```
 
 The function will be deployed to k8s via kubeless.
-```
+```bash
 $ kubectl get function
 NAME      KIND
 hello     Function.v1.k8s.io
@@ -66,7 +66,7 @@ hello-1815473417-1ttt7   1/1       Running   0          1m
 ```
 
 Now you will be able to call the function:
-```
+```bash
 $ serverless invoke -f hello -l
 Serverless: Calling function: hello...
 --------------------------------------------------------------------
@@ -74,7 +74,7 @@ hello world
 ```
 
 You can also check the logs for the function:
-```
+```bash
 $ serverless logs -f hello
 172.17.0.1 - - [12/Jul/2017:09:47:18 +0000] "GET /healthz HTTP/1.1" 200 2 "" "Go-http-client/1.1" 0/118
 172.17.0.1 - - [12/Jul/2017:09:47:21 +0000] "GET /healthz HTTP/1.1" 200 2 "" "Go-http-client/1.1" 0/93
@@ -83,7 +83,7 @@ $ serverless logs -f hello
 ```
 
 Or you can obtain the function information:
-```
+```bash
 $ serverless info
 Service Information "hello"
 Cluster IP:  10.0.0.51
@@ -101,26 +101,26 @@ Dependencies:
 ```
 
 If you are using minikube you can call directly the function through HTTP and the Node Port in which the function is running:
-```
+```bash
 $ curl  http://192.168.99.100:30018
 hello world
 ```
 
 You can access the function through its HTTP interface as well using `kubectl proxy` and accessing:
-```
+```bash
 $ curl http://127.0.0.1:8001/api/v1/namespaces/default/services/hello/proxy/
 hello world
 ```
 
 If you have a change in your function and you want to redeploy it you can run:
-```
+```bash
 $ serverless deploy function -f hello
 Serverless: Redeploying hello...
 Serverless: Function hello succesfully deployed
 ```
 
 Finally you can remove the function.
-```
+```bash
 $ serverless remove
 Serverless: Removing function: hello...
 Serverless: Function hello succesfully deleted
