@@ -286,6 +286,40 @@ describe('KubelessDeploy', () => {
       kubelessDeploy.waitForDeployment(f, moment());
       expect(() => clock.tick(4001)).to.throw('Failed to deploy the function');
     });
+    it('should retry if it fails to retrieve pods info', () => {
+      const f = 'test';
+      Api.Core.prototype.get.onFirstCall().callsFake((opts, ff) => {
+        ff(new Error('etcdserver: request timed out'));
+      });
+      Api.Core.prototype.get.onSecondCall().callsFake((opts, ff) => {
+        ff(null, {
+          statusCode: 200,
+          body: {
+            items: [{
+              metadata: {
+                labels: { function: f },
+                creationTimestamp: moment(),
+              },
+              status: {
+                containerStatuses: [{
+                  ready: true,
+                  restartCount: 0,
+                  state: 'Ready',
+                }],
+              },
+            }],
+          },
+        });
+      });
+      kubelessDeploy.waitForDeployment(f, moment());
+      clock.tick(2001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(1);
+      clock.tick(2001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(2);
+      // The timer should be already cleared
+      clock.tick(2001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(2);
+    });
   });
 
   describe('#deploy', () => {

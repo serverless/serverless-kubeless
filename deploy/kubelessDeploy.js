@@ -110,34 +110,41 @@ class KubelessDeploy {
     const loop = setInterval(() => {
       let runningPods = 0;
       core.pods.get((err, podsInfo) => {
-        if (err) throw new Error(err);
-        // Get the pods for the current function
-        const functionPods = _.filter(
+        if (err) {
+          if (err.message.match(/request timed out/)) {
+            this.serverless.cli.log('Request timed out. Retrying...');
+          } else {
+            throw err;
+          }
+        } else {
+          // Get the pods for the current function
+          const functionPods = _.filter(
             podsInfo.items,
             (pod) => (
-                pod.metadata.labels.function === funcName &&
-                // Ignore pods that may still exist from a previous deployment
-                moment(pod.metadata.creationTimestamp) >= requestMoment
-              )
+              pod.metadata.labels.function === funcName &&
+              // Ignore pods that may still exist from a previous deployment
+              moment(pod.metadata.creationTimestamp) >= requestMoment
+            )
           );
-        _.each(functionPods, pod => {
-          // We assume that the function pods will only have one container
-          if (pod.status.containerStatuses[0].ready) {
-            runningPods++;
-          } else if (pod.status.containerStatuses[0].restartCount > 2) {
-            throw new Error('Failed to deploy the function');
+          _.each(functionPods, pod => {
+            // We assume that the function pods will only have one container
+            if (pod.status.containerStatuses[0].ready) {
+              runningPods++;
+            } else if (pod.status.containerStatuses[0].restartCount > 2) {
+              throw new Error('Failed to deploy the function');
+            }
+          });
+          if (runningPods === functionPods.length) {
+            this.serverless.cli.log(
+              `Function ${funcName} succesfully deployed`
+            );
+            clearInterval(loop);
+          } else if (this.options.verbose) {
+            this.serverless.cli.log(
+              `Waiting for function ${funcName} to be fully deployed. Pods status: ` +
+              `${_.map(functionPods, p => JSON.stringify(p.status.containerStatuses[0].state))}`
+            );
           }
-        });
-        if (runningPods === functionPods.length) {
-          this.serverless.cli.log(
-            `Function ${funcName} succesfully deployed`
-          );
-          clearInterval(loop);
-        } else if (this.options.verbose) {
-          this.serverless.cli.log(
-            `Waiting for function ${funcName} to be fully deployed. Pods status: ` +
-            `${_.map(functionPods, p => JSON.stringify(p.status.containerStatuses[0].state))}`
-          );
         }
       });
     }, 2000);
