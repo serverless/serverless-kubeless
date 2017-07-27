@@ -415,7 +415,8 @@ describe('KubelessDeploy', () => {
           kubelessDeploy.deployFunction()
         ).to.be.fulfilled;
         expect(serverlessWithFunction.cli.log.lastCall.args).to.be.eql(
-          ['The function myFunction is already deployed. Remove it if you want to deploy it again.']
+          ['The function myFunction is already deployed. ' +
+          'If you want to redeploy it execute "sls deploy function -f myFunction".']
         );
       } finally {
         serverlessWithFunction.cli.log.restore();
@@ -430,7 +431,7 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.eventually.rejectedWith(
         'Found errors while deploying the given functions:\n' +
-        'Unable to deploy the function myFunction. Received:\n' +
+        'Error: Unable to deploy the function myFunction. Received:\n' +
         '  Code: 500\n' +
         '  Message: Internal server error'
       );
@@ -469,7 +470,7 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.eventually.rejectedWith(
         'Found errors while deploying the given functions:\n' +
-        'Unable to deploy the function myFunction2. Received:\n' +
+        'Error: Unable to deploy the function myFunction2. Received:\n' +
         '  Code: 500\n' +
         '  Message: Internal server error'
       );

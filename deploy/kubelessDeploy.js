@@ -80,6 +80,31 @@ class KubelessDeploy {
     );
   }
 
+  getRuntimeFilenames(runtime, handler) {
+    let files = null;
+    if (runtime.match(/python/)) {
+      files = {
+        handler: `${handler.toString().split('.')[0]}.py`,
+        deps: 'requirements.txt',
+      };
+    } else if (runtime.match(/node/)) {
+      files = {
+        handler: `${handler.toString().split('.')[0]}.js`,
+        deps: 'package.json',
+      };
+    } else if (runtime.match(/ruby/)) {
+      files = {
+        handler: `${handler.toString().split('.')[0]}.rb`,
+        deps: 'Gemfile',
+      };
+    } else {
+      throw new Error(
+        `The runtime ${runtime} is not supported yet`
+      );
+    }
+    return files;
+  }
+
   waitForDeployment(funcName, requestMoment) {
     const core = new Api.Core(helpers.getConnectionOptions(helpers.loadKubeConfig()));
     const loop = setInterval(() => {
@@ -118,38 +143,44 @@ class KubelessDeploy {
     }, 2000);
   }
 
+  deployFunctionAndWait(body, thirdPartyResources) {
+    const requestMoment = moment().milliseconds(0);
+    this.serverless.cli.log(
+      `Deploying function ${body.metadata.name}...`
+    );
+    return new BbPromise((resolve, reject) => {
+      thirdPartyResources.ns.functions.post({ body }, (err) => {
+        if (err) {
+          if (err.code === 409) {
+            this.serverless.cli.log(
+              `The function ${body.metadata.name} is already deployed. ` +
+              `If you want to redeploy it execute "sls deploy function -f ${body.metadata.name}".`
+            );
+            resolve();
+          } else {
+            reject(new Error(
+              `Unable to deploy the function ${body.metadata.name}. Received:\n` +
+              `  Code: ${err.code}\n` +
+              `  Message: ${err.message}`
+            ));
+          }
+        } else {
+          this.waitForDeployment(body.metadata.name, requestMoment);
+          resolve();
+        }
+      });
+    });
+  }
+
   deployFunction() {
     const thirdPartyResources = this.getThirdPartyResources();
     thirdPartyResources.addResource('functions');
-    let files = {
-      handler: null,
-      deps: null,
-    };
     const errors = [];
     let counter = 0;
     return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (description, name) => {
         const runtime = this.serverless.service.provider.runtime;
-        if (runtime.match(/python/)) {
-          files = {
-            handler: `${description.handler.toString().split('.')[0]}.py`,
-            deps: 'requirements.txt',
-          };
-        } else if (runtime.match(/node/)) {
-          files = {
-            handler: `${description.handler.toString().split('.')[0]}.js`,
-            deps: 'package.json',
-          };
-        } else if (runtime.match(/ruby/)) {
-          files = {
-            handler: `${description.handler.toString().split('.')[0]}.rb`,
-            deps: 'Gemfile',
-          };
-        } else {
-          throw new Error(
-            `The runtime ${this.serverless.service.provider.runtime} is not supported yet`
-          );
-        }
+        const files = this.getRuntimeFilenames(runtime, description.handler);
         this.getFunctionContent(files.handler)
           .then(functionContent => {
             this.getFunctionContent(files.deps)
@@ -173,25 +204,9 @@ class KubelessDeploy {
                     type: 'HTTP',
                   },
                 };
-                // Create function
-                const requestMoment = moment().milliseconds(0);
-                thirdPartyResources.ns.functions.post({ body: funcs }, (err) => {
-                  if (err) {
-                    if (err.code === 409) {
-                      this.serverless.cli.log(
-                        `The function ${name} is already deployed. ` +
-                        'Remove it if you want to deploy it again.'
-                      );
-                    } else {
-                      errors.push(
-                        `Unable to deploy the function ${name}. Received:\n` +
-                        `  Code: ${err.code}\n` +
-                        `  Message: ${err.message}`
-                      );
-                    }
-                  } else {
-                    this.waitForDeployment(name, requestMoment);
-                  }
+                this.deployFunctionAndWait(funcs, thirdPartyResources).catch(err => {
+                  errors.push(err);
+                }).then(() => {
                   counter++;
                   if (counter === _.keys(this.serverless.service.functions).length) {
                     if (_.isEmpty(errors)) {
