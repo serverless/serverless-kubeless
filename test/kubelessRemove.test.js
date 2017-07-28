@@ -31,7 +31,7 @@ const sinon = require('sinon');
 const rm = require('./lib/rm');
 
 const KubelessRemove = require('../remove/kubelessRemove');
-const serverless = require('./lib/serverless');
+const serverless = require('./lib/serverless')();
 
 require('chai').use(chaiAsPromised);
 
@@ -191,6 +191,30 @@ describe('KubelessRemove', () => {
         '  Message: Internal server error'
       );
       expect(functionsRemoved).to.be.eql(['myFunction1', 'myFunction3']);
+    });
+    it('calls Kubernetes API with the correct namespace (in provider)', () => {
+      const serverlessWithNS = _.cloneDeep(serverlessWithFunction);
+      serverlessWithNS.service.provider.namespace = 'test';
+      kubelessRemove = new KubelessRemove(serverlessWithNS);
+      expect( // eslint-disable-line no-unused-expressions
+        kubelessRemove.removeFunction(cwd)
+      ).to.be.fulfilled;
+      expect(Api.ThirdPartyResources.prototype.delete.calledOnce).to.be.eql(true);
+      expect(
+        Api.ThirdPartyResources.prototype.delete.firstCall.args[0].path[0]
+      ).to.be.eql('/apis/k8s.io/v1/namespaces/test/functions');
+    });
+    it('calls Kubernetes API with the correct namespace (in function)', () => {
+      const serverlessWithNS = _.cloneDeep(serverlessWithFunction);
+      serverlessWithNS.service.functions.myFunction.namespace = 'test';
+      kubelessRemove = new KubelessRemove(serverlessWithNS);
+      expect( // eslint-disable-line no-unused-expressions
+        kubelessRemove.removeFunction(cwd)
+      ).to.be.fulfilled;
+      expect(Api.ThirdPartyResources.prototype.delete.calledOnce).to.be.eql(true);
+      expect(
+        Api.ThirdPartyResources.prototype.delete.firstCall.args[0].path[0]
+      ).to.be.eql('/apis/k8s.io/v1/namespaces/test/functions');
     });
   });
 });

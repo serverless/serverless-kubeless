@@ -45,16 +45,17 @@ class KubelessRemove {
   }
 
   removeFunction() {
-    const thirdPartyResources = new Api.ThirdPartyResources(
-      helpers.getConnectionOptions(helpers.loadKubeConfig())
-    );
-    thirdPartyResources.addResource('functions');
-
     const errors = [];
     let counter = 0;
     return new BbPromise((resolve, reject) => {
-      _.each(_.keys(this.serverless.service.functions), f => {
+      _.each(this.serverless.service.functions, (desc, f) => {
         this.serverless.cli.log(`Removing function: ${f}...`);
+        const thirdPartyResources = new Api.ThirdPartyResources(
+          helpers.getConnectionOptions(helpers.loadKubeConfig(), {
+            namespace: desc.namespace || this.serverless.service.provider.namespace,
+          })
+        );
+        thirdPartyResources.addResource('functions');
         // Delete function
         thirdPartyResources.ns.functions.delete(f, (err) => {
           if (err) {

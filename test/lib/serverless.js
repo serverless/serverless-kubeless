@@ -16,6 +16,7 @@
 
 'use strict';
 
+const _ = require('lodash');
 const fs = require('fs');
 
 class CLI {
@@ -24,7 +25,8 @@ class CLI {
     this.consoleLog = function () {};
   }
 }
-const serverless = {
+
+module.exports = (modif) => _.defaultsDeep({}, modif, {
   config: () => {},
   pluginManager: { getPlugins: () => [] },
   classes: { Error, CLI },
@@ -35,6 +37,7 @@ const serverless = {
       runtime: 'python2.7',
     },
     resources: {},
+    functions: {},
     getAllFunctions: () => [],
   },
   cli: new CLI(),
@@ -49,6 +52,4 @@ const serverless = {
       return content;
     },
   },
-};
-
-module.exports = serverless;
+});

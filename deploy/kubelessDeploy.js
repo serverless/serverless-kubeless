@@ -74,9 +74,9 @@ class KubelessDeploy {
     return resultPromise;
   }
 
-  getThirdPartyResources() {
+  getThirdPartyResources(modif) {
     return new Api.ThirdPartyResources(
-      helpers.getConnectionOptions(helpers.loadKubeConfig())
+      helpers.getConnectionOptions(helpers.loadKubeConfig(), modif)
     );
   }
 
@@ -105,8 +105,10 @@ class KubelessDeploy {
     return files;
   }
 
-  waitForDeployment(funcName, requestMoment) {
-    const core = new Api.Core(helpers.getConnectionOptions(helpers.loadKubeConfig()));
+  waitForDeployment(funcName, requestMoment, namespace) {
+    const core = new Api.Core(helpers.getConnectionOptions(
+      helpers.loadKubeConfig(), { namespace })
+    );
     const loop = setInterval(() => {
       let runningPods = 0;
       core.pods.get((err, podsInfo) => {
@@ -180,14 +182,17 @@ class KubelessDeploy {
   }
 
   deployFunction() {
-    const thirdPartyResources = this.getThirdPartyResources();
-    thirdPartyResources.addResource('functions');
     const errors = [];
     let counter = 0;
     return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (description, name) => {
         const runtime = this.serverless.service.provider.runtime;
         const files = this.getRuntimeFilenames(runtime, description.handler);
+        const thirdPartyResources = this.getThirdPartyResources({
+          namespace: description.namespace ||
+          this.serverless.service.provider.namespace,
+        });
+        thirdPartyResources.addResource('functions');
         this.getFunctionContent(files.handler)
           .then(functionContent => {
             this.getFunctionContent(files.deps)

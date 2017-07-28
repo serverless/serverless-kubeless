@@ -16,6 +16,7 @@
 
 'use strict';
 
+const _ = require('lodash');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
@@ -27,7 +28,9 @@ const request = require('request');
 const sinon = require('sinon');
 
 const KubelessInvoke = require('../invoke/kubelessInvoke');
-const serverless = require('./lib/serverless');
+
+const func = 'my-function';
+const serverless = require('./lib/serverless')({ service: { functions: { 'my-function': {} } } });
 
 require('chai').use(chaiAsPromised);
 
@@ -85,7 +88,7 @@ describe('KubelessInvoke', () => {
       }
     });
     it('prints a message if an unsupported option is given', () => {
-      const kubelessInvoke = new KubelessInvoke(serverless, { region: 'us-east1' });
+      const kubelessInvoke = new KubelessInvoke(serverless, { region: 'us-east1', function: func });
       sinon.stub(serverless.cli, 'log');
       try {
         expect(() => kubelessInvoke.validate()).to.not.throw();
@@ -95,6 +98,14 @@ describe('KubelessInvoke', () => {
       } finally {
         serverless.cli.log.restore();
       }
+    });
+    it('throws an error if the function provider is not present in the description', () => {
+      const kubelessInvoke = new KubelessInvoke(serverless, {
+        function: 'foo',
+      });
+      expect(() => kubelessInvoke.validate()).to.throw(
+        'The function foo is not present in the current description'
+      );
     });
   });
   describe('#invoke', () => {
@@ -111,7 +122,7 @@ describe('KubelessInvoke', () => {
     });
     it('calls the API end point with the correct arguments (without data)', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
-        function: 'my-function',
+        function: func,
       });
       request.get.onFirstCall().callsFake((opts, f) => {
         f(null, {
@@ -132,7 +143,7 @@ describe('KubelessInvoke', () => {
     });
     it('calls the API end point with the correct arguments (with raw data)', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
-        function: 'my-function',
+        function: func,
         data: 'hello',
       });
       request.post.onFirstCall().callsFake((opts, f) => {
@@ -155,7 +166,7 @@ describe('KubelessInvoke', () => {
     });
     it('calls the API end point with the correct arguments (with JSON data)', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
-        function: 'my-function',
+        function: func,
         data: '{"test": 1}',
       });
       request.post.onFirstCall().callsFake((opts, f) => {
@@ -179,7 +190,7 @@ describe('KubelessInvoke', () => {
     });
     it('reject when an exit code different than 200 is returned', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
-        function: 'my-function',
+        function: func,
       });
       request.post.onFirstCall().callsFake((opts, f) => {
         f(null, {
@@ -188,6 +199,46 @@ describe('KubelessInvoke', () => {
         });
       });
       expect(kubelessInvoke.invokeFunction()).to.be.eventually.rejectedWith('Internal Error!');
+    });
+    it('calls the API end point with the correct namespace (in the provider)', () => {
+      const serverlessWithNS = _.cloneDeep(serverless);
+      serverlessWithNS.service.provider.namespace = 'test';
+      const kubelessInvoke = new KubelessInvoke(serverlessWithNS, {
+        function: func,
+      });
+      request.get.onFirstCall().callsFake((opts, f) => {
+        f(null, {
+          statusCode: 200,
+          statusMessage: 'OK',
+        });
+      });
+      expect(kubelessInvoke.invokeFunction()).to.become({
+        statusCode: 200,
+        statusMessage: 'OK',
+      });
+      expect(request.get.firstCall.args[0].url).to.be.eql(
+        `${kubeApiURL}/api/v1/proxy/namespaces/test/services/my-function/`
+      );
+    });
+    it('calls the API end point with the correct namespace (in the function)', () => {
+      const serverlessWithNS = _.cloneDeep(serverless);
+      serverlessWithNS.service.functions[func].namespace = 'test';
+      const kubelessInvoke = new KubelessInvoke(serverlessWithNS, {
+        function: func,
+      });
+      request.get.onFirstCall().callsFake((opts, f) => {
+        f(null, {
+          statusCode: 200,
+          statusMessage: 'OK',
+        });
+      });
+      expect(kubelessInvoke.invokeFunction()).to.become({
+        statusCode: 200,
+        statusMessage: 'OK',
+      });
+      expect(request.get.firstCall.args[0].url).to.be.eql(
+        `${kubeApiURL}/api/v1/proxy/namespaces/test/services/my-function/`
+      );
     });
   });
   describe('#log', () => {

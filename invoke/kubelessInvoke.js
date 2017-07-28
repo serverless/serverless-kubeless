@@ -81,14 +81,23 @@ class KubelessInvoke {
       this.options,
       this.serverless.cli.log.bind(this.serverless.cli)
     );
+    if (_.isUndefined(this.serverless.service.functions[this.options.function])) {
+      throw new Error(
+        `The function ${this.options.function} is not present in the current description`
+      );
+    }
     return BbPromise.resolve();
   }
 
   invokeFunction() {
     const f = this.options.function;
     this.serverless.cli.log(`Calling function: ${f}...`);
-    const APIRootUrl = helpers.getKubernetesAPIURL(helpers.loadKubeConfig());
-    const url = `${APIRootUrl}/api/v1/proxy/namespaces/default/services/${f}/`;
+    const config = helpers.loadKubeConfig();
+    const APIRootUrl = helpers.getKubernetesAPIURL(config);
+    const namespace = this.serverless.service.functions[f].namespace ||
+      this.serverless.service.provider.namespace ||
+      helpers.getDefaultNamespace(config);
+    const url = `${APIRootUrl}/api/v1/proxy/namespaces/${namespace}/services/${f}/`;
     const connectionOptions = Object.assign(
       helpers.getConnectionOptions(helpers.loadKubeConfig()),
       { url }

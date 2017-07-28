@@ -28,7 +28,7 @@ const path = require('path');
 const sinon = require('sinon');
 
 const KubelessDeploy = require('../deploy/kubelessDeploy');
-const serverless = require('./lib/serverless');
+const serverless = require('./lib/serverless')();
 
 require('chai').use(chaiAsPromised);
 
@@ -66,10 +66,10 @@ function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction
   return kubelessDeploy;
 }
 
-function mockThirdPartyResources(kubelessDeploy) {
+function mockThirdPartyResources(kubelessDeploy, namespace) {
   const thirdPartyResources = {
     namespaces: {
-      namespace: 'default',
+      namespace: namespace || 'default',
     },
     ns: {
       functions: {
@@ -433,6 +433,48 @@ describe('KubelessDeploy', () => {
             topic: '',
             type: 'HTTP' } }
       );
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[1]
+      ).to.be.a('function');
+      return result;
+    });
+    it('should deploy a function in a custom namespace (in the provider section)', () => {
+      const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomNamespace.service.provider.namespace = 'custom';
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomNamespace
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy, 'custom');
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.metadata.namespace
+      ).to.be.eql('custom');
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[1]
+      ).to.be.a('function');
+      return result;
+    });
+    it('should deploy a function in a custom namespace (in the function section)', () => {
+      const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomNamespace.service.functions.myFunction.namespace = 'custom';
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomNamespace
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy, 'custom');
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.metadata.namespace
+      ).to.be.eql('custom');
       expect(
         thirdPartyResources.ns.functions.post.firstCall.args[1]
       ).to.be.a('function');

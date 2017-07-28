@@ -56,6 +56,11 @@ class KubelessLogs {
       this.options,
       this.serverless.cli.log.bind(this.serverless.cli)
     );
+    if (_.isUndefined(this.serverless.service.functions[this.options.function])) {
+      throw new Error(
+        `The function ${this.options.function} is not present in the current description`
+      );
+    }
     return BbPromise.resolve();
   }
 
@@ -120,7 +125,11 @@ class KubelessLogs {
       filter: this.options.filter,
       silent: false,
     });
-    const core = new Api.Core(helpers.getConnectionOptions(helpers.loadKubeConfig()));
+    const config = helpers.loadKubeConfig();
+    const namespace = this.serverless.service.functions[this.options.function].namespace ||
+      this.serverless.service.provider.namespace ||
+      helpers.getDefaultNamespace(config);
+    const core = new Api.Core(helpers.getConnectionOptions(config, { namespace }));
     return new BbPromise((resolve, reject) => {
       core.ns.pods.get((err, podsInfo) => {
         if (err) throw new this.serverless.classes.Error(err);
@@ -135,7 +144,7 @@ class KubelessLogs {
           );
         } else if (this.options.tail) {
           const APIRootUrl = helpers.getKubernetesAPIURL(helpers.loadKubeConfig());
-          const url = `${APIRootUrl}/api/v1/namespaces/default/pods/` +
+          const url = `${APIRootUrl}/api/v1/namespaces/${namespace}/pods/` +
             `${functionPod.metadata.name}/log?follow=true`;
           const connectionOptions = Object.assign(
             helpers.getConnectionOptions(helpers.loadKubeConfig()),

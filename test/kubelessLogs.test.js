@@ -16,6 +16,7 @@
 
 'use strict';
 
+const _ = require('lodash');
 const Api = require('kubernetes-client');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
@@ -27,7 +28,9 @@ const request = require('request');
 const sinon = require('sinon');
 
 const KubelessLogs = require('../logs/kubelessLogs');
-const serverless = require('./lib/serverless');
+
+const f = 'my-function';
+const serverless = require('./lib/serverless')({ service: { functions: { 'my-function': {} } } });
 
 require('chai').use(chaiAsPromised);
 
@@ -68,7 +71,7 @@ describe('KubelessLogs', () => {
   });
   describe('#validate', () => {
     it('prints a message if an unsupported option is given', () => {
-      const kubelessLogs = new KubelessLogs(serverless, { region: 'us-east1' });
+      const kubelessLogs = new KubelessLogs(serverless, { region: 'us-east1', function: f });
       sinon.stub(serverless.cli, 'log');
       try {
         expect(() => kubelessLogs.validate()).to.not.throw();
@@ -79,9 +82,16 @@ describe('KubelessLogs', () => {
         serverless.cli.log.restore();
       }
     });
+    it('throws an error if the function provider is not present in the description', () => {
+      const kubelessInvoke = new KubelessLogs(serverless, {
+        function: 'foo',
+      });
+      expect(() => kubelessInvoke.validate()).to.throw(
+        'The function foo is not present in the current description'
+      );
+    });
   });
   describe('#printLogs', () => {
-    const f = 'my-function';
     const pod = 'my-pod';
     /* eslint-disable max-len */
     const logsSample =
@@ -94,8 +104,8 @@ describe('KubelessLogs', () => {
     /* eslint-enable max-len */
 
     beforeEach(() => {
-      sinon.stub(Api.Core.prototype, 'get').callsFake((p, ff) => {
-        if (p.path[0] === '/api/v1/namespaces/default/pods') {
+      sinon.stub(Api.Core.prototype, 'get').callsFake(function (p, ff) {
+        if (p.path[0] === `/api/v1/namespaces/${this.ns.namespace}/pods`) {
           // Mock call to get.pods
           ff(null, {
             statusCode: 200,
@@ -106,7 +116,7 @@ describe('KubelessLogs', () => {
             },
           });
         }
-        if (p.path[0] === `/api/v1/namespaces/default/pods/${pod}/log`) {
+        if (p.path[0] === `/api/v1/namespaces/${this.ns.namespace}/pods/${pod}/log`) {
           // Mock call to pods('my-function').log.get
           ff(null,
             {
@@ -127,7 +137,9 @@ describe('KubelessLogs', () => {
       return expect(kubelessLogs.printLogs({ silent: true })).to.become(logsSample);
     });
     it('should throw an error if the the function has not been deployed', () => {
-      const kubelessLogs = new KubelessLogs(serverless, { function: 'test' });
+      const serverlessTest = _.cloneDeep(serverless);
+      serverlessTest.service.functions.test = {};
+      const kubelessLogs = new KubelessLogs(serverlessTest, { function: 'test' });
       return expect(kubelessLogs.printLogs()).to.be.eventually.rejectedWith(
         'Unable to find the pod for the function test'
       );
@@ -188,13 +200,45 @@ describe('KubelessLogs', () => {
       sinon.stub(request, 'get').returns({
         on: () => {},
       });
-      const kubelessLogs = new KubelessLogs(serverless, { function: f, tail: true });
+      try {
+        const kubelessLogs = new KubelessLogs(serverless, { function: f, tail: true });
+        kubelessLogs.printLogs();
+        expect(request.get.calledOnce).to.be.eql(true);
+        expect(request.get.firstCall.args[0].url).to.be.eql(
+          `${loadKubeConfig().clusters[0].cluster.server}` +
+          `/api/v1/namespaces/default/pods/${pod}/log?follow=true`
+        );
+      } finally {
+        request.get.restore();
+      }
+    });
+    it('calls Kubernetes API with the correct namespace', () => {
+      const serverlessWithNS = _.cloneDeep(serverless);
+      serverlessWithNS.service.functions[f].namespace = 'test';
+      const kubelessLogs = new KubelessLogs(serverlessWithNS, { function: f, tail: true });
       kubelessLogs.printLogs();
-      expect(request.get.calledOnce).to.be.eql(true);
-      expect(request.get.firstCall.args[0].url).to.be.eql(
-        `${loadKubeConfig().clusters[0].cluster.server}` +
-        `/api/v1/namespaces/default/pods/${pod}/log?follow=true`
+      expect(Api.Core.prototype.get.callCount).to.be.eql(1);
+      expect(Api.Core.prototype.get.firstCall.args[0].path[0]).to.be.eql(
+        '/api/v1/namespaces/test/pods'
       );
+    });
+    it('calls Kubernetes API with the correct namespace (tailing)', () => {
+      sinon.stub(request, 'get').returns({
+        on: () => {},
+      });
+      try {
+        const serverlessWithNS = _.cloneDeep(serverless);
+        serverlessWithNS.service.functions[f].namespace = 'test';
+        const kubelessLogs = new KubelessLogs(serverlessWithNS, { function: f, tail: true });
+        kubelessLogs.printLogs();
+        expect(request.get.calledOnce).to.be.eql(true);
+        expect(request.get.firstCall.args[0].url).to.be.eql(
+          `${loadKubeConfig().clusters[0].cluster.server}` +
+          `/api/v1/namespaces/test/pods/${pod}/log?follow=true`
+        );
+      } finally {
+        request.get.restore();
+      }
     });
   });
 });
