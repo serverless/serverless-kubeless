@@ -109,39 +109,38 @@ class KubelessInfo {
         core.services.get((err, servicesInfo) => {
           thirdPartyResources.ns.functions.get((ferr, functionsInfo) => {
             if (ferr) throw new this.serverless.classes.Error(ferr);
-            _.each(functionsInfo.items, fDesc => {
-              const functionService = _.find(
+            const fDesc = _.find(functionsInfo.items, item => item.metadata.name === f);
+            const functionService = _.find(
                 servicesInfo.items,
                 (service) => (
                   service.metadata.labels &&
                   service.metadata.labels.function === f
                 )
               );
-              const service = {
-                name: functionService.metadata.name,
-                ip: functionService.spec.clusterIP,
-                type: functionService.spec.type,
-                ports: functionService.spec.ports,
-                selfLink: functionService.metadata.selfLink,
-                uid: functionService.metadata.uid,
-                timestamp: functionService.metadata.creationTimestamp,
-              };
-              const func = {
-                name: f,
-                handler: fDesc.spec.handler,
-                runtime: fDesc.spec.runtime,
-                topic: fDesc.spec.topic,
-                deps: fDesc.spec.deps,
-                selfLink: fDesc.metadata.selfLink,
-                uid: fDesc.metadata.uid,
-                timestamp: fDesc.metadata.creationTimestamp,
-              };
-              message += this.formatMessage(
-                service,
-                func,
-                _.defaults({}, options, { color: true })
-              );
-            });
+            const service = {
+              name: functionService.metadata.name,
+              ip: functionService.spec.clusterIP,
+              type: functionService.spec.type,
+              ports: functionService.spec.ports,
+              selfLink: functionService.metadata.selfLink,
+              uid: functionService.metadata.uid,
+              timestamp: functionService.metadata.creationTimestamp,
+            };
+            const func = {
+              name: f,
+              handler: fDesc.spec.handler,
+              runtime: fDesc.spec.runtime,
+              topic: fDesc.spec.topic,
+              deps: fDesc.spec.deps,
+              selfLink: fDesc.metadata.selfLink,
+              uid: fDesc.metadata.uid,
+              timestamp: fDesc.metadata.creationTimestamp,
+            };
+            message += this.formatMessage(
+              service,
+              func,
+              _.defaults({}, options, { color: true })
+            );
             counter++;
             if (counter === _.keys(this.serverless.service.functions).length) {
               this.serverless.cli.consoleLog(message);
