@@ -47,6 +47,13 @@ class KubelessDeploy {
       this.options,
       this.serverless.cli.log.bind(this.serverless.cli)
     );
+    // Check that functions don't have more than one event source
+    // since it is not supported yet
+    _.each(this.serverless.service.functions, f => {
+      if (f.events && f.events.length > 1) {
+        throw new Error('It is not supported to have more than one event source yet');
+      }
+    });
     return BbPromise.resolve();
   }
 
@@ -216,35 +223,54 @@ class KubelessDeploy {
                 // No requirements found
               })
               .then((requirementsContent) => {
-                const funcs = {
-                  apiVersion: 'k8s.io/v1',
-                  kind: 'Function',
-                  metadata: {
-                    name,
-                    namespace: thirdPartyResources.namespaces.namespace,
-                  },
-                  spec: {
-                    deps: requirementsContent || '',
-                    function: functionContent,
-                    handler: description.handler,
-                    runtime: this.serverless.service.provider.runtime,
-                    topic: '',
-                    type: 'HTTP',
-                  },
-                };
-                this.deployFunctionAndWait(funcs, thirdPartyResources).catch(err => {
-                  errors.push(err);
-                }).then(() => {
-                  counter++;
-                  if (counter === _.keys(this.serverless.service.functions).length) {
-                    if (_.isEmpty(errors)) {
-                      resolve();
-                    } else {
-                      reject(
-                        `Found errors while deploying the given functions:\n${errors.join('\n')}`
-                      );
-                    }
+                const events = !_.isEmpty(description.events) ?
+                  description.events :
+                  // TODO: Investigate ingress support for different paths
+                  [{ http: { path: '/' } }];
+                _.each(events, event => {
+                  const eventType = _.keys(event)[0];
+                  const funcs = {
+                    apiVersion: 'k8s.io/v1',
+                    kind: 'Function',
+                    metadata: {
+                      name,
+                      namespace: thirdPartyResources.namespaces.namespace,
+                    },
+                    spec: {
+                      deps: requirementsContent || '',
+                      function: functionContent,
+                      handler: description.handler,
+                      runtime: this.serverless.service.provider.runtime,
+                    },
+                  };
+                  switch (eventType) {
+                    case 'http':
+                      funcs.spec.type = 'HTTP';
+                      break;
+                    case 'trigger':
+                      funcs.spec.type = 'PubSub';
+                      if (_.isEmpty(event.trigger)) {
+                        throw new Error('You should specify a topic for the trigger event');
+                      }
+                      funcs.spec.topic = event.trigger;
+                      break;
+                    default:
+                      throw new Error(`Event type ${eventType} is not supported`);
                   }
+                  this.deployFunctionAndWait(funcs, thirdPartyResources).catch(err => {
+                    errors.push(err);
+                  }).then(() => {
+                    counter++;
+                    if (counter === _.keys(this.serverless.service.functions).length) {
+                      if (_.isEmpty(errors)) {
+                        resolve();
+                      } else {
+                        reject(
+                          `Found errors while deploying the given functions:\n${errors.join('\n')}`
+                        );
+                      }
+                    }
+                  });
                 });
               });
           });
