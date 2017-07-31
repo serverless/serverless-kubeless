@@ -119,7 +119,6 @@ class KubelessDeploy {
         clearInterval(loop);
         return;
       }
-      retries++;
       let runningPods = 0;
       core.pods.get((err, podsInfo) => {
         if (err) {
@@ -139,6 +138,7 @@ class KubelessDeploy {
             )
           );
           if (_.isEmpty(functionPods)) {
+            retries++;
             this.serverless.cli.log(
               `Unable to find any running pod for ${funcName}. Retrying...`
             );
