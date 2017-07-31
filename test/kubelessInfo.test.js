@@ -114,7 +114,7 @@ describe('KubelessInfo', () => {
       const allFunctions = _.map(functions, (f) => ({ apiVersion: 'k8s.io/v1',
         kind: 'Function',
         metadata:
-        { name: func,
+        { name: f.name,
           namespace: f.namespace,
           selfLink: `/apis/k8s.io/v1/namespaces/${f.namespace}/functions/${f.name}`,
           uid: '0105ba84-618c-11e7-9939-080027abf356',
@@ -168,7 +168,7 @@ describe('KubelessInfo', () => {
         infoMock(func)
       );
     });
-    it('should return logs for functions in different namespaces', (done) => {
+    it('should return info for functions in different namespaces', (done) => {
       mockGetCalls([
         { name: 'my-function-1', namespace: 'custom-1' },
         { name: 'my-function-2', namespace: 'custom-2' },
@@ -195,6 +195,34 @@ describe('KubelessInfo', () => {
           { namespace: 'custom-2' }
         );
         expect(message).to.be.eql(`${infoMock('my-function-1')}${infoMock('my-function-2')}`);
+        helpers.getConnectionOptions.restore();
+        done();
+      });
+    });
+    it('should return info only for the functions defined in the current scope', (done) => {
+      mockGetCalls([
+        { name: 'my-function-1', namespace: 'custom-1' },
+        { name: 'my-function-2', namespace: 'custom-2' },
+      ]);
+      const serverlessWithNS = getServerlessObj({
+        service: {
+          provider: {
+            namespace: 'custom-1',
+          },
+          functions: {
+            'my-function-1': {},
+          },
+        },
+      });
+      sinon.stub(helpers, 'getConnectionOptions');
+      helpers.getConnectionOptions.onFirstCall().returns({ namespace: 'custom-1' });
+      const kubelessInfo = new KubelessInfo(serverlessWithNS);
+      kubelessInfo.infoFunction().then((message) => {
+        expect(helpers.getConnectionOptions.callCount).to.be.eql(1);
+        expect(helpers.getConnectionOptions.firstCall.args[1]).to.be.eql({
+          namespace: 'custom-1',
+        });
+        expect(message).to.be.eql(`${infoMock('my-function-1')}`);
         helpers.getConnectionOptions.restore();
         done();
       });
