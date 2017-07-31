@@ -28,7 +28,7 @@ const path = require('path');
 const sinon = require('sinon');
 
 const KubelessDeploy = require('../deploy/kubelessDeploy');
-const serverless = require('./lib/serverless');
+const serverless = require('./lib/serverless')();
 
 require('chai').use(chaiAsPromised);
 
@@ -66,10 +66,10 @@ function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction
   return kubelessDeploy;
 }
 
-function mockThirdPartyResources(kubelessDeploy) {
+function mockThirdPartyResources(kubelessDeploy, namespace) {
   const thirdPartyResources = {
     namespaces: {
-      namespace: 'default',
+      namespace: namespace || 'default',
     },
     ns: {
       functions: {
@@ -320,6 +320,23 @@ describe('KubelessDeploy', () => {
       clock.tick(2001);
       expect(Api.Core.prototype.get.callCount).to.be.eql(2);
     });
+    it('fail if the pod never appears', () => {
+      const f = 'test';
+      Api.Core.prototype.get.callsFake((opts, ff) => {
+        ff(null, { statusCode: 200, body: {} });
+      });
+      const logStub = sinon.stub(kubelessDeploy.serverless.cli, 'log');
+      try {
+        kubelessDeploy.waitForDeployment(f, moment());
+        clock.tick(10001);
+        expect(logStub.lastCall.args[0]).to.contain(
+          'the deployment of the function test seems to have failed'
+        );
+      } finally {
+        logStub.restore();
+        // Api.Core.prototype.get.restore();
+      }
+    });
   });
 
   describe('#deploy', () => {
@@ -438,6 +455,48 @@ describe('KubelessDeploy', () => {
       ).to.be.a('function');
       return result;
     });
+    it('should deploy a function in a custom namespace (in the provider section)', () => {
+      const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomNamespace.service.provider.namespace = 'custom';
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomNamespace
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy, 'custom');
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.metadata.namespace
+      ).to.be.eql('custom');
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[1]
+      ).to.be.a('function');
+      return result;
+    });
+    it('should deploy a function in a custom namespace (in the function section)', () => {
+      const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomNamespace.service.functions.myFunction.namespace = 'custom';
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomNamespace
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy, 'custom');
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.metadata.namespace
+      ).to.be.eql('custom');
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[1]
+      ).to.be.a('function');
+      return result;
+    });
     it('should skip a deployment if an error 409 is returned', () => {
       thirdPartyResources.ns.functions.post.callsFake((data, ff) => {
         ff({ code: 409 });
@@ -449,8 +508,10 @@ describe('KubelessDeploy', () => {
           kubelessDeploy.deployFunction()
         ).to.be.fulfilled;
         expect(serverlessWithFunction.cli.log.lastCall.args).to.be.eql(
-          ['The function myFunction is already deployed. ' +
-          'If you want to redeploy it execute "sls deploy function -f myFunction".']
+          [
+            'The function myFunction already exists. ' +
+            'Remove or redeploy it executing "sls deploy function -f myFunction".',
+          ]
         );
       } finally {
         serverlessWithFunction.cli.log.restore();

@@ -26,7 +26,7 @@ const path = require('path');
 const sinon = require('sinon');
 
 const KubelessDeployFunction = require('../deployFunction/kubelessDeployFunction');
-const serverless = require('./lib/serverless');
+const serverless = require('./lib/serverless')();
 
 require('chai').use(chaiAsPromised);
 
@@ -85,7 +85,7 @@ function mockPutRequest(kubelessDeploy) {
   return put;
 }
 
-describe('KubelessDeploy', () => {
+describe('KubelessDeployFunction', () => {
   describe('#deploy', () => {
     const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
     let handlerFile = null;

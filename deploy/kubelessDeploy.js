@@ -74,9 +74,9 @@ class KubelessDeploy {
     return resultPromise;
   }
 
-  getThirdPartyResources() {
+  getThirdPartyResources(modif) {
     return new Api.ThirdPartyResources(
-      helpers.getConnectionOptions(helpers.loadKubeConfig())
+      helpers.getConnectionOptions(helpers.loadKubeConfig(), modif)
     );
   }
 
@@ -105,9 +105,20 @@ class KubelessDeploy {
     return files;
   }
 
-  waitForDeployment(funcName, requestMoment) {
-    const core = new Api.Core(helpers.getConnectionOptions(helpers.loadKubeConfig()));
+  waitForDeployment(funcName, requestMoment, namespace) {
+    const core = new Api.Core(helpers.getConnectionOptions(
+      helpers.loadKubeConfig(), { namespace })
+    );
+    let retries = 0;
     const loop = setInterval(() => {
+      if (retries > 3) {
+        this.serverless.cli.log(
+          `Giving up, the deployment of the function ${funcName} seems to have failed. ` +
+          'Check the kubeless-controller pod logs for more info'
+        );
+        clearInterval(loop);
+        return;
+      }
       let runningPods = 0;
       core.pods.get((err, podsInfo) => {
         if (err) {
@@ -126,24 +137,31 @@ class KubelessDeploy {
               moment(pod.metadata.creationTimestamp) >= requestMoment
             )
           );
-          _.each(functionPods, pod => {
-            // We assume that the function pods will only have one container
-            if (pod.status.containerStatuses[0].ready) {
-              runningPods++;
-            } else if (pod.status.containerStatuses[0].restartCount > 2) {
-              throw new Error('Failed to deploy the function');
+          if (_.isEmpty(functionPods)) {
+            retries++;
+            this.serverless.cli.log(
+              `Unable to find any running pod for ${funcName}. Retrying...`
+            );
+          } else {
+            _.each(functionPods, pod => {
+              // We assume that the function pods will only have one container
+              if (pod.status.containerStatuses[0].ready) {
+                runningPods++;
+              } else if (pod.status.containerStatuses[0].restartCount > 2) {
+                throw new Error('Failed to deploy the function');
+              }
+            });
+            if (runningPods === functionPods.length) {
+              this.serverless.cli.log(
+                `Function ${funcName} succesfully deployed`
+              );
+              clearInterval(loop);
+            } else if (this.options.verbose) {
+              this.serverless.cli.log(
+                `Waiting for function ${funcName} to be fully deployed. Pods status: ` +
+                `${_.map(functionPods, p => JSON.stringify(p.status.containerStatuses[0].state))}`
+              );
             }
-          });
-          if (runningPods === functionPods.length) {
-            this.serverless.cli.log(
-              `Function ${funcName} succesfully deployed`
-            );
-            clearInterval(loop);
-          } else if (this.options.verbose) {
-            this.serverless.cli.log(
-              `Waiting for function ${funcName} to be fully deployed. Pods status: ` +
-              `${_.map(functionPods, p => JSON.stringify(p.status.containerStatuses[0].state))}`
-            );
           }
         }
       });
@@ -160,8 +178,8 @@ class KubelessDeploy {
         if (err) {
           if (err.code === 409) {
             this.serverless.cli.log(
-              `The function ${body.metadata.name} is already deployed. ` +
-              `If you want to redeploy it execute "sls deploy function -f ${body.metadata.name}".`
+              `The function ${body.metadata.name} already exists. ` +
+              `Remove or redeploy it executing "sls deploy function -f ${body.metadata.name}".`
             );
             resolve();
           } else {
@@ -180,14 +198,17 @@ class KubelessDeploy {
   }
 
   deployFunction() {
-    const thirdPartyResources = this.getThirdPartyResources();
-    thirdPartyResources.addResource('functions');
     const errors = [];
     let counter = 0;
     return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (description, name) => {
         const runtime = this.serverless.service.provider.runtime;
         const files = this.getRuntimeFilenames(runtime, description.handler);
+        const thirdPartyResources = this.getThirdPartyResources({
+          namespace: description.namespace ||
+          this.serverless.service.provider.namespace,
+        });
+        thirdPartyResources.addResource('functions');
         this.getFunctionContent(files.handler)
           .then(functionContent => {
             this.getFunctionContent(files.deps)

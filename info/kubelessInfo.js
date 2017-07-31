@@ -85,31 +85,38 @@ class KubelessInfo {
     message += `${chalk.yellow('Handler: ')} ${f.handler}\n`;
     message += `${chalk.yellow('Runtime: ')} ${f.runtime}\n`;
     message += `${chalk.yellow('Topic: ')} ${f.topic}\n`;
-    message += `${chalk.yellow('Dependencies: ')} ${f.deps}\n`;
+    message += `${chalk.yellow('Dependencies: ')} ${f.deps}`;
     if (this.options.verbose) {
-      message += `${chalk.yellow('Metadata:')}\n`;
+      message += `\n${chalk.yellow('Metadata:')}\n`;
       message += `  ${chalk.yellow('Self Link: ')} ${f.selfLink}\n`;
       message += `  ${chalk.yellow('UID: ')} ${f.uid}\n`;
-      message += `  ${chalk.yellow('Timestamp: ')} ${f.timestamp}\n`;
+      message += `  ${chalk.yellow('Timestamp: ')} ${f.timestamp}`;
     }
     return message;
   }
 
   infoFunction(options) {
-    const connectionOptions = helpers.getConnectionOptions(helpers.loadKubeConfig());
-    const core = new Api.Core(connectionOptions);
-    const thirdPartyResources = new Api.ThirdPartyResources(connectionOptions);
-    thirdPartyResources.addResource('functions');
+    let counter = 0;
+    let message = '';
     return new BbPromise((resolve) => {
-      core.services.get((err, servicesInfo) => {
-        thirdPartyResources.ns.functions.get((ferr, functionsInfo) => {
-          if (ferr) throw new this.serverless.classes.Error(ferr);
-          let message = '';
-          _.each(functionsInfo.items, f => {
+      _.each(this.serverless.service.functions, (desc, f) => {
+        const connectionOptions = helpers.getConnectionOptions(helpers.loadKubeConfig(), {
+          namespace: desc.namespace || this.serverless.service.provider.namespace,
+        });
+        const core = new Api.Core(connectionOptions);
+        const thirdPartyResources = new Api.ThirdPartyResources(connectionOptions);
+        thirdPartyResources.addResource('functions');
+        core.services.get((err, servicesInfo) => {
+          thirdPartyResources.ns.functions.get((ferr, functionsInfo) => {
+            if (ferr) throw new this.serverless.classes.Error(ferr);
+            const fDesc = _.find(functionsInfo.items, item => item.metadata.name === f);
             const functionService = _.find(
-              servicesInfo.items,
-              (service) => service.metadata.labels.function === f.metadata.name
-            );
+                servicesInfo.items,
+                (service) => (
+                  service.metadata.labels &&
+                  service.metadata.labels.function === f
+                )
+              );
             const service = {
               name: functionService.metadata.name,
               ip: functionService.spec.clusterIP,
@@ -120,26 +127,28 @@ class KubelessInfo {
               timestamp: functionService.metadata.creationTimestamp,
             };
             const func = {
-              name: f.metadata.name,
-              handler: f.spec.handler,
-              runtime: f.spec.runtime,
-              topic: f.spec.topic,
-              deps: f.spec.deps,
-              selfLink: f.metadata.selfLink,
-              uid: f.metadata.uid,
-              timestamp: f.metadata.creationTimestamp,
+              name: f,
+              handler: fDesc.spec.handler,
+              runtime: fDesc.spec.runtime,
+              topic: fDesc.spec.topic,
+              deps: fDesc.spec.deps,
+              selfLink: fDesc.metadata.selfLink,
+              uid: fDesc.metadata.uid,
+              timestamp: fDesc.metadata.creationTimestamp,
             };
             message += this.formatMessage(
               service,
               func,
               _.defaults({}, options, { color: true })
             );
+            counter++;
+            if (counter === _.keys(this.serverless.service.functions).length) {
+              this.serverless.cli.consoleLog(message);
+              resolve(message);
+            }
           });
-          this.serverless.cli.consoleLog(message);
-          resolve(message);
         });
-      }
-      );
+      });
     });
   }
 }
