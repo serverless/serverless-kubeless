@@ -109,7 +109,17 @@ class KubelessDeploy {
     const core = new Api.Core(helpers.getConnectionOptions(
       helpers.loadKubeConfig(), { namespace })
     );
+    let retries = 0;
     const loop = setInterval(() => {
+      if (retries > 3) {
+        this.serverless.cli.log(
+          `Giving up, the deployment of the function ${funcName} seems to have failed. ` +
+          'Check the kubeless-controller pod logs for more info'
+        );
+        clearInterval(loop);
+        return;
+      }
+      retries++;
       let runningPods = 0;
       core.pods.get((err, podsInfo) => {
         if (err) {
@@ -128,24 +138,30 @@ class KubelessDeploy {
               moment(pod.metadata.creationTimestamp) >= requestMoment
             )
           );
-          _.each(functionPods, pod => {
-            // We assume that the function pods will only have one container
-            if (pod.status.containerStatuses[0].ready) {
-              runningPods++;
-            } else if (pod.status.containerStatuses[0].restartCount > 2) {
-              throw new Error('Failed to deploy the function');
+          if (_.isEmpty(functionPods)) {
+            this.serverless.cli.log(
+              `Unable to find any running pod for ${funcName}. Retrying...`
+            );
+          } else {
+            _.each(functionPods, pod => {
+              // We assume that the function pods will only have one container
+              if (pod.status.containerStatuses[0].ready) {
+                runningPods++;
+              } else if (pod.status.containerStatuses[0].restartCount > 2) {
+                throw new Error('Failed to deploy the function');
+              }
+            });
+            if (runningPods === functionPods.length) {
+              this.serverless.cli.log(
+                `Function ${funcName} succesfully deployed`
+              );
+              clearInterval(loop);
+            } else if (this.options.verbose) {
+              this.serverless.cli.log(
+                `Waiting for function ${funcName} to be fully deployed. Pods status: ` +
+                `${_.map(functionPods, p => JSON.stringify(p.status.containerStatuses[0].state))}`
+              );
             }
-          });
-          if (runningPods === functionPods.length) {
-            this.serverless.cli.log(
-              `Function ${funcName} succesfully deployed`
-            );
-            clearInterval(loop);
-          } else if (this.options.verbose) {
-            this.serverless.cli.log(
-              `Waiting for function ${funcName} to be fully deployed. Pods status: ` +
-              `${_.map(functionPods, p => JSON.stringify(p.status.containerStatuses[0].state))}`
-            );
           }
         }
       });
@@ -162,8 +178,8 @@ class KubelessDeploy {
         if (err) {
           if (err.code === 409) {
             this.serverless.cli.log(
-              `The function ${body.metadata.name} is already deployed. ` +
-              `If you want to redeploy it execute "sls deploy function -f ${body.metadata.name}".`
+              `The function ${body.metadata.name} already exists. ` +
+              `Remove or redeploy it executing "sls deploy function -f ${body.metadata.name}".`
             );
             resolve();
           } else {

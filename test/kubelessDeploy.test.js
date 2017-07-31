@@ -320,6 +320,23 @@ describe('KubelessDeploy', () => {
       clock.tick(2001);
       expect(Api.Core.prototype.get.callCount).to.be.eql(2);
     });
+    it('fail if the pod never appears', () => {
+      const f = 'test';
+      Api.Core.prototype.get.callsFake((opts, ff) => {
+        ff(null, { statusCode: 200, body: {} });
+      });
+      const logStub = sinon.stub(kubelessDeploy.serverless.cli, 'log');
+      try {
+        kubelessDeploy.waitForDeployment(f, moment());
+        clock.tick(10001);
+        expect(logStub.lastCall.args[0]).to.contain(
+          'the deployment of the function test seems to have failed'
+        );
+      } finally {
+        logStub.restore();
+        // Api.Core.prototype.get.restore();
+      }
+    });
   });
 
   describe('#deploy', () => {
@@ -491,8 +508,10 @@ describe('KubelessDeploy', () => {
           kubelessDeploy.deployFunction()
         ).to.be.fulfilled;
         expect(serverlessWithFunction.cli.log.lastCall.args).to.be.eql(
-          ['The function myFunction is already deployed. ' +
-          'If you want to redeploy it execute "sls deploy function -f myFunction".']
+          [
+            'The function myFunction already exists. ' +
+            'Remove or redeploy it executing "sls deploy function -f myFunction".',
+          ]
         );
       } finally {
         serverlessWithFunction.cli.log.restore();
