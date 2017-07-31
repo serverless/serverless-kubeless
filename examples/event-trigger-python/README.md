@@ -8,6 +8,6 @@ The topic in which the function will be listening is defined in the `events` sec
 $ npm install
 $ serverless deploy
 $ kubeless topic publish --topic hello_topic --data 'hello world!' # push a message into the queue
-$ servereless logs -f hello
+$ serverless logs -f hello
 hello world!
 ```

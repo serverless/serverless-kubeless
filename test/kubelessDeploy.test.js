@@ -516,7 +516,7 @@ describe('KubelessDeploy', () => {
       }
       return result;
     });
-    it('should deploy a function event based', () => {
+    it('should deploy a function triggered by a topic', () => {
       const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomNamespace.service.functions[functionName].events = [{ trigger: 'topic' }];
       kubelessDeploy = instantiateKubelessDeploy(
