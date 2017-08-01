@@ -137,7 +137,6 @@ describe('KubelessDeployFunction', () => {
             function: 'function code',
             handler: 'function.hello',
             runtime: 'python2.7',
-            topic: '',
             type: 'HTTP' } }
       );
       expect(put.firstCall.args[1]).to.be.a('function');

@@ -343,18 +343,19 @@ describe('KubelessDeploy', () => {
     const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
     let handlerFile = null;
     let depsFile = null;
+    const functionName = 'myFunction';
     const serverlessWithFunction = _.defaultsDeep({}, serverless, {
       config: {
         servicePath: cwd,
       },
       service: {
-        functions: {
-          myFunction: {
-            handler: 'function.hello',
-          },
-        },
+        functions: {},
       },
     });
+    serverlessWithFunction.service.functions[functionName] = {
+      handler: 'function.hello',
+    };
+
     let kubelessDeploy = null;
     let thirdPartyResources = null;
 
@@ -379,13 +380,12 @@ describe('KubelessDeploy', () => {
       expect(thirdPartyResources.ns.functions.post.firstCall.args[0].body).to.be.eql(
         { apiVersion: 'k8s.io/v1',
           kind: 'Function',
-          metadata: { name: 'myFunction', namespace: 'default' },
+          metadata: { name: functionName, namespace: 'default' },
           spec:
           { deps: '',
             function: 'function code',
             handler: 'function.hello',
             runtime: 'python2.7',
-            topic: '',
             type: 'HTTP' } }
       );
       expect(
@@ -410,13 +410,12 @@ describe('KubelessDeploy', () => {
       expect(thirdPartyResources.ns.functions.post.firstCall.args[0].body).to.be.eql(
         { apiVersion: 'k8s.io/v1',
           kind: 'Function',
-          metadata: { name: 'myFunction', namespace: 'default' },
+          metadata: { name: functionName, namespace: 'default' },
           spec:
           { deps: 'nodejs function deps',
             function: 'nodejs function code',
             handler: 'function.hello',
             runtime: 'nodejs6.10',
-            topic: '',
             type: 'HTTP' } }
       );
       expect(
@@ -441,13 +440,12 @@ describe('KubelessDeploy', () => {
       expect(thirdPartyResources.ns.functions.post.firstCall.args[0].body).to.be.eql(
         { apiVersion: 'k8s.io/v1',
           kind: 'Function',
-          metadata: { name: 'myFunction', namespace: 'default' },
+          metadata: { name: functionName, namespace: 'default' },
           spec:
           { deps: 'ruby function deps',
             function: 'ruby function code',
             handler: 'function.hello',
             runtime: 'ruby2.4',
-            topic: '',
             type: 'HTTP' } }
       );
       expect(
@@ -516,6 +514,30 @@ describe('KubelessDeploy', () => {
       } finally {
         serverlessWithFunction.cli.log.restore();
       }
+      return result;
+    });
+    it('should deploy a function triggered by a topic', () => {
+      const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomNamespace.service.functions[functionName].events = [{ trigger: 'topic' }];
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomNamespace
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.spec.type
+      ).to.be.eql('PubSub');
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.spec.topic
+      ).to.be.eql('topic');
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[1]
+      ).to.be.a('function');
       return result;
     });
     it('should fail if a deployment returns an error code', () => {
@@ -594,13 +616,12 @@ describe('KubelessDeploy', () => {
       expect(thirdPartyResources.ns.functions.post.firstCall.args[0].body).to.be.eql(
         { apiVersion: 'k8s.io/v1',
           kind: 'Function',
-          metadata: { name: 'myFunction', namespace: 'default' },
+          metadata: { name: functionName, namespace: 'default' },
           spec:
           { deps: '',
             function: 'different function content',
             handler: 'function.hello',
             runtime: 'python2.7',
-            topic: '',
             type: 'HTTP' } }
               );
       expect(
