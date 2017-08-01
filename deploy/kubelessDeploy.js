@@ -243,6 +243,14 @@ class KubelessDeploy {
                       runtime: this.serverless.service.provider.runtime,
                     },
                   };
+                  if (description.description) {
+                    funcs.annotations = {
+                      description: description.description,
+                    };
+                  }
+                  if (description.labels) {
+                    funcs.labels = description.labels;
+                  }
                   switch (eventType) {
                     case 'http':
                       funcs.spec.type = 'HTTP';

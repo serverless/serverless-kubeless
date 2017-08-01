@@ -81,7 +81,7 @@ describe('KubelessInfo', () => {
       }
     });
   });
-  function mockGetCalls(functions) {
+  function mockGetCalls(functions, functionModif) {
     sinon.stub(Api.Core.prototype, 'get').callsFake((p, ff) => {
       if (p.path[0] === '/api/v1/services') {
           // Mock call to get.services
@@ -108,25 +108,29 @@ describe('KubelessInfo', () => {
       }
     });
 
-          // Mock call to get.functions per namespace
-
+    // Mock call to get.functions per namespace
     sinon.stub(Api.ThirdPartyResources.prototype, 'get').callsFake(function (p, ff) {
-      const allFunctions = _.map(functions, (f) => ({ apiVersion: 'k8s.io/v1',
+      const allFunctions = _.map(functions, (f) => (_.defaultsDeep({}, functionModif, {
+        apiVersion: 'k8s.io/v1',
         kind: 'Function',
         metadata:
-        { name: f.name,
+        {
+          name: f.name,
           namespace: f.namespace,
           selfLink: `/apis/k8s.io/v1/namespaces/${f.namespace}/functions/${f.name}`,
           uid: '0105ba84-618c-11e7-9939-080027abf356',
           resourceVersion: '244',
-          creationTimestamp: '2017-07-05T14:12:39Z' },
-        spec:
-        { deps: '',
+          creationTimestamp: '2017-07-05T14:12:39Z',
+        },
+        spec: {
+          deps: '',
           function: '',
           handler: `${f.name}.hello`,
           runtime: 'python2.7',
           topic: '',
-          type: 'HTTP' } }));
+          type: 'HTTP',
+        },
+      })));
       ff(null, {
         statusCode: 200,
         body: {
@@ -147,7 +151,7 @@ describe('KubelessInfo', () => {
         'Function Info\n' +
         `Handler:  ${f}.hello\n` +
         'Runtime:  python2.7\n' +
-        'Topic:  \n' +
+        'Trigger:  HTTP\n' +
         'Dependencies:  ';
   }
 
@@ -224,6 +228,39 @@ describe('KubelessInfo', () => {
         });
         expect(message).to.be.eql(`${infoMock('my-function-1')}`);
         helpers.getConnectionOptions.restore();
+        done();
+      });
+    });
+    it('should return the trigger topic in case it exists', (done) => {
+      mockGetCalls(
+        [{ name: func, namespace: 'default' }],
+        { spec: { type: 'PubSub', topic: 'test_topic' } }
+      );
+      const kubelessInfo = new KubelessInfo(serverless, { function: func });
+      kubelessInfo.infoFunction({ color: false }).then((message) => {
+        expect(message).to.match(/Topic Trigger: test_topic/);
+        done();
+      });
+    });
+    it('should return the description in case it exists', (done) => {
+      mockGetCalls(
+        [{ name: func, namespace: 'default' }],
+        { annotations: { description: 'Test Description' } }
+      );
+      const kubelessInfo = new KubelessInfo(serverless, { function: func });
+      kubelessInfo.infoFunction({ color: false }).then((message) => {
+        expect(message).to.match(/Description: Test Description/);
+        done();
+      });
+    });
+    it('should return the labels in case they exist', (done) => {
+      mockGetCalls(
+        [{ name: func, namespace: 'default' }],
+        { labels: { label1: 'text1', label2: 'text2' } }
+      );
+      const kubelessInfo = new KubelessInfo(serverless, { function: func });
+      kubelessInfo.infoFunction({ color: false }).then((message) => {
+        expect(message).to.match(/Labels:\n {2}label1: text1\n {2}label2: text2\n/);
         done();
       });
     });

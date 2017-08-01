@@ -82,9 +82,22 @@ class KubelessInfo {
       message += `  ${chalk.yellow('Timestamp: ')} ${service.timestamp}\n`;
     }
     message += `${chalk.yellow.underline('Function Info')}\n`;
+    if (f.annotations && f.annotations.description) {
+      message += `${chalk.yellow('Description:')} ${f.annotations.description}\n`;
+    }
+    if (f.labels) {
+      message += `${chalk.yellow('Labels:\n')}`;
+      _.each(f.labels, (v, k) => {
+        message += `${chalk.yellow(`  ${k}:`)} ${v}\n`;
+      });
+    }
     message += `${chalk.yellow('Handler: ')} ${f.handler}\n`;
     message += `${chalk.yellow('Runtime: ')} ${f.runtime}\n`;
-    message += `${chalk.yellow('Topic: ')} ${f.topic}\n`;
+    if (f.type === 'PubSub' && !_.isEmpty(f.topic)) {
+      message += `${chalk.yellow('Topic Trigger:')} ${f.topic}\n`;
+    } else {
+      message += `${chalk.yellow('Trigger: ')} ${f.type}\n`;
+    }
     message += `${chalk.yellow('Dependencies: ')} ${f.deps}`;
     if (this.options.verbose) {
       message += `\n${chalk.yellow('Metadata:')}\n`;
@@ -131,7 +144,10 @@ class KubelessInfo {
               handler: fDesc.spec.handler,
               runtime: fDesc.spec.runtime,
               topic: fDesc.spec.topic,
+              type: fDesc.spec.type,
               deps: fDesc.spec.deps,
+              annotations: fDesc.annotations,
+              labels: fDesc.labels,
               selfLink: fDesc.metadata.selfLink,
               uid: fDesc.metadata.uid,
               timestamp: fDesc.metadata.creationTimestamp,
