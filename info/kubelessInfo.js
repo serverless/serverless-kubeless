@@ -129,6 +129,7 @@ class KubelessInfo {
           thirdPartyResources.ns.functions.get((ferr, functionsInfo) => {
             if (ferr) throw new this.serverless.classes.Error(ferr);
             extensions.ns.ingress.get((ierr, ingressInfo) => {
+              if (ierr) throw this.serverless.classes.Error(ierr);
               const fDesc = _.find(functionsInfo.items, item => item.metadata.name === f);
               const functionService = _.find(
                 servicesInfo.items,
@@ -138,7 +139,7 @@ class KubelessInfo {
                 )
               );
               const fIngress = _.find(ingressInfo.items, item => (
-                item.metadata.labels.function === f
+                item.metadata.labels && item.metadata.labels.function === f
               ));
               let url = null;
               if (fIngress) {
