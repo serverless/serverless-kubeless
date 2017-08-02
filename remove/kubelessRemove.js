@@ -44,17 +44,50 @@ class KubelessRemove {
     return BbPromise.resolve();
   }
 
+  removeIngressRuleIfNecessary(funcName, namespace) {
+    const extensions = new Api.Extensions(helpers.getConnectionOptions(helpers.loadKubeConfig(), {
+      namespace,
+    }));
+    return new BbPromise((resolve, reject) => {
+      extensions.ns.ingress.get((err, ingressInfo) => {
+        const ingressRule = _.find(ingressInfo.items, item => (
+          item.metadata.labels && item.metadata.labels.function === funcName
+        ));
+        if (!_.isEmpty(ingressRule)) {
+          extensions.ns.ingress.delete(ingressRule, (ingErr) => {
+            if (ingErr) {
+              reject(
+                `Unable to remove the ingress rule ${ingressRule}. Received:\n` +
+                `  Code: ${ingErr.code}\n` +
+                `  Message: ${ingErr.message}`
+              );
+            } else {
+              if (this.options.verbose) {
+                this.serverless.cli.log(`Removed Ingress rule ${ingressRule.metadata.name}`);
+              }
+              resolve();
+            }
+          });
+        } else {
+          if (this.options.verbose) {
+            this.serverless.cli.log(`Skipping ingress rule clean up for ${funcName}`);
+          }
+          resolve();
+        }
+      });
+    });
+  }
+
   removeFunction() {
     const errors = [];
     let counter = 0;
     return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (desc, f) => {
         this.serverless.cli.log(`Removing function: ${f}...`);
-        const thirdPartyResources = new Api.ThirdPartyResources(
-          helpers.getConnectionOptions(helpers.loadKubeConfig(), {
-            namespace: desc.namespace || this.serverless.service.provider.namespace,
-          })
-        );
+        const connectionOptions = helpers.getConnectionOptions(helpers.loadKubeConfig(), {
+          namespace: desc.namespace || this.serverless.service.provider.namespace,
+        });
+        const thirdPartyResources = new Api.ThirdPartyResources(connectionOptions);
         thirdPartyResources.addResource('functions');
         // Delete function
         thirdPartyResources.ns.functions.delete(f, (err) => {
@@ -72,18 +105,24 @@ class KubelessRemove {
               );
             }
           } else {
-            this.serverless.cli.log(`Function ${f} succesfully deleted`);
-          }
-          counter++;
-          if (counter === _.keys(this.serverless.service.functions).length) {
-            if (_.isEmpty(errors)) {
-              resolve();
-            } else {
-              reject(
-                'Found errors while removing the given functions:\n' +
-                `${errors.join('\n')}`
-              );
-            }
+            this.removeIngressRuleIfNecessary(f, connectionOptions.namespace)
+            .catch((ingErr) => {
+              errors.push(ingErr);
+            })
+            .then(() => {
+              counter++;
+              if (counter === _.keys(this.serverless.service.functions).length) {
+                if (_.isEmpty(errors)) {
+                  resolve();
+                } else {
+                  reject(
+                    'Found errors while removing the given functions:\n' +
+                    `${errors.join('\n')}`
+                  );
+                }
+              }
+              this.serverless.cli.log(`Function ${f} succesfully deleted`);
+            });
           }
         });
       });

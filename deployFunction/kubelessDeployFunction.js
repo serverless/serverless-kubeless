@@ -43,10 +43,15 @@ class KubelessDeployFunction extends KubelessDeploy {
           ));
         } else {
           this.waitForDeployment(body.metadata.name, requestMoment);
-          resolve();
+          resolve(true);
         }
       });
     });
+  }
+
+  addIngressRuleIfNecessary() {
+    // It is not necessary to add an Ingress rule again
+    return new BbPromise((r) => r());
   }
 
   deployFunction() {

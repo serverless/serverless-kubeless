@@ -164,5 +164,25 @@ describe('KubelessDeployFunction', () => {
       expect(put.firstCall.args[0].body.metadata.name).to.be.eql('myFunction');
       return result;
     });
+    it('should not try to deploy a new ingress controller', () => {
+      const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomNamespace.service.functions.myFunction.events = [{
+        http: null,
+        path: '/test',
+      }];
+      kubelessDeployFunction = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomNamespace
+      );
+      mockPutRequest(kubelessDeployFunction);
+      sinon.stub(kubelessDeployFunction, 'getExtensions');
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeployFunction.deployFunction().then(() => {
+          expect(kubelessDeployFunction.getExtensions.callCount).to.be.eql(0);
+        })
+      ).to.be.fulfilled;
+      return result;
+    });
   });
 });

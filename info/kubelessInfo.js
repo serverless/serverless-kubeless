@@ -82,6 +82,9 @@ class KubelessInfo {
       message += `  ${chalk.yellow('Timestamp: ')} ${service.timestamp}\n`;
     }
     message += `${chalk.yellow.underline('Function Info')}\n`;
+    if (f.url) {
+      message += `${chalk.yellow('URL: ')} ${f.url}\n`;
+    }
     if (f.annotations && f.annotations['kubeless.serverless.com/description']) {
       message += `${chalk.yellow('Description:')} ` +
         `${f.annotations['kubeless.serverless.com/description']}\n`;
@@ -119,50 +122,63 @@ class KubelessInfo {
         });
         const core = new Api.Core(connectionOptions);
         const thirdPartyResources = new Api.ThirdPartyResources(connectionOptions);
+        const extensions = new Api.Extensions(connectionOptions);
         thirdPartyResources.addResource('functions');
         core.services.get((err, servicesInfo) => {
+          if (err) throw new this.serverless.classes.Error(err);
           thirdPartyResources.ns.functions.get((ferr, functionsInfo) => {
             if (ferr) throw new this.serverless.classes.Error(ferr);
-            const fDesc = _.find(functionsInfo.items, item => item.metadata.name === f);
-            const functionService = _.find(
+            extensions.ns.ingress.get((ierr, ingressInfo) => {
+              const fDesc = _.find(functionsInfo.items, item => item.metadata.name === f);
+              const functionService = _.find(
                 servicesInfo.items,
                 (service) => (
                   service.metadata.labels &&
                   service.metadata.labels.function === f
                 )
               );
-            const service = {
-              name: functionService.metadata.name,
-              ip: functionService.spec.clusterIP,
-              type: functionService.spec.type,
-              ports: functionService.spec.ports,
-              selfLink: functionService.metadata.selfLink,
-              uid: functionService.metadata.uid,
-              timestamp: functionService.metadata.creationTimestamp,
-            };
-            const func = {
-              name: f,
-              handler: fDesc.spec.handler,
-              runtime: fDesc.spec.runtime,
-              topic: fDesc.spec.topic,
-              type: fDesc.spec.type,
-              deps: fDesc.spec.deps,
-              annotations: fDesc.annotations,
-              labels: fDesc.labels,
-              selfLink: fDesc.metadata.selfLink,
-              uid: fDesc.metadata.uid,
-              timestamp: fDesc.metadata.creationTimestamp,
-            };
-            message += this.formatMessage(
-              service,
-              func,
-              _.defaults({}, options, { color: true })
-            );
-            counter++;
-            if (counter === _.keys(this.serverless.service.functions).length) {
-              this.serverless.cli.consoleLog(message);
-              resolve(message);
-            }
+              const fIngress = _.find(ingressInfo.items, item => (
+                item.metadata.labels.function === f
+              ));
+              let url = null;
+              if (fIngress) {
+                url = `${fIngress.status.loadBalancer.ingress[0].ip}` +
+                  `${fIngress.spec.rules[0].http.paths[0].path}`;
+              }
+              const service = {
+                name: functionService.metadata.name,
+                ip: functionService.spec.clusterIP,
+                type: functionService.spec.type,
+                ports: functionService.spec.ports,
+                selfLink: functionService.metadata.selfLink,
+                uid: functionService.metadata.uid,
+                timestamp: functionService.metadata.creationTimestamp,
+              };
+              const func = {
+                name: f,
+                url,
+                handler: fDesc.spec.handler,
+                runtime: fDesc.spec.runtime,
+                topic: fDesc.spec.topic,
+                type: fDesc.spec.type,
+                deps: fDesc.spec.deps,
+                annotations: fDesc.annotations,
+                labels: fDesc.labels,
+                selfLink: fDesc.metadata.selfLink,
+                uid: fDesc.metadata.uid,
+                timestamp: fDesc.metadata.creationTimestamp,
+              };
+              message += this.formatMessage(
+                service,
+                func,
+                _.defaults({}, options, { color: true })
+              );
+              counter++;
+              if (counter === _.keys(this.serverless.service.functions).length) {
+                this.serverless.cli.consoleLog(message);
+                resolve(message);
+              }
+            });
           });
         });
       });

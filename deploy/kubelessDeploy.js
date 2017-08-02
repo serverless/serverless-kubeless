@@ -25,6 +25,81 @@ const JSZip = require('jszip');
 const moment = require('moment');
 const path = require('path');
 
+function getFunctionDescription(
+  funcName,
+  namespace,
+  runtime,
+  deps,
+  funcContent,
+  handler,
+  desc,
+  labels,
+  eventType,
+  eventTrigger
+) {
+  const funcs = {
+    apiVersion: 'k8s.io/v1',
+    kind: 'Function',
+    metadata: {
+      name: funcName,
+      namespace,
+    },
+    spec: {
+      deps: deps || '',
+      function: funcContent,
+      handler,
+      runtime,
+    },
+  };
+  if (desc) {
+    funcs.annotations = {
+      'kubeless.serverless.com/description': desc,
+    };
+  }
+  if (labels) {
+    funcs.labels = labels;
+  }
+  switch (eventType) {
+    case 'http':
+      funcs.spec.type = 'HTTP';
+      break;
+    case 'trigger':
+      funcs.spec.type = 'PubSub';
+      if (_.isEmpty(eventTrigger)) {
+        throw new Error('You should specify a topic for the trigger event');
+      }
+      funcs.spec.topic = eventTrigger;
+      break;
+    default:
+      throw new Error(`Event type ${eventType} is not supported`);
+  }
+  return funcs;
+}
+
+function getIngressDescription(funcName, funcPath) {
+  return {
+    kind: 'Ingress',
+    metadata: {
+      name: `ingress-${funcName}`,
+      labels: { function: funcName },
+      annotations: {
+        'kubernetes.io/ingress.class': 'nginx',
+        'ingress.kubernetes.io/rewrite-target': '/',
+      },
+    },
+    spec: {
+      rules: [{
+        http: {
+          paths: [{
+            path: funcPath,
+            backend: { serviceName: funcName, servicePort: 8080 },
+          }],
+        },
+      }],
+    },
+  };
+}
+
 class KubelessDeploy {
   constructor(serverless, options) {
     this.serverless = serverless;
@@ -81,10 +156,12 @@ class KubelessDeploy {
     return resultPromise;
   }
 
-  getThirdPartyResources(modif) {
-    return new Api.ThirdPartyResources(
-      helpers.getConnectionOptions(helpers.loadKubeConfig(), modif)
-    );
+  getThirdPartyResources(connectionOptions) {
+    return new Api.ThirdPartyResources(connectionOptions);
+  }
+
+  getExtensions(connectionOptions) {
+    return new Api.Extensions(connectionOptions);
   }
 
   getRuntimeFilenames(runtime, handler) {
@@ -188,7 +265,7 @@ class KubelessDeploy {
               `The function ${body.metadata.name} already exists. ` +
               `Remove or redeploy it executing "sls deploy function -f ${body.metadata.name}".`
             );
-            resolve();
+            resolve(false);
           } else {
             reject(new Error(
               `Unable to deploy the function ${body.metadata.name}. Received:\n` +
@@ -197,10 +274,44 @@ class KubelessDeploy {
             ));
           }
         } else {
-          this.waitForDeployment(body.metadata.name, requestMoment);
-          resolve();
+          this.waitForDeployment(
+            body.metadata.name,
+            requestMoment,
+            thirdPartyResources.namespaces.namespace
+          );
+          resolve(true);
         }
       });
+    });
+  }
+
+  addIngressRuleIfNecessary(funcName, eventType, eventPath, namespace) {
+    const extensions = this.getExtensions(helpers.getConnectionOptions(
+      helpers.loadKubeConfig(), { namespace })
+    );
+    return new BbPromise((resolve, reject) => {
+      if (eventType === 'http' && eventPath && eventPath !== '/') {
+        // Found a path to deploy the function
+        const ingressDef = getIngressDescription(funcName, eventPath);
+        extensions.ns.ingress.post({ body: ingressDef }, (err) => {
+          if (err) {
+            reject(
+              `Unable to deploy the function ${funcName} in the given path. ` +
+              `Received: ${err.message}`
+            );
+          } else {
+            if (this.options.verbose) {
+              this.serverless.cli.log(`Deployed Ingress rule to map ${eventPath}`);
+            }
+            resolve();
+          }
+        });
+      } else {
+        if (this.options.verbose) {
+          this.serverless.cli.log('Skiping ingress rule generation');
+        }
+        resolve();
+      }
     });
   }
 
@@ -211,10 +322,13 @@ class KubelessDeploy {
       _.each(this.serverless.service.functions, (description, name) => {
         const runtime = this.serverless.service.provider.runtime;
         const files = this.getRuntimeFilenames(runtime, description.handler);
-        const thirdPartyResources = this.getThirdPartyResources({
-          namespace: description.namespace ||
-          this.serverless.service.provider.namespace,
-        });
+        const connectionOptions = helpers.getConnectionOptions(
+          helpers.loadKubeConfig(), {
+            namespace: description.namespace ||
+            this.serverless.service.provider.namespace,
+          }
+        );
+        const thirdPartyResources = this.getThirdPartyResources(connectionOptions);
         thirdPartyResources.addResource('functions');
         this.getFunctionContent(files.handler)
           .then(functionContent => {
@@ -225,56 +339,50 @@ class KubelessDeploy {
               .then((requirementsContent) => {
                 const events = !_.isEmpty(description.events) ?
                   description.events :
-                  // TODO: Investigate ingress support for different paths
                   [{ http: { path: '/' } }];
                 _.each(events, event => {
                   const eventType = _.keys(event)[0];
-                  const funcs = {
-                    apiVersion: 'k8s.io/v1',
-                    kind: 'Function',
-                    metadata: {
-                      name,
-                      namespace: thirdPartyResources.namespaces.namespace,
-                    },
-                    spec: {
-                      deps: requirementsContent || '',
-                      function: functionContent,
-                      handler: description.handler,
-                      runtime: this.serverless.service.provider.runtime,
-                    },
-                  };
-                  if (description.description) {
-                    funcs.annotations = {
-                      'kubeless.serverless.com/description': description.description,
-                    };
-                  }
-                  if (description.labels) {
-                    funcs.labels = description.labels;
-                  }
-                  switch (eventType) {
-                    case 'http':
-                      funcs.spec.type = 'HTTP';
-                      break;
-                    case 'trigger':
-                      funcs.spec.type = 'PubSub';
-                      if (_.isEmpty(event.trigger)) {
-                        throw new Error('You should specify a topic for the trigger event');
-                      }
-                      funcs.spec.topic = event.trigger;
-                      break;
-                    default:
-                      throw new Error(`Event type ${eventType} is not supported`);
-                  }
-                  this.deployFunctionAndWait(funcs, thirdPartyResources).catch(err => {
+                  const funcs = getFunctionDescription(
+                    name,
+                    thirdPartyResources.namespaces.namespace,
+                    this.serverless.service.provider.runtime,
+                    requirementsContent,
+                    functionContent,
+                    description.handler,
+                    description.description,
+                    description.labels,
+                    eventType,
+                    event.trigger
+                  );
+                  this.deployFunctionAndWait(funcs, thirdPartyResources)
+                  .catch(err => {
                     errors.push(err);
-                  }).then(() => {
+                  })
+                  .then((deployed) => {
+                    if (!deployed) {
+                      // If there were an error with the deployment
+                      // don't try to add an ingress rule
+                      return new BbPromise((r) => r());
+                    }
+                    return this.addIngressRuleIfNecessary(
+                      name,
+                      eventType,
+                      event.path,
+                      connectionOptions.namespace
+                    );
+                  })
+                  .catch(err => {
+                    errors.push(err);
+                  })
+                  .then(() => {
                     counter++;
                     if (counter === _.keys(this.serverless.service.functions).length) {
                       if (_.isEmpty(errors)) {
                         resolve();
                       } else {
                         reject(
-                          `Found errors while deploying the given functions:\n${errors.join('\n')}`
+                          'Found errors while deploying the given functions:\n' +
+                          `${errors.join('\n')}`
                         );
                       }
                     }

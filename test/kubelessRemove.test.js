@@ -104,13 +104,23 @@ describe('KubelessRemove', () => {
       fs.mkdirSync(cwd);
       fs.writeFileSync(path.join(cwd, 'function.py'), 'function code');
       sinon.stub(Api.ThirdPartyResources.prototype, 'delete');
+      sinon.stub(Api.Extensions.prototype, 'delete');
+      sinon.stub(Api.Extensions.prototype, 'get');
       Api.ThirdPartyResources.prototype.delete.callsFake((data, ff) => {
+        ff(null, { statusCode: 200 });
+      });
+      // Api.Extensions.prototype.get.callsFake((data, ff) => {
+      //   ff(null, { statusCode: 200, body: { items: [] } });
+      // });
+      Api.Extensions.prototype.delete.callsFake((data, ff) => {
         ff(null, { statusCode: 200 });
       });
       sinon.stub(helpers, 'loadKubeConfig').callsFake(loadKubeConfig);
     });
     afterEach(() => {
       Api.ThirdPartyResources.prototype.delete.restore();
+      Api.Extensions.prototype.delete.restore();
+      Api.Extensions.prototype.get.restore();
       helpers.loadKubeConfig.restore();
       rm(cwd);
     });
@@ -215,6 +225,57 @@ describe('KubelessRemove', () => {
       expect(
         Api.ThirdPartyResources.prototype.delete.firstCall.args[0].path[0]
       ).to.be.eql('/apis/k8s.io/v1/namespaces/test/functions');
+    });
+    it('should remove the ingress controller if exists', () => {
+      Api.Extensions.prototype.get.callsFake((data, ff) => {
+        ff(null, {
+          statusCode: 200,
+          body: {
+            items: [
+              { metadata: { labels: { function: 'myFunction' } } },
+            ],
+          },
+        });
+      });
+      const serverlessWithIngress = _.cloneDeep(serverlessWithFunction);
+      serverlessWithIngress.service.functions.myFunction.events = [{
+        http: null,
+        path: '/test',
+      }];
+      kubelessRemove = new KubelessRemove(serverlessWithIngress, { verbose: false });
+      expect( // eslint-disable-line no-unused-expressions
+        kubelessRemove.removeFunction(cwd)
+      ).to.be.fulfilled;
+      expect(Api.Extensions.prototype.delete.calledOnce).to.be.eql(true);
+      expect(
+        Api.Extensions.prototype.delete.firstCall.args[0].path[0]
+      ).to.be.eql('/apis/extensions/v1beta1/namespaces/default/ingresses');
+    });
+    it('should remove the ingress controller if exists (with a different namespace)', () => {
+      Api.Extensions.prototype.get.callsFake((data, ff) => {
+        ff(null, {
+          statusCode: 200,
+          body: {
+            items: [
+              { metadata: { labels: { function: 'myFunction' } } },
+            ],
+          },
+        });
+      });
+      const serverlessWithIngress = _.cloneDeep(serverlessWithFunction);
+      serverlessWithIngress.service.functions.myFunction.events = [{
+        http: null,
+        path: '/test',
+      }];
+      serverlessWithIngress.service.functions.myFunction.namespace = 'test';
+      kubelessRemove = new KubelessRemove(serverlessWithIngress, { verbose: false });
+      expect( // eslint-disable-line no-unused-expressions
+        kubelessRemove.removeFunction(cwd)
+      ).to.be.fulfilled;
+      expect(Api.Extensions.prototype.delete.calledOnce).to.be.eql(true);
+      expect(
+        Api.Extensions.prototype.delete.firstCall.args[0].path[0]
+      ).to.be.eql('/apis/extensions/v1beta1/namespaces/test/ingresses');
     });
   });
 });

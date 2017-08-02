@@ -22,6 +22,7 @@ const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
 const fs = require('fs');
+const helpers = require('../lib/helpers');
 const moment = require('moment');
 const os = require('os');
 const path = require('path');
@@ -82,6 +83,24 @@ function mockThirdPartyResources(kubelessDeploy, namespace) {
   };
   sinon.stub(kubelessDeploy, 'getThirdPartyResources').returns(thirdPartyResources);
   return thirdPartyResources;
+}
+
+function mockExtensions(kubelessDeploy, namespace) {
+  const extensions = {
+    namespaces: {
+      namespace: namespace || 'default',
+    },
+    ns: {
+      ingress: {
+        post: sinon.stub().callsFake((body, callback) => {
+          callback(null, { statusCode: 200 });
+        }),
+      },
+    },
+    addResource: sinon.stub(),
+  };
+  sinon.stub(kubelessDeploy, 'getExtensions').returns(extensions);
+  return extensions;
 }
 
 function mockKubeConfig() {
@@ -180,7 +199,9 @@ describe('KubelessDeploy', () => {
       restoreKubeConfig(cwd);
     });
     it('should instantiate taking the values from the kubernetes config', () => {
-      const thirdPartyResources = KubelessDeploy.prototype.getThirdPartyResources();
+      const thirdPartyResources = KubelessDeploy.prototype.getThirdPartyResources(
+        helpers.getConnectionOptions(helpers.loadKubeConfig())
+      );
       expect(thirdPartyResources.url).to.be.eql('http://1.2.3.4:4433');
       expect(thirdPartyResources.requestOptions).to.be.eql({
         ca: Buffer.from('LS0tLS1', 'base64'),
@@ -340,14 +361,12 @@ describe('KubelessDeploy', () => {
   });
 
   describe('#deploy', () => {
-    const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+    let cwd = null;
     let handlerFile = null;
     let depsFile = null;
     const functionName = 'myFunction';
     const serverlessWithFunction = _.defaultsDeep({}, serverless, {
-      config: {
-        servicePath: cwd,
-      },
+      config: {},
       service: {
         functions: {},
       },
@@ -359,10 +378,9 @@ describe('KubelessDeploy', () => {
     let kubelessDeploy = null;
     let thirdPartyResources = null;
 
-    before(() => {
-      fs.mkdirSync(cwd);
-    });
     beforeEach(() => {
+      cwd = mockKubeConfig();
+      serverlessWithFunction.config.servicePath = cwd;
       handlerFile = path.join(cwd, 'function.py');
       fs.writeFileSync(handlerFile, 'function code');
       depsFile = path.join(cwd, 'requirements.txt');
@@ -579,6 +597,67 @@ describe('KubelessDeploy', () => {
       ).to.be.eql(labels);
       return result;
     });
+    it('should deploy a function in a specific path', () => {
+      const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomPath.service.functions[functionName].events = [{
+        http: null,
+        path: '/test',
+      }];
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomPath
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      mockExtensions(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction().then(() => {
+          expect(kubelessDeploy.getExtensions.firstCall.args[0].namespace).to.be.eql('custom');
+        })).to.be.fulfilled;
+      return result;
+    });
+    it('should deploy a function in a specific path (with a custom namespace)', () => {
+      const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomPath.service.functions[functionName].events = [{
+        http: null,
+        path: '/test',
+      }];
+      serverlessWithCustomPath.service.functions[functionName].namespace = 'custom';
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomPath
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const extensions = mockExtensions(kubelessDeploy, 'custom');
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction().then(() => {
+          expect(extensions.ns.ingress.post.firstCall.args[0].body).to.be.eql({
+            kind: 'Ingress',
+            metadata: {
+              name: `ingress-${functionName}`,
+              labels: { function: functionName },
+              annotations:
+              {
+                'kubernetes.io/ingress.class': 'nginx',
+                'ingress.kubernetes.io/rewrite-target': '/',
+              },
+            },
+            spec: {
+              rules: [{
+                http: {
+                  paths: [{
+                    path: '/test',
+                    backend: { serviceName: functionName, servicePort: 8080 },
+                  }],
+                },
+              }],
+            },
+          });
+        })
+      ).to.be.fulfilled;
+      return result;
+    });
     it('should fail if a deployment returns an error code', () => {
       thirdPartyResources.ns.functions.post.callsFake((data, ff) => {
         ff({ code: 500, message: 'Internal server error' });
@@ -671,7 +750,6 @@ describe('KubelessDeploy', () => {
     it('should deploy a function with requirements', () => {
       kubelessDeploy = new KubelessDeploy(serverlessWithFunction);
       thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
-      mockKubeConfig(cwd);
       fs.writeFileSync(depsFile, 'request');
       const result = expect(
       kubelessDeploy.deployFunction().then(() => {
