@@ -540,6 +540,45 @@ describe('KubelessDeploy', () => {
       ).to.be.a('function');
       return result;
     });
+    it('should deploy a function with a description', () => {
+      const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
+      const desc = 'Test Description';
+      serverlessWithCustomNamespace.service.functions[functionName].description = desc;
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomNamespace
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post
+          .firstCall.args[0].body.annotations['kubeless.serverless.com/description']
+      ).to.be.eql(desc);
+      return result;
+    });
+    it('should deploy a function with labels', () => {
+      const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
+      const labels = { label1: 'Test Label' };
+      serverlessWithCustomNamespace.service.functions[functionName].labels = labels;
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomNamespace
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.labels
+      ).to.be.eql(labels);
+      return result;
+    });
     it('should fail if a deployment returns an error code', () => {
       thirdPartyResources.ns.functions.post.callsFake((data, ff) => {
         ff({ code: 500, message: 'Internal server error' });

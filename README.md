@@ -39,6 +39,7 @@ plugins:
 
 functions:
   hello:
+    description: 'Hello function'
     handler: handler.hello
 ```
 
@@ -94,9 +95,10 @@ Ports:
   Target Port:  8080
   Node Port:  30018
 Function Info
+Description: Hello function
 Handler:  handler.hello
 Runtime:  python2.7
-Topic:
+Trigger: HTTP
 Dependencies:
 ```
 
