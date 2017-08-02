@@ -82,8 +82,9 @@ class KubelessInfo {
       message += `  ${chalk.yellow('Timestamp: ')} ${service.timestamp}\n`;
     }
     message += `${chalk.yellow.underline('Function Info')}\n`;
-    if (f.annotations && f.annotations.description) {
-      message += `${chalk.yellow('Description:')} ${f.annotations.description}\n`;
+    if (f.annotations && f.annotations['kubeless.serverless.com/description']) {
+      message += `${chalk.yellow('Description:')} ` +
+        `${f.annotations['kubeless.serverless.com/description']}\n`;
     }
     if (f.labels) {
       message += `${chalk.yellow('Labels:\n')}`;

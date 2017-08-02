@@ -245,7 +245,7 @@ class KubelessDeploy {
                   };
                   if (description.description) {
                     funcs.annotations = {
-                      description: description.description,
+                      'kubeless.serverless.com/description': description.description,
                     };
                   }
                   if (description.labels) {

@@ -555,7 +555,8 @@ describe('KubelessDeploy', () => {
       ).to.be.fulfilled;
       expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
       expect(
-        thirdPartyResources.ns.functions.post.firstCall.args[0].body.annotations.description
+        thirdPartyResources.ns.functions.post
+          .firstCall.args[0].body.annotations['kubeless.serverless.com/description']
       ).to.be.eql(desc);
       return result;
     });
