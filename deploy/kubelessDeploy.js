@@ -194,6 +194,7 @@ class KubelessDeploy {
       helpers.loadKubeConfig(), { namespace })
     );
     let retries = 0;
+    let previousPodStatus = '';
     const loop = setInterval(() => {
       if (retries > 3) {
         this.serverless.cli.log(
@@ -241,10 +242,16 @@ class KubelessDeploy {
               );
               clearInterval(loop);
             } else if (this.options.verbose) {
-              this.serverless.cli.log(
-                `Waiting for function ${funcName} to be fully deployed. Pods status: ` +
-                `${_.map(functionPods, p => JSON.stringify(p.status.containerStatuses[0].state))}`
-              );
+              const currentPodStatus = _.map(functionPods, p => (
+                JSON.stringify(p.status.containerStatuses[0].state
+              )));
+              if (!_.isEqual(previousPodStatus, currentPodStatus)) {
+                this.serverless.cli.log(
+                  `Waiting for function ${funcName} to be fully deployed. Pods status: ` +
+                  `${currentPodStatus}`
+                );
+                previousPodStatus = currentPodStatus;
+              }
             }
           }
         }
