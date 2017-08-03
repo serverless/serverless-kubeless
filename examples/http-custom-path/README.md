@@ -51,4 +51,4 @@ hello world
 
 For some providers like Google you may need to add a firewall rule for allowing the traffic for the port 80 and 443 so you can connect to the IP the ingress controller provides.
 
-Note that even though GCE has its own ingress controller available by default it is not suitable for our use since the annotation `ingress.kubernetes.io/rewrite-target` is not interpreted by that controller. You will need to deploy an Nginx controller like the one explained in the [pre requisites section](#pre-requisites).
+Note that even though GCE has its own ingress controller available by default it is not suitable for our use case since the annotation `ingress.kubernetes.io/rewrite-target` is not interpreted by that controller. You will need to deploy an Nginx controller like the one explained in the [pre requisites section](#pre-requisites).
