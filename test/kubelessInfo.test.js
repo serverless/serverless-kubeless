@@ -138,6 +138,35 @@ describe('KubelessInfo', () => {
         },
       });
     });
+
+    // Mock call to get.ingress
+    sinon.stub(Api.Extensions.prototype, 'get').callsFake((p, ff) => {
+      ff(null, {
+        statusCode: 200,
+        body: {
+          items: _.compact(_.map(functions, (f) => {
+            if (f.path) {
+              return {
+                metadata: {
+                  labels: {
+                    function: f.name,
+                  },
+                },
+                spec: {
+                  rules: [{ http: { paths: [{ path: f.path }] } }],
+                },
+                status: {
+                  loadBalancer: {
+                    ingress: [{ ip: '1.2.3.4' }],
+                  },
+                },
+              };
+            }
+            return null;
+          })),
+        },
+      });
+    });
   }
   function infoMock(f) {
     return `\nService Information "${f}"\n` +
@@ -163,6 +192,7 @@ describe('KubelessInfo', () => {
     afterEach(() => {
       Api.Core.prototype.get.restore();
       Api.ThirdPartyResources.prototype.get.restore();
+      Api.Extensions.prototype.get.restore();
       helpers.loadKubeConfig.restore();
     });
     it('should return logs with the correct formating', () => {
@@ -261,6 +291,14 @@ describe('KubelessInfo', () => {
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       kubelessInfo.infoFunction({ color: false }).then((message) => {
         expect(message).to.match(/Labels:\n {2}label1: text1\n {2}label2: text2\n/);
+        done();
+      });
+    });
+    it('should return the trigger topic in case it exists', (done) => {
+      mockGetCalls([{ name: func, namespace: 'default', path: '/hello' }]);
+      const kubelessInfo = new KubelessInfo(serverless, { function: func });
+      kubelessInfo.infoFunction({ color: false }).then((message) => {
+        expect(message).to.match(/URL: {2}1.2.3.4\/hello\n/);
         done();
       });
     });

@@ -24,6 +24,7 @@ const moment = require('moment');
 class KubelessDeployFunction extends KubelessDeploy {
   constructor(serverless, options) {
     super(serverless, options);
+    if (this.options.v) this.options.verbose = true;
     this.hooks = {
       'deploy:function:deploy': () => BbPromise.bind(this)
       .then(this.validate)
@@ -43,10 +44,15 @@ class KubelessDeployFunction extends KubelessDeploy {
           ));
         } else {
           this.waitForDeployment(body.metadata.name, requestMoment);
-          resolve();
+          resolve(true);
         }
       });
     });
+  }
+
+  addIngressRuleIfNecessary() {
+    // It is not necessary to add an Ingress rule again
+    return new BbPromise((r) => r());
   }
 
   deployFunction() {
