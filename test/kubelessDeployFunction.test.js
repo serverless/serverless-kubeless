@@ -81,6 +81,10 @@ function mockPutRequest(kubelessDeploy) {
     },
     addResource: sinon.stub(),
   };
+  thirdPartyResources.ns.functions.get = () => {};
+  sinon.stub(thirdPartyResources.ns.functions, 'get').callsFake((c) => {
+    c(null, { statusCode: 200, body: { items: [] } });
+  });
   sinon.stub(kubelessDeploy, 'getThirdPartyResources').returns(thirdPartyResources);
   return put;
 }
@@ -167,8 +171,7 @@ describe('KubelessDeployFunction', () => {
     it('should not try to deploy a new ingress controller', () => {
       const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomNamespace.service.functions.myFunction.events = [{
-        http: null,
-        path: '/test',
+        http: { path: '/test' },
       }];
       kubelessDeployFunction = instantiateKubelessDeploy(
         handlerFile,

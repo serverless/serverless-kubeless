@@ -133,31 +133,37 @@ class KubelessLogs {
     return new BbPromise((resolve, reject) => {
       core.ns.pods.get((err, podsInfo) => {
         if (err) throw new this.serverless.classes.Error(err);
-        const functionPod = _.find(
+        const functionPods = _.filter(
           podsInfo.items,
-          (podInfo) => podInfo.metadata.labels.function === this.options.function
+          (podInfo) => (
+            podInfo.metadata.labels.function === this.options.function
+          )
         );
-        if (!functionPod) {
+        if (_.isEmpty(functionPods)) {
           reject(
             `Unable to find the pod for the function ${this.options.function}. ` +
             'Please ensure that there is a function deployed with that ID'
           );
-        } else if (this.options.tail) {
-          const APIRootUrl = helpers.getKubernetesAPIURL(helpers.loadKubeConfig());
-          const url = `${APIRootUrl}/api/v1/namespaces/${namespace}/pods/` +
-            `${functionPod.metadata.name}/log?follow=true`;
-          const connectionOptions = Object.assign(
-            helpers.getConnectionOptions(helpers.loadKubeConfig()),
-            { url }
-          );
-          request.get(
-            connectionOptions
-          ).on('data', (d) => this.printFilteredLogs(d.toString().trim(), opts));
         } else {
-          core.ns.pods(functionPod.metadata.name).log.get((errLog, logs) => {
-            if (errLog) throw new this.serverless.classes.Error(errLog);
-            const filteredLogs = this.printFilteredLogs(logs, opts);
-            return resolve(filteredLogs);
+          _.each(functionPods, functionPod => {
+            if (this.options.tail) {
+              const APIRootUrl = helpers.getKubernetesAPIURL(helpers.loadKubeConfig());
+              const url = `${APIRootUrl}/api/v1/namespaces/${namespace}/pods/` +
+                `${functionPod.metadata.name}/log?follow=true`;
+              const connectionOptions = Object.assign(
+                helpers.getConnectionOptions(helpers.loadKubeConfig()),
+                { url }
+              );
+              request.get(
+                connectionOptions
+              ).on('data', (d) => this.printFilteredLogs(d.toString().trim(), opts));
+            } else {
+              core.ns.pods(functionPod.metadata.name).log.get((errLog, logs) => {
+                if (errLog) throw new this.serverless.classes.Error(errLog);
+                const filteredLogs = this.printFilteredLogs(logs, opts);
+                return resolve(filteredLogs);
+              });
+            }
           });
         }
       });

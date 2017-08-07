@@ -77,6 +77,9 @@ function mockThirdPartyResources(kubelessDeploy, namespace) {
         post: sinon.stub().callsFake((body, callback) => {
           callback(null, { statusCode: 200 });
         }),
+        get: sinon.stub().callsFake((callback) => {
+          callback(null, { statusCode: 200, body: { items: [] } });
+        }),
       },
     },
     addResource: sinon.stub(),
@@ -253,7 +256,7 @@ describe('KubelessDeploy', () => {
           },
         });
       });
-      Api.Core.prototype.get.onSecondCall().callsFake((opts, ff) => {
+      Api.Core.prototype.get.callsFake((opts, ff) => {
         ff(null, {
           statusCode: 200,
           body: {
@@ -276,15 +279,60 @@ describe('KubelessDeploy', () => {
       kubelessDeploy.waitForDeployment(f, moment());
       clock.tick(2001);
       expect(Api.Core.prototype.get.callCount).to.be.eql(1);
-      clock.tick(2001);
-      expect(Api.Core.prototype.get.callCount).to.be.eql(2);
+      clock.tick(4001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(3);
       // The timer should be already cleared
+      clock.tick(10001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(3);
+    });
+    it('should wait until a deployment is ready (with no containerStatuses info)', () => {
+      const f = 'test';
+      Api.Core.prototype.get.onFirstCall().callsFake((opts, ff) => {
+        ff(null, {
+          statusCode: 200,
+          body: {
+            items: [{
+              metadata: {
+                labels: { function: f },
+                creationTimestamp: moment().add('1', 's'),
+              },
+              status: {},
+            }],
+          },
+        });
+      });
+      Api.Core.prototype.get.callsFake((opts, ff) => {
+        ff(null, {
+          statusCode: 200,
+          body: {
+            items: [{
+              metadata: {
+                labels: { function: f },
+                creationTimestamp: moment(),
+              },
+              status: {
+                containerStatuses: [{
+                  ready: true,
+                  restartCount: 0,
+                  state: 'Ready',
+                }],
+              },
+            }],
+          },
+        });
+      });
+      kubelessDeploy.waitForDeployment(f, moment());
       clock.tick(2001);
-      expect(Api.Core.prototype.get.callCount).to.be.eql(2);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(1);
+      clock.tick(4001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(3);
+      // The timer should be already cleared
+      clock.tick(10001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(3);
     });
     it('should throw an error if the pod failed to start', () => {
       const f = 'test';
-      Api.Core.prototype.get.onFirstCall().callsFake((opts, ff) => {
+      Api.Core.prototype.get.callsFake((opts, ff) => {
         ff(null, {
           statusCode: 200,
           body: {
@@ -304,15 +352,24 @@ describe('KubelessDeploy', () => {
           },
         });
       });
-      kubelessDeploy.waitForDeployment(f, moment());
-      expect(() => clock.tick(4001)).to.throw('Failed to deploy the function');
+      sinon.stub(kubelessDeploy.serverless.cli, 'log');
+      try {
+        kubelessDeploy.waitForDeployment(f, moment());
+        clock.tick(4001);
+        expect(kubelessDeploy.serverless.cli.log.lastCall.args[0]).to.be.eql(
+          'ERROR: Failed to deploy the function'
+        );
+        expect(process.exitCode).to.be.eql(1);
+      } finally {
+        kubelessDeploy.serverless.cli.log.restore();
+      }
     });
     it('should retry if it fails to retrieve pods info', () => {
       const f = 'test';
       Api.Core.prototype.get.onFirstCall().callsFake((opts, ff) => {
         ff(new Error('etcdserver: request timed out'));
       });
-      Api.Core.prototype.get.onSecondCall().callsFake((opts, ff) => {
+      Api.Core.prototype.get.callsFake((opts, ff) => {
         ff(null, {
           statusCode: 200,
           body: {
@@ -335,11 +392,11 @@ describe('KubelessDeploy', () => {
       kubelessDeploy.waitForDeployment(f, moment());
       clock.tick(2001);
       expect(Api.Core.prototype.get.callCount).to.be.eql(1);
-      clock.tick(2001);
-      expect(Api.Core.prototype.get.callCount).to.be.eql(2);
+      clock.tick(4001);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(3);
       // The timer should be already cleared
       clock.tick(2001);
-      expect(Api.Core.prototype.get.callCount).to.be.eql(2);
+      expect(Api.Core.prototype.get.callCount).to.be.eql(3);
     });
     it('fail if the pod never appears', () => {
       const f = 'test';
@@ -513,6 +570,48 @@ describe('KubelessDeploy', () => {
       ).to.be.a('function');
       return result;
     });
+    it('should skip a deployment if the same specification is already deployed', () => {
+      thirdPartyResources.ns.functions.get.callsFake((ff) => {
+        ff(null, {
+          items: [{
+            metadata: {
+              labels: { function: functionName },
+              creationTimestamp: moment(),
+            },
+            status: {
+              containerStatuses: [{
+                ready: true,
+                restartCount: 0,
+                state: 'Ready',
+              }],
+            },
+            spec: {
+              deps: '',
+              function: 'function code',
+              handler: 'function.hello',
+              runtime: 'python2.7',
+              type: 'HTTP',
+            },
+          }],
+        });
+      });
+      sinon.stub(serverlessWithFunction.cli, 'log');
+      let result = null;
+      try {
+        result = expect( // eslint-disable-line no-unused-expressions
+          kubelessDeploy.deployFunction()
+        ).to.be.fulfilled;
+        expect(serverlessWithFunction.cli.log.lastCall.args).to.be.eql(
+          [
+            `Function ${functionName} has not changed. Skipping deployment`,
+          ]
+        );
+        expect(thirdPartyResources.ns.functions.post.callCount).to.be.eql(0);
+      } finally {
+        serverlessWithFunction.cli.log.restore();
+      }
+      return result;
+    });
     it('should skip a deployment if an error 409 is returned', () => {
       thirdPartyResources.ns.functions.post.callsFake((data, ff) => {
         ff({ code: 409 });
@@ -600,8 +699,7 @@ describe('KubelessDeploy', () => {
     it('should deploy a function in a specific path', () => {
       const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomPath.service.functions[functionName].events = [{
-        http: null,
-        path: '/test',
+        http: { path: '/test' },
       }];
       kubelessDeploy = instantiateKubelessDeploy(
         handlerFile,
@@ -619,8 +717,7 @@ describe('KubelessDeploy', () => {
     it('should deploy a function in a specific path (with a custom namespace)', () => {
       const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomPath.service.functions[functionName].events = [{
-        http: null,
-        path: '/test',
+        http: { path: '/test' },
       }];
       serverlessWithCustomPath.service.functions[functionName].namespace = 'custom';
       kubelessDeploy = instantiateKubelessDeploy(

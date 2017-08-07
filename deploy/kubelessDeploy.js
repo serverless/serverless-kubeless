@@ -194,6 +194,7 @@ class KubelessDeploy {
       helpers.loadKubeConfig(), { namespace })
     );
     let retries = 0;
+    let successfulCount = 0;
     let previousPodStatus = '';
     const loop = setInterval(() => {
       if (retries > 3) {
@@ -230,26 +231,37 @@ class KubelessDeploy {
           } else {
             _.each(functionPods, pod => {
               // We assume that the function pods will only have one container
-              if (pod.status.containerStatuses[0].ready) {
-                runningPods++;
-              } else if (pod.status.containerStatuses[0].restartCount > 2) {
-                throw new Error('Failed to deploy the function');
+              if (pod.status.containerStatuses) {
+                if (pod.status.containerStatuses[0].ready) {
+                  runningPods++;
+                } else if (pod.status.containerStatuses[0].restartCount > 2) {
+                  this.serverless.cli.log('ERROR: Failed to deploy the function');
+                  process.exitCode = process.exitCode || 1;
+                  clearInterval(loop);
+                }
               }
             });
             if (runningPods === functionPods.length) {
-              this.serverless.cli.log(
-                `Function ${funcName} succesfully deployed`
-              );
-              clearInterval(loop);
+              // The pods may be running for a short time
+              // so we should ensure that they are stable
+              successfulCount++;
+              if (successfulCount === 2) {
+                this.serverless.cli.log(
+                    `Function ${funcName} succesfully deployed`
+                  );
+                clearInterval(loop);
+              }
             } else if (this.options.verbose) {
+              successfulCount = 0;
               const currentPodStatus = _.map(functionPods, p => (
-                JSON.stringify(p.status.containerStatuses[0].state
-              )));
+                  p.status.containerStatuses ?
+                    JSON.stringify(p.status.containerStatuses[0].state) :
+                    'unknown'
+                ));
               if (!_.isEqual(previousPodStatus, currentPodStatus)) {
                 this.serverless.cli.log(
-                  `Waiting for function ${funcName} to be fully deployed. Pods status: ` +
-                  `${currentPodStatus}`
-                );
+                    `Pods status: ${currentPodStatus}`
+                  );
                 previousPodStatus = currentPodStatus;
               }
             }
@@ -361,38 +373,53 @@ class KubelessDeploy {
                     eventType,
                     event.trigger
                   );
-                  this.deployFunctionAndWait(funcs, thirdPartyResources)
-                  .catch(err => {
-                    errors.push(err);
-                  })
-                  .then((deployed) => {
-                    if (!deployed) {
-                      // If there were an error with the deployment
-                      // don't try to add an ingress rule
-                      return new BbPromise((r) => r());
+                  let deploymentPromise = null;
+                  thirdPartyResources.ns.functions.get((err, functionsInfo) => {
+                    if (err) throw err;
+                    const existingFunction = _.find(functionsInfo.items, item => (
+                      _.isEqual(item.spec, funcs.spec)
+                    ));
+                    if (existingFunction) {
+                      // The same function is already deployed, skipping the deployment
+                      this.serverless.cli.log(
+                        `Function ${name} has not changed. Skipping deployment`
+                      );
+                      deploymentPromise = new BbPromise(r => r(false));
+                    } else {
+                      deploymentPromise = this.deployFunctionAndWait(funcs, thirdPartyResources);
                     }
-                    return this.addIngressRuleIfNecessary(
-                      name,
-                      eventType,
-                      event.path,
-                      connectionOptions.namespace
-                    );
-                  })
-                  .catch(err => {
-                    errors.push(err);
-                  })
-                  .then(() => {
-                    counter++;
-                    if (counter === _.keys(this.serverless.service.functions).length) {
-                      if (_.isEmpty(errors)) {
-                        resolve();
-                      } else {
-                        reject(
-                          'Found errors while deploying the given functions:\n' +
-                          `${errors.join('\n')}`
+                    deploymentPromise.catch(deploymentErr => {
+                      errors.push(deploymentErr);
+                    })
+                      .then((deployed) => {
+                        if (!deployed) {
+                          // If there were an error with the deployment
+                          // don't try to add an ingress rule
+                          return new BbPromise((r) => r());
+                        }
+                        return this.addIngressRuleIfNecessary(
+                          name,
+                          eventType,
+                          event[eventType].path,
+                          connectionOptions.namespace
                         );
-                      }
-                    }
+                      })
+                      .catch(ingressErr => {
+                        errors.push(ingressErr);
+                      })
+                      .then(() => {
+                        counter++;
+                        if (counter === _.keys(this.serverless.service.functions).length) {
+                          if (_.isEmpty(errors)) {
+                            resolve();
+                          } else {
+                            reject(
+                              'Found errors while deploying the given functions:\n' +
+                              `${errors.join('\n')}`
+                            );
+                          }
+                        }
+                      });
                   });
                 });
               });
