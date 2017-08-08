@@ -11,12 +11,8 @@ module.exports = {
   update: (req, res) => new Promise((resolve, reject) => {
     res.header('Access-Control-Allow-Origin', '*');
     const body = [];
-    req.on('error', (err) => {
-      reject(err);
-      return;
-    }).on('data', (chunk) => {
-      body.push(chunk);
-    }).on('end', () => {
+    req.on('data', (d) => body.push(d));
+    req.on('end', () => {
       const data = JSON.parse(Buffer.concat(body));
       MongoClient.connect(url, (err, db) => {
         if (err) {
@@ -30,14 +26,14 @@ module.exports = {
                 if (ferr) {
                   reject(ferr);
                 } else {
-                  const entry = _.find(docEntries, e => e.Item.id === data.id);
+                  const entry = _.find(docEntries, e => e.id === data.id);
                   const newEntry = _.cloneDeep(entry);
-                  _.assign(newEntry.Item, data, { id: uuid.v1(), updatedAt: new Date().getTime() });
+                  _.assign(newEntry, data, { id: uuid.v1(), updatedAt: new Date().getTime() });
                   doc.updateOne(entry, { $set: newEntry }, (uerr) => {
                     if (uerr) {
                       reject(uerr);
                     } else {
-                      res.end(JSON.stringify(newEntry.Item));
+                      res.end(JSON.stringify(newEntry));
                       db.close();
                       resolve();
                     }
