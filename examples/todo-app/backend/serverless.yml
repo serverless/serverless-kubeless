@@ -1,7 +1,7 @@
 service: todos
 
 provider:
-  name: google
+  name: kubeless
   runtime: nodejs6
 
 plugins:
