@@ -2,7 +2,7 @@
 
 Do the following to deploy and use the backend:
 
-1. Install kubeless following the instruction from the main README.md
+1. Install kubeless following the instruction from the main [README.md](../../../README.md)
 2. Install an Ingress Controller in case you still don't have one:
 ```
 $ curl -sL https://raw.githubusercontent.com/kubeless/kubeless/master/manifests/ingress/ingress-controller.yaml | kubectl create -f - 
