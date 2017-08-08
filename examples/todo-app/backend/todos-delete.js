@@ -15,27 +15,22 @@ module.exports = {
       } else {
         db.collection('todos', (errC, doc) => {
           if (errC) {
-            reject(errC);
+            reject(ferr);
           } else {
             doc.find().toArray((ferr, docEntries) => {
               if (ferr) {
                 reject(ferr);
               } else {
-                const entry = _.find(docEntries, e => e.Item.id === req.query.id);
-                if (entry) {
-                  doc.deleteOne(entry, (derr) => {
-                    if (derr) {
-                      console.error(derr);
-                    }
-                    res.end(JSON.stringify(entry.Item));
+                const entry = _.find(docEntries, e => e.id === req.query.id);
+                doc.deleteOne(entry, (derr) => {
+                  if (derr) {
+                    reject(derr);
+                  } else {
+                    res.end(JSON.stringify(entry));
                     resolve();
                     db.close();
-                  });
-                } else {
-                  res.end('{}');
-                  resolve();
-                  db.close();
-                }
+                  }
+                });
               }
             });
           }

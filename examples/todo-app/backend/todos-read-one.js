@@ -13,20 +13,14 @@ module.exports = {
       if (err) {
         reject(err);
       } else {
-        db.collection('todos', (errC, doc) => {
-          if (errC) {
-            reject(errC);
+        db.collection('todos').find().toArray((ferr, docEntries) => {
+          if (ferr) {
+            reject(ferr);
           } else {
-            doc.find().toArray((ferr, docEntries) => {
-              if (ferr) {
-                reject(ferr);
-              } else {
-                const entry = _.find(docEntries, e => e.Item.id === req.query.id);
-                res.end(JSON.stringify(entry.Item));
-                db.close();
-                resolve();
-              }
-            });
+            const entry = _.find(docEntries, e => e.id === req.query.id);
+            res.end(JSON.stringify(entry));
+            db.close();
+            resolve();
           }
         });
       }

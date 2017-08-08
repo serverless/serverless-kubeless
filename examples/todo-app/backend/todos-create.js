@@ -10,12 +10,8 @@ module.exports = {
   create: (req, res) => new Promise((resolve, reject) => {
     res.header('Access-Control-Allow-Origin', '*');
     const body = [];
-    req.on('error', (err) => {
-      reject(err);
-      return;
-    }).on('data', (chunk) => {
-      body.push(chunk);
-    }).on('end', () => {
+    req.on('data', d => body.push(d));
+    req.on('end', () => {
       const data = JSON.parse(Buffer.concat(body));
       data.id = uuid.v1();
       data.updatedAt = new Date().getTime();
@@ -23,23 +19,13 @@ module.exports = {
         if (cerr) {
           reject(cerr);
         } else {
-          db.collection('todos', (errC, doc) => {
-            if (errC) {
-              reject(errC);
+          db.collection('todos').insertOne(data, (errInsert) => {
+            if (errInsert) {
+              reject(errInsert);
             } else {
-              const params = {
-                TableName: 'todos',
-                Item: data,
-              };
-              doc.insertOne(params, (errInsert) => {
-                if (errInsert) {
-                  reject(errInsert);
-                } else {
-                  res.end(JSON.stringify(data));
-                  resolve();
-                  db.close();
-                }
-              });
+              res.end(JSON.stringify(data));
+              resolve();
+              db.close();
             }
           });
         }
