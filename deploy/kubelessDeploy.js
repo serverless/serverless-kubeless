@@ -34,6 +34,8 @@ function getFunctionDescription(
   handler,
   desc,
   labels,
+  env,
+  memory,
   eventType,
   eventTrigger
 ) {
@@ -58,6 +60,30 @@ function getFunctionDescription(
   }
   if (labels) {
     funcs.labels = labels;
+  }
+  if (env || memory) {
+    const container = {
+      name: funcName,
+    };
+    if (env) {
+      container.env = [];
+      _.each(env, (v, k) => {
+        container.env.push({ name: k, value: v.toString() });
+      });
+    }
+    if (memory) {
+      // If no suffix is given we assume the unit will be `Mi`
+      const memoryWithSuffix = memory.toString().match(/\d+$/) ?
+        `${memory}Mi` :
+        memory;
+      container.resources = {
+        limits: { memory: memoryWithSuffix },
+        requests: { memory: memoryWithSuffix },
+      };
+    }
+    funcs.spec.template = {
+      spec: { containers: [container] },
+    };
   }
   switch (eventType) {
     case 'http':
@@ -370,6 +396,8 @@ class KubelessDeploy {
                     description.handler,
                     description.description,
                     description.labels,
+                    description.environment,
+                    description.memorySize || this.serverless.service.provider.memorySize,
                     eventType,
                     event.trigger
                   );
