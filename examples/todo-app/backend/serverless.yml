@@ -1,0 +1,35 @@
+service: todos
+
+provider:
+  name: kubeless
+  runtime: nodejs6
+
+plugins:
+  - serverless-kubeless
+
+functions:
+  create:
+    handler: todos-create.create
+    events:
+      - http:
+          path: /create
+  read-all:
+    handler: todos-read-all.readAll
+    events:
+      - http:
+          path: /read-all
+  read-one:
+    handler: todos-read-one.readOne
+    events:
+      - http:
+          path: /read
+  update:
+    handler: todos-update.update
+    events:
+      - http:
+          path: /update
+  delete:
+    handler: todos-delete.delete
+    events:
+      - http:
+          path: /delete
