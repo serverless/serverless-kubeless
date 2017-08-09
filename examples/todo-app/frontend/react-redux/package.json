@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "description": "Serverless book todos client",
   "scripts": {
-    "postinstall": "npm install",
     "build": "webpack",
     "start": "webpack-dev-server --hot --inline"
   },
