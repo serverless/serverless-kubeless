@@ -6,3 +6,18 @@ node_js:
 script:
   - npm run lint
   - npm test
+services:
+  - docker
+env:
+  global:
+    - KUBELESS_VERSION=0.0.19
+install:
+  - curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+  - chmod +x ./kubectl
+  - sudo mv ./kubectl /usr/local/bin/kubectl
+  - curl -LO https://cdn.rawgit.com/Mirantis/kubeadm-dind-cluster/master/fixed/dind-cluster-v1.7.sh
+  - chmod +x dind-cluster-v1.7.sh
+  - ./dind-cluster-v1.7.sh up
+  - export PATH="$HOME/.kubeadm-dind-cluster:$PATH"
+  - sleep 5
+  - kubectl get pods
