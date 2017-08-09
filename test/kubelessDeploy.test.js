@@ -707,26 +707,7 @@ describe('KubelessDeploy', () => {
         serverlessWithCustomPath
       );
       thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
-      mockExtensions(kubelessDeploy);
-      const result = expect( // eslint-disable-line no-unused-expressions
-        kubelessDeploy.deployFunction().then(() => {
-          expect(kubelessDeploy.getExtensions.firstCall.args[0].namespace).to.be.eql('custom');
-        })).to.be.fulfilled;
-      return result;
-    });
-    it('should deploy a function in a specific path (with a custom namespace)', () => {
-      const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
-      serverlessWithCustomPath.service.functions[functionName].events = [{
-        http: { path: '/test' },
-      }];
-      serverlessWithCustomPath.service.functions[functionName].namespace = 'custom';
-      kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
-        depsFile,
-        serverlessWithCustomPath
-      );
-      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
-      const extensions = mockExtensions(kubelessDeploy, 'custom');
+      const extensions = mockExtensions(kubelessDeploy);
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction().then(() => {
           expect(extensions.ns.ingress.post.firstCall.args[0].body).to.be.eql({
@@ -751,8 +732,47 @@ describe('KubelessDeploy', () => {
               }],
             },
           });
+        })).to.be.fulfilled;
+      return result;
+    });
+    it('should deploy a function in a specific path (with a custom namespace)', () => {
+      const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomPath.service.functions[functionName].events = [{
+        http: { path: '/test' },
+      }];
+      serverlessWithCustomPath.service.functions[functionName].namespace = 'custom';
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomPath
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      mockExtensions(kubelessDeploy, 'custom');
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction().then(() => {
+          expect(kubelessDeploy.getExtensions.firstCall.args[0].namespace).to.be.eql('custom');
         })
       ).to.be.fulfilled;
+      return result;
+    });
+    it('should deploy a function in a specific path (with a relative path)', () => {
+      const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomPath.service.functions[functionName].events = [{
+        http: { path: 'test' },
+      }];
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomPath
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const extensions = mockExtensions(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction().then(() => {
+          expect(
+            extensions.ns.ingress.post.firstCall.args[0].body.spec.rules[0].http.paths[0].path
+          ).to.be.eql('/test');
+        })).to.be.fulfilled;
       return result;
     });
     it('should fail if a deployment returns an error code', () => {

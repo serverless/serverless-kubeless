@@ -311,7 +311,10 @@ class KubelessDeploy {
     return new BbPromise((resolve, reject) => {
       if (eventType === 'http' && eventPath && eventPath !== '/') {
         // Found a path to deploy the function
-        const ingressDef = getIngressDescription(funcName, eventPath);
+        const absolutePath = _.startsWith(eventPath, '/') ?
+          eventPath :
+          `/${eventPath}`;
+        const ingressDef = getIngressDescription(funcName, absolutePath);
         extensions.ns.ingress.post({ body: ingressDef }, (err) => {
           if (err) {
             reject(
@@ -320,7 +323,7 @@ class KubelessDeploy {
             );
           } else {
             if (this.options.verbose) {
-              this.serverless.cli.log(`Deployed Ingress rule to map ${eventPath}`);
+              this.serverless.cli.log(`Deployed Ingress rule to map ${absolutePath}`);
             }
             resolve();
           }
