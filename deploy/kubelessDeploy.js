@@ -104,7 +104,7 @@ class KubelessDeploy {
   constructor(serverless, options) {
     this.serverless = serverless;
     this.options = options || {};
-    this.provider = this.serverless.getProvider('google');
+    this.provider = this.serverless.getProvider('kubeless');
 
     this.hooks = {
       'deploy:deploy': () => BbPromise.bind(this)

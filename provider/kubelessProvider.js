@@ -16,19 +16,17 @@
 
 'use strict';
 
-const constants = {
-  providerName: 'google',
-};
+const providerName = 'kubeless';
 
 class KubelessProvider {
   static getProviderName() {
-    return constants.providerName;
+    return providerName;
   }
 
   constructor(serverless) {
     this.serverless = serverless;
     this.provider = this;
-    this.serverless.setProvider(constants.providerName, this);
+    this.serverless.setProvider(providerName, this);
   }
 
 }

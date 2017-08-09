@@ -27,7 +27,7 @@ class KubelessLogs {
   constructor(serverless, options) {
     this.serverless = serverless;
     this.options = options || {};
-    this.provider = this.serverless.getProvider('google');
+    this.provider = this.serverless.getProvider('kubeless');
     this.commands = {
       logs: {
         usage: 'Output the logs of a deployed function',

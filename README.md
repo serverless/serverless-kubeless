@@ -31,7 +31,7 @@ $ cat serverless.yml
 service: hello
 
 provider:
-  name: google
+  name: kubeless
   runtime: python2.7
 
 plugins:
