@@ -115,7 +115,7 @@ class KubelessInfo {
   infoFunction(options) {
     let counter = 0;
     let message = '';
-    return new BbPromise((resolve) => {
+    return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (desc, f) => {
         const connectionOptions = helpers.getConnectionOptions(helpers.loadKubeConfig(), {
           namespace: desc.namespace || this.serverless.service.provider.namespace,
@@ -138,46 +138,50 @@ class KubelessInfo {
                   service.metadata.labels.function === f
                 )
               );
-              const fIngress = _.find(ingressInfo.items, item => (
-                item.metadata.labels && item.metadata.labels.function === f
-              ));
-              let url = null;
-              if (fIngress) {
-                url = `${fIngress.status.loadBalancer.ingress[0].ip}` +
-                  `${fIngress.spec.rules[0].http.paths[0].path}`;
-              }
-              const service = {
-                name: functionService.metadata.name,
-                ip: functionService.spec.clusterIP,
-                type: functionService.spec.type,
-                ports: functionService.spec.ports,
-                selfLink: functionService.metadata.selfLink,
-                uid: functionService.metadata.uid,
-                timestamp: functionService.metadata.creationTimestamp,
-              };
-              const func = {
-                name: f,
-                url,
-                handler: fDesc.spec.handler,
-                runtime: fDesc.spec.runtime,
-                topic: fDesc.spec.topic,
-                type: fDesc.spec.type,
-                deps: fDesc.spec.deps,
-                annotations: fDesc.annotations,
-                labels: fDesc.labels,
-                selfLink: fDesc.metadata.selfLink,
-                uid: fDesc.metadata.uid,
-                timestamp: fDesc.metadata.creationTimestamp,
-              };
-              message += this.formatMessage(
-                service,
-                func,
-                _.defaults({}, options, { color: true })
-              );
-              counter++;
-              if (counter === _.keys(this.serverless.service.functions).length) {
-                this.serverless.cli.consoleLog(message);
-                resolve(message);
+              if (_.isEmpty(functionService) || _.isEmpty(fDesc)) {
+                reject(`Unable to find information for ${f}`);
+              } else {
+                const fIngress = _.find(ingressInfo.items, item => (
+                  item.metadata.labels && item.metadata.labels.function === f
+                ));
+                let url = null;
+                if (fIngress && !_.isEmpty(fIngress.status.loadBalancer.ingress)) {
+                  url = `${fIngress.status.loadBalancer.ingress[0].ip}` +
+                    `${fIngress.spec.rules[0].http.paths[0].path}`;
+                }
+                const service = {
+                  name: functionService.metadata.name,
+                  ip: functionService.spec.clusterIP,
+                  type: functionService.spec.type,
+                  ports: functionService.spec.ports,
+                  selfLink: functionService.metadata.selfLink,
+                  uid: functionService.metadata.uid,
+                  timestamp: functionService.metadata.creationTimestamp,
+                };
+                const func = {
+                  name: f,
+                  url,
+                  handler: fDesc.spec.handler,
+                  runtime: fDesc.spec.runtime,
+                  topic: fDesc.spec.topic,
+                  type: fDesc.spec.type,
+                  deps: fDesc.spec.deps,
+                  annotations: fDesc.annotations,
+                  labels: fDesc.labels,
+                  selfLink: fDesc.metadata.selfLink,
+                  uid: fDesc.metadata.uid,
+                  timestamp: fDesc.metadata.creationTimestamp,
+                };
+                message += this.formatMessage(
+                  service,
+                  func,
+                  _.defaults({}, options, { color: true })
+                );
+                counter++;
+                if (counter === _.keys(this.serverless.service.functions).length) {
+                  this.serverless.cli.consoleLog(message);
+                  resolve(message);
+                }
               }
             });
           });

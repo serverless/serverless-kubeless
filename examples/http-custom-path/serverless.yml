@@ -1,4 +1,4 @@
-service: hello
+service: hello-http
 
 provider:
   name: kubeless
@@ -8,7 +8,7 @@ plugins:
   - serverless-kubeless
 
 functions:
-  hello:
+  hello-http:
     handler: handler.hello
     events:
       - http:

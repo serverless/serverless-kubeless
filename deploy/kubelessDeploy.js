@@ -380,6 +380,7 @@ class KubelessDeploy {
                   thirdPartyResources.ns.functions.get((err, functionsInfo) => {
                     if (err) throw err;
                     const existingFunction = _.find(functionsInfo.items, item => (
+                      name === item.metadata.name &&
                       _.isEqual(item.spec, funcs.spec)
                     ));
                     if (existingFunction) {

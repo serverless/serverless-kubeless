@@ -11,13 +11,24 @@ services:
 env:
   global:
     - KUBELESS_VERSION=0.0.19
+    - DIND_CLUSTER_VERSION=1.7
 install:
+  # Install kubectl and a kubeadm cluster
   - curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
   - chmod +x ./kubectl
   - sudo mv ./kubectl /usr/local/bin/kubectl
-  - curl -LO https://cdn.rawgit.com/Mirantis/kubeadm-dind-cluster/master/fixed/dind-cluster-v1.7.sh
-  - chmod +x dind-cluster-v1.7.sh
-  - ./dind-cluster-v1.7.sh up
+  - curl -LO https://cdn.rawgit.com/Mirantis/kubeadm-dind-cluster/master/fixed/dind-cluster-v$DIND_CLUSTER_VERSION.sh
+  - chmod +x dind-cluster-v$DIND_CLUSTER_VERSION.sh
+  - ./dind-cluster-v$DIND_CLUSTER_VERSION.sh up
   - export PATH="$HOME/.kubeadm-dind-cluster:$PATH"
   - sleep 5
-  - kubectl get pods
+  # Install kubeless
+  - kubectl create ns kubeless
+  - curl -sL https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless-$KUBELESS_VERSION.yaml | kubectl create -f -
+  - curl -sL https://raw.githubusercontent.com/kubeless/kubeless/master/manifests/ingress/ingress-controller.yaml | kubectl create -f -
+  - curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
+  - unzip kubeless_linux-amd64.zip
+  - sudo mv ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/kubeless
+  # Install npm dependencies
+  - npm install -g serverless
+  - npm install

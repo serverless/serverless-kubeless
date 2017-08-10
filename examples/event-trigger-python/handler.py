@@ -1,2 +1,2 @@
-def hello(context):
+def events(context):
     return context

@@ -8,7 +8,8 @@
   },
   "scripts": {
     "lint": "eslint . --cache",
-    "test": "mocha test/*.test.js"
+    "test": "mocha test/*.test.js",
+    "examples": "mocha test/examples-test.js"
   },
   "repository": {
     "type": "git",
@@ -38,7 +39,9 @@
     "eslint-plugin-import": "^1.16.0",
     "eslint-plugin-jsx-a11y": "^2.1.0",
     "eslint-plugin-react": "^6.1.1",
+    "fs-extra": "^4.0.1",
     "mocha": "^3.4.2",
+    "request": "^2.81.0",
     "sinon": "^2.3.6"
   }
 }

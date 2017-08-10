@@ -26,7 +26,7 @@ module.exports = {
                 if (ferr) {
                   reject(ferr);
                 } else {
-                  const entry = _.find(docEntries, e => e.id === data.id);
+                  const entry = _.find(docEntries, e => e.id === req.query.id);
                   const newEntry = _.cloneDeep(entry);
                   _.assign(newEntry, data, { id: uuid.v1(), updatedAt: new Date().getTime() });
                   doc.updateOne(entry, { $set: newEntry }, (uerr) => {
