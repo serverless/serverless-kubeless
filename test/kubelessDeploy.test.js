@@ -575,6 +575,7 @@ describe('KubelessDeploy', () => {
         ff(null, {
           items: [{
             metadata: {
+              name: functionName,
               labels: { function: functionName },
               creationTimestamp: moment(),
             },
