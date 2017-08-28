@@ -1,7 +1,6 @@
 language: node_js
 node_js:
   - "8"
-  - "7"
   - "6"
 script:
   - npm run lint
@@ -12,7 +11,6 @@ services:
 env:
   global:
     - KUBELESS_VERSION=0.0.20
-    - DIND_CLUSTER_VERSION=1.7
 install:
   # Install kubectl and a kubeadm cluster
   - curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
