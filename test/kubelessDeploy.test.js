@@ -697,6 +697,82 @@ describe('KubelessDeploy', () => {
       ).to.be.eql(labels);
       return result;
     });
+    it('should deploy a function with environment variables', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+      const env = { VAR: 'test', OTHER_VAR: 'test2' };
+      serverlessWithEnvVars.service.functions[functionName].environment = env;
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.spec.template.spec.containers
+      ).to.be.eql([
+        {
+          name: functionName,
+          env: [{ name: 'VAR', value: 'test' }, { name: 'OTHER_VAR', value: 'test2' }],
+        },
+      ]);
+      return result;
+    });
+    it('should deploy a function with a memory limit', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+      serverlessWithEnvVars.service.functions[functionName].memorySize = 128;
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.spec.template.spec.containers
+      ).to.be.eql([
+        {
+          name: functionName,
+          resources: {
+            limits: { memory: '128Mi' },
+            requests: { memory: '128Mi' },
+          },
+        },
+      ]);
+      return result;
+    });
+    it('should deploy a function with a memory limit (in the provider definition)', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+      serverlessWithEnvVars.service.provider.memorySize = '128Gi';
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.spec.template.spec.containers
+      ).to.be.eql([
+        {
+          name: functionName,
+          resources: {
+            limits: { memory: '128Gi' },
+            requests: { memory: '128Gi' },
+          },
+        },
+      ]);
+      return result;
+    });
     it('should deploy a function in a specific path', () => {
       const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomPath.service.functions[functionName].events = [{

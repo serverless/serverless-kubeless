@@ -11,7 +11,7 @@ Make sure you have a kubernetes endpoint running and kubeless installed:
 ```bash
 $ kubectl version
 $ brew install kubeless/tap/kubeless
-$ KUBELESS_VERSION=0.0.19
+$ KUBELESS_VERSION=0.0.20
 $ kubectl create ns kubeless
 $ curl -sL https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless-$KUBELESS_VERSION.yaml | kubectl create -f -
 ```
@@ -52,6 +52,8 @@ Deploy function.
 ```bash
 $ serverless deploy
 Serverless: Packaging service...
+Serverless: Excluding development dependencies...
+Serverless: Deploying function hello...
 Serverless: Function hello succesfully deployed
 ```
 

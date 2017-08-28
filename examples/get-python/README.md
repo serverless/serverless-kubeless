@@ -7,5 +7,5 @@ $ serverless invoke -f echo  -l
 Serverless: Calling function: echo...
 --------------------------------------------------------------------
 hello world
-$ servereless remove
+$ serverless remove
 ```

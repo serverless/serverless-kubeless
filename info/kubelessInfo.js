@@ -139,14 +139,16 @@ class KubelessInfo {
                 )
               );
               if (_.isEmpty(functionService) || _.isEmpty(fDesc)) {
-                reject(`Unable to find information for ${f}`);
+                this.serverless.cli.consoleLog(
+                  `Not found any information about the function "${f}"`
+                );
               } else {
                 const fIngress = _.find(ingressInfo.items, item => (
                   item.metadata.labels && item.metadata.labels.function === f
                 ));
                 let url = null;
-                if (fIngress && !_.isEmpty(fIngress.status.loadBalancer.ingress)) {
-                  url = `${fIngress.status.loadBalancer.ingress[0].ip}` +
+                if (fIngress) {
+                  url = `${fIngress.status.loadBalancer.ingress[0].ip || 'API_URL'}` +
                     `${fIngress.spec.rules[0].http.paths[0].path}`;
                 }
                 const service = {
@@ -177,11 +179,13 @@ class KubelessInfo {
                   func,
                   _.defaults({}, options, { color: true })
                 );
-                counter++;
-                if (counter === _.keys(this.serverless.service.functions).length) {
+              }
+              counter++;
+              if (counter === _.keys(this.serverless.service.functions).length) {
+                if (!_.isEmpty(message)) {
                   this.serverless.cli.consoleLog(message);
-                  resolve(message);
                 }
+                resolve(message);
               }
             });
           });

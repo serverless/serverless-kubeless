@@ -9,4 +9,5 @@ plugins:
 
 functions:
   hello:
+    description: 'Hello function'
     handler: handler.hello

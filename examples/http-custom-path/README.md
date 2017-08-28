@@ -7,7 +7,7 @@ In this example we will deploy a function that will be available under the path 
 We will need to have an Ingress controller deployed in order to be able to deploy your function in a specific path. If you don't have it yet you can deploy one executing:
 
 ```
-curl -sL https://raw.githubusercontent.com/kubeless/kubeless/master/manifests/ingress/ingress-controller-http-only.yaml | kubectl create -f -  
+curl -sL https://raw.githubusercontent.com/kubeless/kubeless/0.0.20/manifests/ingress/ingress-controller.yaml | kubectl create -f -  
 ```
 
 ## Deployment
