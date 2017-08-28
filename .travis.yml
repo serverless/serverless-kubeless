@@ -20,7 +20,7 @@ install:
   # Install kubeless
   - kubectl create ns kubeless
   - curl -sL https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless-$KUBELESS_VERSION.yaml | kubectl create -f -
-  - curl -sL https://raw.githubusercontent.com/kubeless/kubeless/master/manifests/ingress/ingress-controller-http-only.yaml | kubectl create -f -
+  - curl -sL https://raw.githubusercontent.com/kubeless/kubeless/0.0.20/manifests/ingress/ingress-controller.yaml | kubectl create -f -
   - curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
   - unzip kubeless_linux-amd64.zip
   - sudo mv ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/kubeless
