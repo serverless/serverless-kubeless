@@ -261,6 +261,35 @@ describe('KubelessInfo', () => {
         done();
       });
     });
+    it('should return an error message if no function is found', (done) => {
+      mockGetCalls([]);
+      const serverlessWithNS = getServerlessObj({
+        service: {
+          provider: {
+            namespace: 'custom-1',
+          },
+          functions: {
+            'my-function-1': {},
+          },
+        },
+      });
+      sinon.stub(helpers, 'getConnectionOptions');
+      sinon.stub(serverlessWithNS.cli, 'consoleLog');
+      helpers.getConnectionOptions.onFirstCall().returns({ namespace: 'custom-1' });
+      const kubelessInfo = new KubelessInfo(serverlessWithNS);
+      kubelessInfo.infoFunction().then(() => {
+        expect(helpers.getConnectionOptions.callCount).to.be.eql(1);
+        expect(helpers.getConnectionOptions.firstCall.args[1]).to.be.eql({
+          namespace: 'custom-1',
+        });
+        expect(serverlessWithNS.cli.consoleLog.callCount).to.be.eql(1);
+        expect(serverlessWithNS.cli.consoleLog.firstCall.args[0]).to.be.eql(
+          'Not found any information about the function "my-function-1"'
+        );
+        helpers.getConnectionOptions.restore();
+        done();
+      });
+    });
     it('should return the trigger topic in case it exists', (done) => {
       mockGetCalls(
         [{ name: func, namespace: 'default' }],
