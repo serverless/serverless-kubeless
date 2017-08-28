@@ -7,5 +7,5 @@ $ serverless invoke -f echo --data '{"foo":"bar"}' -l
 Serverless: Calling function: echo...
 --------------------------------------------------------------------
 { foo: 'bar' }
-$ servereless remove
+$ serverless remove
 ```

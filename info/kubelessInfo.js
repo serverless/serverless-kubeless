@@ -143,7 +143,7 @@ class KubelessInfo {
               ));
               let url = null;
               if (fIngress) {
-                url = `${fIngress.status.loadBalancer.ingress[0].ip}` +
+                url = `${fIngress.status.loadBalancer.ingress[0].ip || 'API_URL'}` +
                   `${fIngress.spec.rules[0].http.paths[0].path}`;
               }
               const service = {
