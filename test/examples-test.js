@@ -62,7 +62,7 @@ function removeExample(cwd, example, callback) {
 describe('Examples', () => {
   let cwd = null;
 
-  xdescribe('event-trigger-python', function () {
+  describe('event-trigger-python', function () {
     this.timeout(10000);
     before(function (done) {
       this.timeout(300000);
