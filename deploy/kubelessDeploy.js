@@ -401,6 +401,12 @@ class KubelessDeploy {
                           // don't try to add an ingress rule
                           return new BbPromise((r) => r());
                         }
+                        if (_.isEmpty(event[eventType])) {
+                          throw new Error(
+                            `Wrong defintion for the event ${event}. ` +
+                            'Expecting an Object with valid keys.'
+                          );
+                        }
                         return this.addIngressRuleIfNecessary(
                           name,
                           eventType,
