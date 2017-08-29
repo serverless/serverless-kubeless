@@ -97,14 +97,17 @@ describe('Examples', () => {
       removeExample(cwd, 'event-trigger-python', done);
     });
     it('should get a submmited message "hello world"', (done) => {
-      exec('kubeless topic publish --topic hello_topic --data "hello world"', (err) => {
-        if (err) throw err;
+      exec('kubeless topic publish --topic hello_topic --data "hello world"', (err, stdout) => {
+        if (err) {
+          console.error(stdout);
+          throw err;
+        }
         exec(
           'serverless logs -f events',
           { cwd: `${cwd}/event-trigger-python` },
-          (eerr, stdout) => {
+          (eerr, logs) => {
             if (eerr) throw eerr;
-            expect(stdout).to.contain('hello world');
+            expect(logs).to.contain('hello world');
             done();
           }
         );
