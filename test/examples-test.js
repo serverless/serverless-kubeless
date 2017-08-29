@@ -19,11 +19,11 @@
 const exec = require('child_process').exec;
 const expect = require('chai').expect;
 const fs = require('fs-extra');
+const helpers = require('../lib/helpers');
 const moment = require('moment');
 const os = require('os');
 const path = require('path');
 const request = require('request');
-
 
 function deployExample(cwd, example, callback) {
   fs.copy(`${__dirname}/../examples/${example}`, `${cwd}/${example}`, (err) => {
@@ -39,7 +39,7 @@ function deployExample(cwd, example, callback) {
             if (linkErr) throw linkErr;
             exec('serverless deploy', { cwd: `${cwd}/${example}` }, (deployErr, stdout) => {
               if (deployErr) {
-                console.error(`ERROR: ${example} failed to be deployed:\n${stdout}`);
+                console.error(`ERROR: ${example} failed to be deployed:\n${stdout}\n${deployErr}`);
               }
               callback();
             });
@@ -56,6 +56,28 @@ function removeExample(cwd, example, callback) {
       if (rmErr) throw rmErr;
       callback();
     });
+  });
+}
+
+function getURL(info, regexp) {
+  let URL = info.match(regexp || /URL:\s+(.*)/)[1];
+  if (URL.match('API_URL')) {
+    URL = URL.replace(
+      'API_URL',
+      helpers.getKubernetesAPIURL(helpers.loadKubeConfig()).replace(/:[0-9]+$/, ''));
+  }
+  return URL;
+}
+
+function postWithRedirect(url, body, callback) {
+  request.post({ url, body, strictSSL: false }, (err, res) => {
+    if (res.statusCode === 301) {
+      request.post({ url: res.headers.location, body, strictSSL: false }, (errR, resR) => {
+        callback(errR, resR);
+      });
+    } else {
+      callback(err, res);
+    }
   });
 }
 
@@ -136,7 +158,7 @@ describe('Examples', () => {
       cwd = path.join(os.tmpdir(), moment().valueOf().toString());
       fs.mkdirSync(cwd);
       deployExample(cwd, 'http-custom-path', () => {
-        setTimeout(done, 10000);
+        setTimeout(done, 15000);
       });
     });
     after(function (done) {
@@ -146,9 +168,9 @@ describe('Examples', () => {
     it('should return a "hello world" in a subpath', (done) => {
       exec('serverless info', { cwd: `${cwd}/http-custom-path` }, (err, stdout) => {
         if (err) throw err;
-        const URL = stdout.match(/URL:\s+(.*)/)[1];
+        const URL = getURL(stdout);
         expect(URL).to.match(/.*\/hello/);
-        request.get({ url: `https://${URL}`, strictSSL: false }, (gerr, res) => {
+        request.get({ url: URL, strictSSL: false }, (gerr, res) => {
           if (gerr) throw gerr;
           expect(res.body).to.contain('hello world');
           done();
@@ -310,6 +332,7 @@ describe('Examples', () => {
         }
       );
     });
+
     after(function (done) {
       this.timeout(300000);
       exec(`kubectl delete -f ${cwd}/mongodb.yaml`, (kerr) => {
@@ -318,11 +341,12 @@ describe('Examples', () => {
         }
         removeExample(cwd, 'todo-app/backend', done);
       });
+      done();
     });
     it('should create a TODO', (done) => {
-      const URL = info.match(/Service Information "create"\n(?:.*\n)*?URL:\s+(.*)/)[1];
+      const URL = getURL(info, /Service Information "create"\n(?:.*\n)*?URL:\s+(.*)/);
       expect(URL).to.match(/.*\/create/);
-      request.post({ url: `https://${URL}`, body: '{"body": "test"}', strictSSL: false }, (err, res) => {
+      postWithRedirect(URL, '{"body": "test"}', (err, res) => {
         if (err) throw err;
         const response = JSON.parse(res.body);
         expect(response).to.contain.keys(['body', 'id', 'updatedAt']);
@@ -332,9 +356,9 @@ describe('Examples', () => {
       });
     });
     it('should read all the TODOs', (done) => {
-      const URL = info.match(/Service Information "read-all"\n(?:.*\n)*?URL:\s+(.*)/)[1];
+      const URL = getURL(info, /Service Information "read-all"\n(?:.*\n)*?URL:\s+(.*)/);
       expect(URL).to.match(/.*\/read-all/);
-      request.get({ url: `https://${URL}`, strictSSL: false }, (err, res) => {
+      request.get({ url: URL, strictSSL: false }, (err, res) => {
         if (err) throw err;
         const response = JSON.parse(res.body);
         expect(response).to.be.an('array').with.length(1);
@@ -344,9 +368,9 @@ describe('Examples', () => {
       });
     });
     it('should read one TODO', (done) => {
-      const URL = info.match(/Service Information "read-one"\n(?:.*\n)*?URL:\s+(.*)/m)[1];
+      const URL = getURL(info, /Service Information "read-one"\n(?:.*\n)*?URL:\s+(.*)/m);
       expect(URL).to.match(/.*\/read/);
-      request.get({ url: `https://${URL}?id=${id}`, strictSSL: false }, (err, res) => {
+      request.get({ url: `${URL}?id=${id}`, strictSSL: false }, (err, res) => {
         if (err) throw err;
         const response = JSON.parse(res.body);
         expect(response).to.contain.keys(['body', 'id', 'updatedAt']);
@@ -355,9 +379,9 @@ describe('Examples', () => {
       });
     });
     it('should update one TODO', (done) => {
-      const URL = info.match(/Service Information "update"\n(?:.*\n)*?URL:\s+(.*)/m)[1];
+      const URL = getURL(info, /Service Information "update"\n(?:.*\n)*?URL:\s+(.*)/m);
       expect(URL).to.match(/.*\/update/);
-      request.post({ url: `https://${URL}?id=${id}`, body: '{"body": "new-test"}', strictSSL: false }, (err, res) => {
+      postWithRedirect(`${URL}?id=${id}`, '{"body": "new-test"}', (err, res) => {
         if (err) throw err;
         const response = JSON.parse(res.body);
         expect(response).to.contain.keys(['body', 'id', 'updatedAt']);
@@ -367,9 +391,9 @@ describe('Examples', () => {
       });
     });
     it('should delete one TODO', (done) => {
-      const URL = info.match(/Service Information "delete"\n(?:.*\n)*?URL:\s+(.*)/m)[1];
+      const URL = getURL(info, /Service Information "delete"\n(?:.*\n)*?URL:\s+(.*)/m);
       expect(URL).to.match(/.*\/delete/);
-      request.get({ url: `https://${URL}?id=${id}`, strictSSL: false }, (err, res) => {
+      request.get({ url: `${URL}?id=${id}`, strictSSL: false }, (err, res) => {
         if (err) throw err;
         const response = JSON.parse(res.body);
         expect(response).to.contain.keys(['body', 'id', 'updatedAt']);
