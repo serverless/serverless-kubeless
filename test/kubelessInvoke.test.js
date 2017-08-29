@@ -240,6 +240,103 @@ describe('KubelessInvoke', () => {
         `${kubeApiURL}/api/v1/proxy/namespaces/test/services/my-function/`
       );
     });
+    it('calls the API in the correct sequence', (done) => {
+      const serverlessWithSequence = _.cloneDeep(serverless);
+      serverlessWithSequence.service.functions = {
+        sequenceFunc: {
+          sequence: ['func1', 'func2', 'func3'],
+        },
+        func1: {},
+        func2: {},
+        func3: {},
+      };
+      const kubelessInvoke = new KubelessInvoke(serverlessWithSequence, {
+        function: 'sequenceFunc',
+        data: 'hello',
+      });
+      request.post.onFirstCall().callsFake((opts, f) => {
+        f(null, {
+          statusCode: 200,
+          statusMessage: 'OK',
+          body: 'a',
+        });
+      });
+      request.post.onSecondCall().callsFake((opts, f) => {
+        f(null, {
+          statusCode: 200,
+          statusMessage: 'OK',
+          body: 'b',
+        });
+      });
+      request.post.onThirdCall().callsFake((opts, f) => {
+        f(null, {
+          statusCode: 200,
+          statusMessage: 'OK',
+          body: 'c',
+        });
+      });
+      kubelessInvoke.invokeFunction().then(res => {
+        expect(res).to.be.eql({
+          statusCode: 200,
+          statusMessage: 'OK',
+          body: 'c',
+        });
+        expect(request.post.callCount).to.be.eql(3);
+        expect(request.post.firstCall.args[0].url).to.be.eql(
+          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func1/`
+        );
+        expect(request.post.firstCall.args[0].body).to.be.eql('hello');
+        expect(request.post.secondCall.args[0].url).to.be.eql(
+          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func2/`
+        );
+        expect(request.post.secondCall.args[0].body).to.be.eql('a');
+        expect(request.post.thirdCall.args[0].url).to.be.eql(
+          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func3/`
+        );
+        expect(request.post.thirdCall.args[0].body).to.be.eql('b');
+        done();
+      });
+    });
+    it('interrupts a sequence if any of the steps fails', (done) => {
+      const serverlessWithSequence = _.cloneDeep(serverless);
+      serverlessWithSequence.service.functions = {
+        sequenceFunc: {
+          sequence: ['func1', 'func2', 'func3'],
+        },
+        func1: {},
+        func2: {},
+        func3: {},
+      };
+      const kubelessInvoke = new KubelessInvoke(serverlessWithSequence, {
+        function: 'sequenceFunc',
+        data: 'hello',
+      });
+      request.post.onFirstCall().callsFake((opts, f) => {
+        f(null, {
+          statusCode: 200,
+          statusMessage: 'OK',
+          body: 'a',
+        });
+      });
+      request.post.onSecondCall().callsFake((opts, f) => {
+        f(null, {
+          statusCode: 500,
+          statusMessage: 'INTERNAL ERROR',
+        });
+      });
+      request.post.onThirdCall().callsFake((opts, f) => {
+        f(null, {
+          statusCode: 200,
+          statusMessage: 'OK',
+          body: 'c',
+        });
+      });
+      kubelessInvoke.invokeFunction().catch(err => {
+        expect(request.post.callCount).to.be.eql(2);
+        expect(err.message).to.be.eql('INTERNAL ERROR');
+        done();
+      });
+    });
   });
   describe('#log', () => {
     it('should print the body of the response', () => {

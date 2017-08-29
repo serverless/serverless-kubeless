@@ -369,92 +369,98 @@ class KubelessDeploy {
     return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (description, name) => {
         const runtime = this.serverless.service.provider.runtime;
-        const files = this.getRuntimeFilenames(runtime, description.handler);
-        const connectionOptions = helpers.getConnectionOptions(
-          helpers.loadKubeConfig(), {
-            namespace: description.namespace ||
-            this.serverless.service.provider.namespace,
-          }
-        );
-        const thirdPartyResources = this.getThirdPartyResources(connectionOptions);
-        thirdPartyResources.addResource('functions');
-        this.getFunctionContent(files.handler)
-          .then(functionContent => {
-            this.getFunctionContent(files.deps)
-              .catch(() => {
-                // No requirements found
-              })
-              .then((requirementsContent) => {
-                const events = !_.isEmpty(description.events) ?
-                  description.events :
-                  [{ http: { path: '/' } }];
-                _.each(events, event => {
-                  const eventType = _.keys(event)[0];
-                  const funcs = getFunctionDescription(
-                    name,
-                    thirdPartyResources.namespaces.namespace,
-                    this.serverless.service.provider.runtime,
-                    requirementsContent,
-                    functionContent,
-                    description.handler,
-                    description.description,
-                    description.labels,
-                    description.environment,
-                    description.memorySize || this.serverless.service.provider.memorySize,
-                    eventType,
-                    event.trigger
-                  );
-                  let deploymentPromise = null;
-                  thirdPartyResources.ns.functions.get((err, functionsInfo) => {
-                    if (err) throw err;
-                    const existingFunction = _.find(functionsInfo.items, item => (
-                      _.isEqual(item.spec, funcs.spec)
-                    ));
-                    if (existingFunction) {
-                      // The same function is already deployed, skipping the deployment
-                      this.serverless.cli.log(
-                        `Function ${name} has not changed. Skipping deployment`
-                      );
-                      deploymentPromise = new BbPromise(r => r(false));
-                    } else {
-                      deploymentPromise = this.deployFunctionAndWait(funcs, thirdPartyResources);
-                    }
-                    deploymentPromise.catch(deploymentErr => {
-                      errors.push(deploymentErr);
-                    })
-                      .then((deployed) => {
-                        if (!deployed) {
-                          // If there were an error with the deployment
-                          // don't try to add an ingress rule
-                          return new BbPromise((r) => r());
-                        }
-                        return this.addIngressRuleIfNecessary(
-                          name,
-                          eventType,
-                          event[eventType].path,
-                          connectionOptions.namespace
+        if (description.handler) {
+          const files = this.getRuntimeFilenames(runtime, description.handler);
+          const connectionOptions = helpers.getConnectionOptions(
+            helpers.loadKubeConfig(), {
+              namespace: description.namespace ||
+              this.serverless.service.provider.namespace,
+            }
+          );
+          const thirdPartyResources = this.getThirdPartyResources(connectionOptions);
+          thirdPartyResources.addResource('functions');
+          this.getFunctionContent(files.handler)
+            .then(functionContent => {
+              this.getFunctionContent(files.deps)
+                .catch(() => {
+                  // No requirements found
+                })
+                .then((requirementsContent) => {
+                  const events = !_.isEmpty(description.events) ?
+                    description.events :
+                    [{ http: { path: '/' } }];
+                  _.each(events, event => {
+                    const eventType = _.keys(event)[0];
+                    const funcs = getFunctionDescription(
+                      name,
+                      thirdPartyResources.namespaces.namespace,
+                      this.serverless.service.provider.runtime,
+                      requirementsContent,
+                      functionContent,
+                      description.handler,
+                      description.description,
+                      description.labels,
+                      description.environment,
+                      description.memorySize || this.serverless.service.provider.memorySize,
+                      eventType,
+                      event.trigger
+                    );
+                    let deploymentPromise = null;
+                    thirdPartyResources.ns.functions.get((err, functionsInfo) => {
+                      if (err) throw err;
+                      const existingFunction = _.find(functionsInfo.items, item => (
+                        _.isEqual(item.spec, funcs.spec)
+                      ));
+                      if (existingFunction) {
+                        // The same function is already deployed, skipping the deployment
+                        this.serverless.cli.log(
+                          `Function ${name} has not changed. Skipping deployment`
                         );
+                        deploymentPromise = new BbPromise(r => r(false));
+                      } else {
+                        deploymentPromise = this.deployFunctionAndWait(funcs, thirdPartyResources);
+                      }
+                      deploymentPromise.catch(deploymentErr => {
+                        errors.push(deploymentErr);
                       })
-                      .catch(ingressErr => {
-                        errors.push(ingressErr);
-                      })
-                      .then(() => {
-                        counter++;
-                        if (counter === _.keys(this.serverless.service.functions).length) {
-                          if (_.isEmpty(errors)) {
-                            resolve();
-                          } else {
-                            reject(
-                              'Found errors while deploying the given functions:\n' +
-                              `${errors.join('\n')}`
-                            );
+                        .then((deployed) => {
+                          if (!deployed) {
+                            // If there were an error with the deployment
+                            // don't try to add an ingress rule
+                            return new BbPromise((r) => r());
                           }
-                        }
-                      });
+                          return this.addIngressRuleIfNecessary(
+                            name,
+                            eventType,
+                            event[eventType].path,
+                            connectionOptions.namespace
+                          );
+                        })
+                        .catch(ingressErr => {
+                          errors.push(ingressErr);
+                        })
+                        .then(() => {
+                          counter++;
+                          if (counter === _.keys(this.serverless.service.functions).length) {
+                            if (_.isEmpty(errors)) {
+                              resolve();
+                            } else {
+                              reject(
+                                'Found errors while deploying the given functions:\n' +
+                                `${errors.join('\n')}`
+                              );
+                            }
+                          }
+                        });
+                    });
                   });
                 });
-              });
-          });
+            });
+        } else {
+          this.serverless.cli.log(
+            `Skipping deployment of ${name} since it doesn't have a handler`
+          );
+        }
       });
     });
   }

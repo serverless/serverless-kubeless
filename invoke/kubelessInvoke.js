@@ -36,20 +36,21 @@ class KubelessInvoke {
     };
   }
 
-  getData() {
+  getData(data) {
     let result = null;
+    const d = data || this.options.data;
     try {
-      if (!_.isEmpty(this.options.data)) {
+      if (!_.isEmpty(d)) {
         try {
           // Try to parse data as JSON
           result = {
-            body: JSON.parse(this.options.data),
+            body: JSON.parse(d),
             json: true,
           };
         } catch (e) {
           // Assume data is a string
           result = {
-            body: this.options.data,
+            body: d,
           };
         }
       } else if (this.options.path) {
@@ -89,8 +90,8 @@ class KubelessInvoke {
     return BbPromise.resolve();
   }
 
-  invokeFunction() {
-    const f = this.options.function;
+  invokeFunction(func, data) {
+    const f = func || this.options.function;
     this.serverless.cli.log(`Calling function: ${f}...`);
     const config = helpers.loadKubeConfig();
     const APIRootUrl = helpers.getKubernetesAPIURL(config);
@@ -102,8 +103,23 @@ class KubelessInvoke {
       helpers.getConnectionOptions(helpers.loadKubeConfig()),
       { url }
     );
-    const requestData = this.getData();
-
+    const requestData = this.getData(data);
+    if (this.serverless.service.functions[f].sequence) {
+      let promise = null;
+      _.each(this.serverless.service.functions[f].sequence.slice(), sequenceFunction => {
+        if (promise) {
+          promise = promise.then(
+            result => this.invokeFunction(sequenceFunction, result.body)
+          );
+        } else {
+          promise = this.invokeFunction(sequenceFunction, data);
+        }
+      });
+      return new BbPromise((resolve, reject) => promise.then(
+        (response) => resolve(response),
+        err => reject(err)
+      ));
+    }
     return new BbPromise((resolve, reject) => {
       const parseReponse = (err, response) => {
         if (err) {
@@ -116,20 +132,21 @@ class KubelessInvoke {
         }
       };
       if (_.isEmpty(requestData)) {
-        // There is no data to send, sending a GET request
+          // There is no data to send, sending a GET request
         request.get(connectionOptions, parseReponse);
       } else {
-        // Sending request data with a POST
+          // Sending request data with a POST
         request.post(
-          Object.assign(
-            connectionOptions,
-            requestData
-          ),
-          parseReponse
-        );
+            Object.assign(
+              connectionOptions,
+              requestData
+            ),
+            parseReponse
+          );
       }
     });
   }
+
   log(response) {
     if (this.options.log) {
       console.log('--------------------------------------------------------------------');
