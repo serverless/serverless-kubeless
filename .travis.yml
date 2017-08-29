@@ -25,7 +25,7 @@ install:
   - curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
   - unzip kubeless_linux-amd64.zip
   - sudo mv ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/kubeless
-  - sleep 900
+  - until kubectl get all --all-namespaces | sed -n 's/po\/kafka//p' | grep Running; do echo 'waiting'; sleep 5; done
   - kubectl get all --all-namespaces
   # Install npm dependencies
   - npm install -g serverless
