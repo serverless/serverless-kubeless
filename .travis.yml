@@ -26,6 +26,8 @@ install:
   # Install kubeless
   - kubectl create ns kubeless
   - curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/$KUBELESS_VERSION/kubeless-rbac-novols.jsonnet
+  - curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/$KUBELESS_VERSION/kubeless-rbac.jsonnet
+  - curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/$KUBELESS_VERSION/kubeless.jsonnet
   - kubecfg update kubeless-rbac-novols.jsonnet
   - curl -sL https://raw.githubusercontent.com/kubeless/kubeless/0.0.20/manifests/ingress/ingress-controller.yaml | kubectl create -f -
   - curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
