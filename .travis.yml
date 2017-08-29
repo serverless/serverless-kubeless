@@ -17,6 +17,7 @@ install:
   - chmod +x ./kubectl
   - sudo mv ./kubectl /usr/local/bin/kubectl
   - ./scripts/install-minikube.sh
+  - sleep 10
   # Install kubeless
   - kubectl create ns kubeless
   - curl -sL https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless-$KUBELESS_VERSION.yaml | kubectl create -f -
@@ -24,7 +25,7 @@ install:
   - curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
   - unzip kubeless_linux-amd64.zip
   - sudo mv ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/kubeless
-  - sleep 60
+  - sleep 20
   - kubectl get all
   # Install npm dependencies
   - npm install -g serverless
