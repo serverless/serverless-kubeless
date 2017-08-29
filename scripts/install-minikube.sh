@@ -54,7 +54,8 @@ check_or_install_minikube
 MINIKUBE_BIN=$(which minikube)
 
 # Start minikube
-sudo -E ${MINIKUBE_BIN} start --vm-driver=none
+sudo -E ${MINIKUBE_BIN} start --vm-driver=none \
+  --extra-config=apiserver.Authorization.Mode=RBAC
 
 # Wait til settles
 echo "INFO: Waiting for minikube cluster to be ready ..."

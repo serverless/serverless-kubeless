@@ -12,15 +12,21 @@ env:
   global:
     - KUBELESS_VERSION=0.0.20
 install:
-  # Install kubectl and a kubeadm cluster
+  # Install kubectl, kubecfg and minikube
   - curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
   - chmod +x ./kubectl
   - sudo mv ./kubectl /usr/local/bin/kubectl
   - ./scripts/install-minikube.sh
-  - sleep 10
+  - >-
+    wget -O /usr/local/bin/kubecfg
+    https://github.com/ksonnet/kubecfg/releases/download/v0.5.0/kubecfg-linux-amd64
+  - chmod +x $GOPATH/bin/kubecfg
+  - git clone --depth=1 https://github.com/ksonnet/ksonnet-lib.git
+  - export KUBECFG_JPATH=$PWD/ksonnet-lib
   # Install kubeless
   - kubectl create ns kubeless
-  - curl -sL https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless-$KUBELESS_VERSION.yaml | kubectl create -f -
+  - curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/$KUBELESS_VERSION/kubeless-rbac-novols.jsonnet
+  - kubecfg update update kubeless-rbac-novols.jsonnet
   - curl -sL https://raw.githubusercontent.com/kubeless/kubeless/0.0.20/manifests/ingress/ingress-controller.yaml | kubectl create -f -
   - curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
   - unzip kubeless_linux-amd64.zip
