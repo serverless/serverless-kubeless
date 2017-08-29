@@ -115,7 +115,7 @@ class KubelessInfo {
   infoFunction(options) {
     let counter = 0;
     let message = '';
-    return new BbPromise((resolve, reject) => {
+    return new BbPromise((resolve) => {
       _.each(this.serverless.service.functions, (desc, f) => {
         const connectionOptions = helpers.getConnectionOptions(helpers.loadKubeConfig(), {
           namespace: desc.namespace || this.serverless.service.provider.namespace,

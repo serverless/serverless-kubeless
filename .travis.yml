@@ -24,6 +24,8 @@ install:
   - curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
   - unzip kubeless_linux-amd64.zip
   - sudo mv ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/kubeless
+  - sleep 10
+  - kubectl get all
   # Install npm dependencies
   - npm install -g serverless
   - npm install
