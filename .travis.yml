@@ -20,7 +20,7 @@ install:
   - curl -LO https://github.com/ksonnet/kubecfg/releases/download/v0.5.0/kubecfg-linux-amd64
   - chmod +x ./kubecfg-linux-amd64
   - sudo mv ./kubecfg-linux-amd64 /usr/local/bin/kubecfg
-  - chmod +x $GOPATH/bin/kubecfg
+  - chmod +x  /usr/local/bin/kubecfg
   - git clone --depth=1 https://github.com/ksonnet/ksonnet-lib.git
   - export KUBECFG_JPATH=$PWD/ksonnet-lib
   # Install kubeless
