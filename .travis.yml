@@ -17,9 +17,9 @@ install:
   - chmod +x ./kubectl
   - sudo mv ./kubectl /usr/local/bin/kubectl
   - ./scripts/install-minikube.sh
-  - >-
-    wget -O /usr/local/bin/kubecfg
-    https://github.com/ksonnet/kubecfg/releases/download/v0.5.0/kubecfg-linux-amd64
+  - curl -LO https://github.com/ksonnet/kubecfg/releases/download/v0.5.0/kubecfg-linux-amd64
+  - chmod +x ./kubecfg-linux-amd64
+  - sudo mv ./kubecfg-linux-amd64 /usr/local/bin/kubecfg
   - chmod +x $GOPATH/bin/kubecfg
   - git clone --depth=1 https://github.com/ksonnet/ksonnet-lib.git
   - export KUBECFG_JPATH=$PWD/ksonnet-lib
