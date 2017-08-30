@@ -97,6 +97,9 @@ describe('Examples', () => {
       removeExample(cwd, 'event-trigger-python', done);
     });
     it('should get a submmited message "hello world"', (done) => {
+      exec('kubectl get all --all-namespaces', (err, stdout) => {
+        console.log('RESOURCES: ', stdout);
+      });
       exec('kubeless topic publish --topic hello_topic --data "hello world"', (err, stdout) => {
         if (err) {
           console.error(stdout);
