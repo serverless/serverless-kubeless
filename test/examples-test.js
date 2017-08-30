@@ -287,6 +287,30 @@ describe('Examples', () => {
       );
     });
   });
+  describe('node-chaining-functions', function () {
+    this.timeout(10000);
+    before(function (done) {
+      this.timeout(300000);
+      cwd = path.join('/tmp', moment().valueOf().toString());
+      fs.mkdirSync(cwd);
+      deployExample(cwd, 'node-chaining-functions', done);
+    });
+    after(function (done) {
+      this.timeout(300000);
+      removeExample(cwd, 'node-chaining-functions', done);
+    });
+    it('should return an inversed, capizalized and padded word', (done) => {
+      exec(
+        'serverless invoke -f chained_seq -l --data \'hello world!\'',
+        { cwd: `${cwd}/node-chaining-functions` },
+        (err, stdout) => {
+          if (err) throw err;
+          expect(stdout).to.contain('****!dlrow olleH****');
+          done();
+        }
+      );
+    });
+  });
   describe('todo-app', function () {
     this.timeout(10000);
     let info = '';
