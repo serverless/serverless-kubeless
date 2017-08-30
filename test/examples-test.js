@@ -88,7 +88,7 @@ describe('Examples', () => {
     this.timeout(10000);
     before(function (done) {
       this.timeout(300000);
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      cwd = path.join('/tmp', moment().valueOf().toString());
       fs.mkdirSync(cwd);
       deployExample(cwd, 'event-trigger-python', done);
     });
@@ -121,7 +121,7 @@ describe('Examples', () => {
     this.timeout(10000);
     before(function (done) {
       this.timeout(300000);
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      cwd = path.join('/tmp', moment().valueOf().toString());
       fs.mkdirSync(cwd);
       deployExample(cwd, 'get-python', done);
     });
@@ -141,7 +141,7 @@ describe('Examples', () => {
     this.timeout(10000);
     before(function (done) {
       this.timeout(300000);
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      cwd = path.join('/tmp', moment().valueOf().toString());
       fs.mkdirSync(cwd);
       deployExample(cwd, 'get-ruby', done);
     });
@@ -161,7 +161,7 @@ describe('Examples', () => {
     this.timeout(10000);
     before(function (done) {
       this.timeout(300000);
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      cwd = path.join('/tmp', moment().valueOf().toString());
       fs.mkdirSync(cwd);
       deployExample(cwd, 'http-custom-path', () => {
         setTimeout(done, 15000);
@@ -188,7 +188,7 @@ describe('Examples', () => {
     this.timeout(10000);
     before(function (done) {
       this.timeout(300000);
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      cwd = path.join('/tmp', moment().valueOf().toString());
       fs.mkdirSync(cwd);
       deployExample(cwd, 'multi-python', done);
     });
@@ -223,7 +223,7 @@ describe('Examples', () => {
     this.timeout(10000);
     before(function (done) {
       this.timeout(300000);
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      cwd = path.join('/tmp', moment().valueOf().toString());
       fs.mkdirSync(cwd);
       deployExample(cwd, 'post-nodejs', done);
     });
@@ -247,7 +247,7 @@ describe('Examples', () => {
     this.timeout(10000);
     before(function (done) {
       this.timeout(300000);
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      cwd = path.join('/tmp', moment().valueOf().toString());
       fs.mkdirSync(cwd);
       deployExample(cwd, 'post-python', done);
     });
@@ -271,7 +271,7 @@ describe('Examples', () => {
     this.timeout(10000);
     before(function (done) {
       this.timeout(300000);
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      cwd = path.join('/tmp', moment().valueOf().toString());
       fs.mkdirSync(cwd);
       deployExample(cwd, 'post-ruby', done);
     });
@@ -298,7 +298,7 @@ describe('Examples', () => {
 
     before(function (done) {
       this.timeout(300000);
-      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      cwd = path.join('/tmp', moment().valueOf().toString());
       fs.mkdirSync(cwd);
       // We need to deploy a MongoDB for the todo-app example
       exec(
