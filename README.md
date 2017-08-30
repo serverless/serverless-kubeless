@@ -13,7 +13,7 @@ $ kubectl version
 $ brew install kubeless/tap/kubeless
 $ KUBELESS_VERSION=0.1.0
 $ kubectl create ns kubeless
-$ curl -sL https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless-v$KUBELESS_VERSION.yaml | kubectl create -f -
+$ curl -sL https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless-v$KUBELESS_VERSION.yaml | kubectl create -f -
 ```
 
 Then install serverless
