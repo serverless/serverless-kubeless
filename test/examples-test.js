@@ -16,6 +16,7 @@
 
 'use strict';
 
+const _ = require('lodash');
 const exec = require('child_process').exec;
 const expect = require('chai').expect;
 const fs = require('fs-extra');
@@ -48,13 +49,10 @@ function deployExample(cwd, example, callback) {
     });
   });
 }
-function removeExample(cwd, example, callback) {
-  exec('serverless remove', { cwd: `${cwd}/${example}` }, (removeErr) => {
+function removeExample(cwd, callback) {
+  exec('serverless remove', { cwd }, (removeErr) => {
     if (removeErr) throw removeErr;
-    fs.remove(cwd, (rmErr) => {
-      if (rmErr) throw rmErr;
-      callback();
-    });
+    callback();
   });
 }
 
@@ -82,19 +80,55 @@ function postWithRedirect(url, body, callback) {
 
 describe('Examples', () => {
   let cwd = null;
+  const examples = {
+    'event-trigger-python': { cwd: null, path: 'event-trigger-python' },
+    'get-python': { cwd: null, path: 'get-python' },
+    'get-ruby': { cwd: null, path: 'get-ruby' },
+    'http-custom-path': { cwd: null, path: 'http-custom-path' },
+    'multi-python': { cwd: null, path: 'multi-python' },
+    'node-chaining-functions': { cwd: null, path: 'node-chaining-functions' },
+    'post-nodejs': { cwd: null, path: 'post-nodejs' },
+    'post-python': { cwd: null, path: 'post-python' },
+    'post-ruby': { cwd: null, path: 'post-ruby' },
+    'todo-app': { cwd: null, path: 'todo-app/backend' },
+  };
+  before(function (done) {
+    this.timeout(300000 * examples.length);
+    let count = 0;
+    cwd = path.join('/tmp', moment().valueOf().toString());
+    fs.mkdirSync(cwd);
+    console.log('    Deploying examples');
+    _.each(examples, example => {
+      /* eslint no-param-reassign: ["error", { "props": false }]*/
+      example.cwd = path.join(cwd, example.path);
+      console.log(`\tDeploying ${example.path}`);
+      deployExample(cwd, example.path, () => {
+        console.log(`\t${example.path} deployed`);
+        count++;
+        if (count === _.keys(examples).length) {
+          done();
+        }
+      });
+    });
+  });
+  after(function (done) {
+    this.timeout(10000 * examples.length);
+    let count = 0;
+    _.each(examples, example => {
+      removeExample(example.cwd, () => {
+        count++;
+        if (count === _.keys(examples).length) {
+          fs.remove(cwd, (rmErr) => {
+            if (rmErr) throw rmErr;
+          });
+          done();
+        }
+      });
+    });
+  });
 
   describe('event-trigger-python', function () {
     this.timeout(10000);
-    before(function (done) {
-      this.timeout(300000);
-      cwd = path.join('/tmp', moment().valueOf().toString());
-      fs.mkdirSync(cwd);
-      deployExample(cwd, 'event-trigger-python', done);
-    });
-    after(function (done) {
-      this.timeout(300000);
-      removeExample(cwd, 'event-trigger-python', done);
-    });
     it('should get a submmited message "hello world"', (done) => {
       exec('kubeless topic publish --topic hello_topic --data "hello world"', (err, stdout) => {
         if (err) {
@@ -103,7 +137,7 @@ describe('Examples', () => {
         }
         exec(
           'serverless logs -f events',
-          { cwd: `${cwd}/event-trigger-python` },
+          { cwd: examples['event-trigger-python'].cwd },
           (eerr, logs) => {
             if (eerr) throw eerr;
             expect(logs).to.contain('hello world');
@@ -115,18 +149,8 @@ describe('Examples', () => {
   });
   describe('get-python', function () {
     this.timeout(10000);
-    before(function (done) {
-      this.timeout(300000);
-      cwd = path.join('/tmp', moment().valueOf().toString());
-      fs.mkdirSync(cwd);
-      deployExample(cwd, 'get-python', done);
-    });
-    after(function (done) {
-      this.timeout(300000);
-      removeExample(cwd, 'get-python', done);
-    });
     it('should return a "hello world"', (done) => {
-      exec('serverless invoke -f hello -l', { cwd: `${cwd}/get-python` }, (err, stdout) => {
+      exec('serverless invoke -f hello -l', { cwd: examples['get-python'].cwd }, (err, stdout) => {
         if (err) throw err;
         expect(stdout).to.contain('hello world');
         done();
@@ -135,18 +159,8 @@ describe('Examples', () => {
   });
   describe('get-ruby', function () {
     this.timeout(10000);
-    before(function (done) {
-      this.timeout(300000);
-      cwd = path.join('/tmp', moment().valueOf().toString());
-      fs.mkdirSync(cwd);
-      deployExample(cwd, 'get-ruby', done);
-    });
-    after(function (done) {
-      this.timeout(300000);
-      removeExample(cwd, 'get-ruby', done);
-    });
     it('should return the latest kubeless version', (done) => {
-      exec('serverless invoke -f version -l', { cwd: `${cwd}/get-ruby` }, (err, stdout) => {
+      exec('serverless invoke -f version -l', { cwd: examples['get-ruby'].cwd }, (err, stdout) => {
         if (err) throw err;
         expect(stdout).to.match(/[0-9]+\.[0-9]+\.[0-9]+/);
         done();
@@ -155,20 +169,12 @@ describe('Examples', () => {
   });
   describe('http-custom-path', function () {
     this.timeout(10000);
-    before(function (done) {
-      this.timeout(300000);
-      cwd = path.join('/tmp', moment().valueOf().toString());
-      fs.mkdirSync(cwd);
-      deployExample(cwd, 'http-custom-path', () => {
-        setTimeout(done, 15000);
-      });
-    });
-    after(function (done) {
-      this.timeout(300000);
-      removeExample(cwd, 'http-custom-path', done);
+    before((done) => {
+      // We need some additional time for the ingress rule to work
+      setTimeout(done, 9000);
     });
     it('should return a "hello world" in a subpath', (done) => {
-      exec('serverless info', { cwd: `${cwd}/http-custom-path` }, (err, stdout) => {
+      exec('serverless info', { cwd: examples['http-custom-path'].cwd }, (err, stdout) => {
         if (err) throw err;
         const URL = getURL(stdout);
         expect(URL).to.match(/.*\/hello/);
@@ -182,20 +188,10 @@ describe('Examples', () => {
   });
   describe('multi-python', function () {
     this.timeout(10000);
-    before(function (done) {
-      this.timeout(300000);
-      cwd = path.join('/tmp', moment().valueOf().toString());
-      fs.mkdirSync(cwd);
-      deployExample(cwd, 'multi-python', done);
-    });
-    after(function (done) {
-      this.timeout(300000);
-      removeExample(cwd, 'multi-python', done);
-    });
     it('should return "foo"', (done) => {
       exec(
         'serverless invoke -f foo -l --data \'{"hello": "world"}\'',
-        { cwd: `${cwd}/multi-python` },
+        { cwd: examples['multi-python'].cwd },
         (err, stdout) => {
           if (err) throw err;
           expect(stdout).to.contain('foo');
@@ -206,7 +202,7 @@ describe('Examples', () => {
     it('should return "bar"', (done) => {
       exec(
         'serverless invoke -f bar -l --data \'{"hello": "world"}\'',
-        { cwd: `${cwd}/multi-python` },
+        { cwd: examples['multi-python'].cwd },
         (err, stdout) => {
           if (err) throw err;
           expect(stdout).to.contain('bar');
@@ -217,20 +213,10 @@ describe('Examples', () => {
   });
   describe('post-nodejs', function () {
     this.timeout(10000);
-    before(function (done) {
-      this.timeout(300000);
-      cwd = path.join('/tmp', moment().valueOf().toString());
-      fs.mkdirSync(cwd);
-      deployExample(cwd, 'post-nodejs', done);
-    });
-    after(function (done) {
-      this.timeout(300000);
-      removeExample(cwd, 'post-nodejs', done);
-    });
     it('should return "Hello world"', (done) => {
       exec(
         'serverless invoke -f capitalize --data "hello world" -l',
-        { cwd: `${cwd}/post-nodejs` },
+        { cwd: examples['post-nodejs'].cwd },
         (err, stdout) => {
           if (err) throw err;
           expect(stdout).to.contain('Hello world');
@@ -241,20 +227,10 @@ describe('Examples', () => {
   });
   describe('post-python', function () {
     this.timeout(10000);
-    before(function (done) {
-      this.timeout(300000);
-      cwd = path.join('/tmp', moment().valueOf().toString());
-      fs.mkdirSync(cwd);
-      deployExample(cwd, 'post-python', done);
-    });
-    after(function (done) {
-      this.timeout(300000);
-      removeExample(cwd, 'post-python', done);
-    });
     it('should return a the request', (done) => {
       exec(
         'serverless invoke -f echo --data \'{"hello": "world"}\' -l',
-        { cwd: `${cwd}/post-python` },
+        { cwd: examples['post-python'].cwd },
         (err, stdout) => {
           if (err) throw err;
           expect(stdout).to.contain('{ hello: \'world\' }');
@@ -265,20 +241,10 @@ describe('Examples', () => {
   });
   describe('post-ruby', function () {
     this.timeout(10000);
-    before(function (done) {
-      this.timeout(300000);
-      cwd = path.join('/tmp', moment().valueOf().toString());
-      fs.mkdirSync(cwd);
-      deployExample(cwd, 'post-ruby', done);
-    });
-    after(function (done) {
-      this.timeout(300000);
-      removeExample(cwd, 'post-ruby', done);
-    });
     it('should play ping-pong"', (done) => {
       exec(
         'serverless invoke -f ping --data "ping" -l',
-        { cwd: `${cwd}/post-ruby` },
+        { cwd: examples['post-ruby'].cwd },
         (err, stdout) => {
           if (err) throw err;
           expect(stdout).to.contain('pong');
@@ -289,20 +255,10 @@ describe('Examples', () => {
   });
   describe('node-chaining-functions', function () {
     this.timeout(10000);
-    before(function (done) {
-      this.timeout(300000);
-      cwd = path.join('/tmp', moment().valueOf().toString());
-      fs.mkdirSync(cwd);
-      deployExample(cwd, 'node-chaining-functions', done);
-    });
-    after(function (done) {
-      this.timeout(300000);
-      removeExample(cwd, 'node-chaining-functions', done);
-    });
     it('should return an inversed, capizalized and padded word', (done) => {
       exec(
         'serverless invoke -f chained_seq -l --data \'hello world!\'',
-        { cwd: `${cwd}/node-chaining-functions` },
+        { cwd: examples['node-chaining-functions'].cwd },
         (err, stdout) => {
           if (err) throw err;
           expect(stdout).to.contain('****!dlrow olleH****');
@@ -318,8 +274,6 @@ describe('Examples', () => {
 
     before(function (done) {
       this.timeout(300000);
-      cwd = path.join('/tmp', moment().valueOf().toString());
-      fs.mkdirSync(cwd);
       // We need to deploy a MongoDB for the todo-app example
       exec(
         'curl -sL https://raw.githubusercontent.com/bitnami/bitnami-docker-mongodb/3.4.7-r0/kubernetes.yml',
@@ -327,9 +281,9 @@ describe('Examples', () => {
           if (err) {
             console.error('ERROR: Unable to download mongodb manifest');
           } else {
-            fs.writeFile(`${cwd}/mongodb.yaml`, manifest, (werr) => {
+            fs.writeFile(`${examples['todo-app'].cwd}/mongodb.yaml`, manifest, (werr) => {
               if (werr) throw werr;
-              exec(`kubectl create -f ${cwd}/mongodb.yaml`, (kerr) => {
+              exec(`kubectl create -f ${examples['todo-app'].cwd}/mongodb.yaml`, (kerr) => {
                 if (kerr) {
                   console.error(`ERROR: Unable to deploy the mongoDB manifest: ${kerr.message}`);
                 }
@@ -338,17 +292,16 @@ describe('Examples', () => {
                     if (gerr) throw gerr;
                     if (stdout.match(/mongodb-.*Running/)) {
                       clearInterval(wait);
-                      deployExample(cwd, 'todo-app/backend', () => {
-                        exec(
-                          'serverless info',
-                          { cwd: `${cwd}/todo-app/backend` },
-                          (infoerr, output) => {
-                            if (err) throw err;
-                            info = output;
-                            setTimeout(done, 15000);
-                          }
-                        );
-                      });
+                      exec(
+                        'serverless info',
+                        { cwd: examples['todo-app'].cwd },
+                        (infoerr, output) => {
+                          if (infoerr) throw infoerr;
+                          info = output;
+                          // We need some additional time for the ingress rules to work
+                          setTimeout(done, 15000);
+                        }
+                      );
                     }
                   });
                 }, 2000);
@@ -361,11 +314,10 @@ describe('Examples', () => {
 
     after(function (done) {
       this.timeout(300000);
-      exec(`kubectl delete -f ${cwd}/mongodb.yaml`, (kerr) => {
+      exec(`kubectl delete -f ${examples['todo-app'].cwd}/mongodb.yaml`, (kerr) => {
         if (kerr) {
           console.error(`ERROR: Unable to remove the mongoDB manifest: ${kerr.message}`);
         }
-        removeExample(cwd, 'todo-app/backend', done);
       });
       done();
     });
