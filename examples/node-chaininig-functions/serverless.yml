@@ -1,0 +1,21 @@
+service: chain
+
+provider:
+  name: kubeless
+  runtime: nodejs6
+
+plugins:
+  - serverless-kubeless
+
+functions:
+  capitalize:
+    handler: handler.capitalize
+  pad:
+    handler: handler.pad
+  reverse:
+    handler: handler.reverse
+  chained_seq:
+    sequence:
+      - capitalize
+      - pad
+      - reverse
