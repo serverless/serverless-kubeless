@@ -143,7 +143,6 @@ describe('Examples', () => {
     });
     after(function (done) {
       this.timeout(300000);
-      done();
       removeExample(cwd, 'get-ruby', done);
     });
     it('should return the latest kubeless version', (done) => {
