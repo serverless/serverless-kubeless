@@ -10,7 +10,7 @@ services:
   - docker
 env:
   global:
-    - KUBELESS_VERSION=0.0.20
+    - KUBELESS_VERSION=0.1.0
 install:
   # Install kubectl, kubecfg and minikube
   - curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
@@ -25,10 +25,11 @@ install:
   - export KUBECFG_JPATH=$PWD/ksonnet-lib
   # Install kubeless
   - kubectl create ns kubeless
-  - curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/$KUBELESS_VERSION/kubeless-rbac-novols.jsonnet
-  - curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/$KUBELESS_VERSION/kubeless-rbac.jsonnet
-  - curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/$KUBELESS_VERSION/kubeless.jsonnet
-  - kubecfg update kubeless-rbac-novols.jsonnet
+  - curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/v$KUBELESS_VERSION/kubeless.jsonnet
+  - mv kubeless.jsonnet ./test
+  - release_yaml=`curl -L https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless-v$KUBELESS_VERSION.yaml`
+  - controller_image=`expr match "$release_yaml" '.*\(bitnami\/kubeless-controller@sha256:[a-z..0-9]*\).*'`
+  - kubecfg -V image=$controller_image update ./test/kubeless-novols.jsonnet
   - curl -sL https://raw.githubusercontent.com/kubeless/kubeless/0.0.20/manifests/ingress/ingress-controller.yaml | kubectl create -f -
   - curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
   - unzip kubeless_linux-amd64.zip

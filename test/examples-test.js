@@ -21,7 +21,6 @@ const expect = require('chai').expect;
 const fs = require('fs-extra');
 const helpers = require('../lib/helpers');
 const moment = require('moment');
-const os = require('os');
 const path = require('path');
 const request = require('request');
 
@@ -97,9 +96,6 @@ describe('Examples', () => {
       removeExample(cwd, 'event-trigger-python', done);
     });
     it('should get a submmited message "hello world"', (done) => {
-      exec('kubectl get all --all-namespaces', (err, stdout) => {
-        console.log('RESOURCES: ', stdout);
-      });
       exec('kubeless topic publish --topic hello_topic --data "hello world"', (err, stdout) => {
         if (err) {
           console.error(stdout);
@@ -137,7 +133,7 @@ describe('Examples', () => {
       });
     });
   });
-  xdescribe('get-ruby', function () {
+  describe('get-ruby', function () {
     this.timeout(10000);
     before(function (done) {
       this.timeout(300000);
@@ -147,6 +143,7 @@ describe('Examples', () => {
     });
     after(function (done) {
       this.timeout(300000);
+      done();
       removeExample(cwd, 'get-ruby', done);
     });
     it('should return the latest kubeless version', (done) => {
@@ -267,7 +264,7 @@ describe('Examples', () => {
       );
     });
   });
-  xdescribe('post-ruby', function () {
+  describe('post-ruby', function () {
     this.timeout(10000);
     before(function (done) {
       this.timeout(300000);
