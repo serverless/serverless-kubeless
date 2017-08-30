@@ -31,7 +31,7 @@ install:
   - controller_image=`expr match "$release_yaml" '.*\(bitnami\/kubeless-controller@sha256:[a-z..0-9]*\).*'`
   - kubecfg -V image=$controller_image update ./test/kubeless-novols.jsonnet
   - curl -sL https://raw.githubusercontent.com/kubeless/kubeless/0.0.20/manifests/ingress/ingress-controller.yaml | kubectl create -f -
-  - curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
+  - curl -LO https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless_linux-amd64.zip
   - unzip kubeless_linux-amd64.zip
   - sudo mv ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/kubeless
   - until kubectl get all --all-namespaces | sed -n 's/po\/kafka//p' | grep Running; do kubectl -n kubeless describe pod kafka-0; kubectl -n kubeless describe pvc; kubectl -n kubeless describe pv; sleep 10; done
