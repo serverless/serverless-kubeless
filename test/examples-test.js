@@ -128,7 +128,7 @@ describe('Examples', () => {
             increaseCont();
           }
         });
-      }, 30000 * timeoutMultiplier);
+      }, 30000 * (process.env.TIMEOUT_MULTIPLIER || timeoutMultiplier));
       index++;
     });
   });
