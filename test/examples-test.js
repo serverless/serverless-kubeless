@@ -98,32 +98,38 @@ describe('Examples', () => {
   before(function (done) {
     this.timeout(300000 * _.keys(examples).length);
     let count = 0;
+    let index = 0;
     cwd = path.join('/tmp', moment().valueOf().toString());
     fs.mkdirSync(cwd);
     console.log('    Deploying examples');
-    _.each(examples, example => {
+    _.each(examples, (example) => {
       /* eslint no-param-reassign: ["error", { "props": false }]*/
       example.cwd = path.join(cwd, example.path);
-      console.log(`\tDeploying ${example.path}`);
-      prepareExample(cwd, example.path, (err) => {
-        const increaseCont = (e) => {
-          if (e) {
-            console.error(`\tERROR: Unable to deploy ${example.path}: \n${e}`);
+      // Delay batches of deployment to avoid high resources consumption
+      const timeoutMultiplier = parseInt(index / 5, 10);
+      setTimeout(() => {
+        console.log(`\tDeploying ${example.path}`);
+        prepareExample(cwd, example.path, (err) => {
+          const increaseCont = (e) => {
+            if (e) {
+              console.error(`\tERROR: Unable to deploy ${example.path}: \n${e}`);
+            }
+            console.log(`\t${example.path} deployed`);
+            count++;
+            if (count === _.keys(examples).length) {
+              done();
+            }
+          };
+          if (err) {
+            // Retry the deployment
+            console.log(`\t${example.path} deployment failed, retrying...`);
+            deployExample(example.cwd, increaseCont);
+          } else {
+            increaseCont();
           }
-          console.log(`\t${example.path} deployed`);
-          count++;
-          if (count === _.keys(examples).length) {
-            done();
-          }
-        };
-        if (err) {
-          // Retry the deployment
-          console.log(`\t${example.path} deployment failed, retrying...`);
-          deployExample(example.cwd, increaseCont);
-        } else {
-          increaseCont();
-        }
-      });
+        });
+      }, 30000 * timeoutMultiplier);
+      index++;
     });
   });
   after(function (done) {

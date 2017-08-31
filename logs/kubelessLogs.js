@@ -156,7 +156,10 @@ class KubelessLogs {
               );
               request.get(
                 connectionOptions
-              ).on('data', (d) => this.printFilteredLogs(d.toString().trim(), opts));
+              ).on('data', (d) => {
+                const logs = d.toString().trim() || '';
+                return this.printFilteredLogs(logs, opts);
+              });
             } else {
               core.ns.pods(functionPod.metadata.name).log.get((errLog, logs) => {
                 if (errLog) throw new this.serverless.classes.Error(errLog);
