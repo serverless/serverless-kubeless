@@ -12,6 +12,6 @@ env:
   global:
     - KUBELESS_VERSION=0.1.0
 install:
-  - sudo ./scripts/install-test-environment.sh
+  - ./scripts/install-test-environment.sh
   - npm install -g serverless
   - npm install
