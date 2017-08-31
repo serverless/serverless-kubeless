@@ -25,7 +25,15 @@ const moment = require('moment');
 const path = require('path');
 const request = require('request');
 
-function deployExample(cwd, example, callback) {
+function deployExample(cwd, callback) {
+  exec('serverless deploy', { cwd }, (deployErr, stdout) => {
+    if (deployErr) {
+      console.error(`ERROR: ${cwd} failed to be deployed:\n${stdout}\n${deployErr}`);
+    }
+    callback(deployErr);
+  });
+}
+function prepareExample(cwd, example, callback) {
   fs.copy(`${__dirname}/../examples/${example}`, `${cwd}/${example}`, (err) => {
     if (err) throw err;
     fs.remove(`${cwd}/${example}/node_modules`, rmErr => {
@@ -37,12 +45,7 @@ function deployExample(cwd, example, callback) {
           `${cwd}/${example}/node_modules/serverless-kubeless`,
           (linkErr) => {
             if (linkErr) throw linkErr;
-            exec('serverless deploy', { cwd: `${cwd}/${example}` }, (deployErr, stdout) => {
-              if (deployErr) {
-                console.error(`ERROR: ${example} failed to be deployed:\n${stdout}\n${deployErr}`);
-              }
-              callback();
-            });
+            deployExample(`${cwd}/${example}`, callback);
           }
         );
       });
@@ -102,11 +105,19 @@ describe('Examples', () => {
       /* eslint no-param-reassign: ["error", { "props": false }]*/
       example.cwd = path.join(cwd, example.path);
       console.log(`\tDeploying ${example.path}`);
-      deployExample(cwd, example.path, () => {
-        console.log(`\t${example.path} deployed`);
-        count++;
-        if (count === _.keys(examples).length) {
-          done();
+      prepareExample(cwd, example.path, (err) => {
+        const increaseCont = () => {
+          console.log(`\t${example.path} deployed`);
+          count++;
+          if (count === _.keys(examples).length) {
+            done();
+          }
+        };
+        if (err) {
+          // Retry the deployment
+          deployExample(example.cwd, increaseCont);
+        } else {
+          increaseCont();
         }
       });
     });
