@@ -35,15 +35,9 @@ install_kubeles() {
     until kubectl get all --all-namespaces | sed -n 's/po\/kafka//p' | grep Running; do kubectl -n kubeless describe pod kafka-0; sleep 10; done
 }
 
-install_npm_deps() {
-    npm install -g serverless
-    npm install
-}
-
 install_kubectl
 install_minikube
 install_kubecfg
 install_kubeles
-install_npm_deps
 
 kubectl get all --all-namespaces
