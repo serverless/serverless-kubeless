@@ -106,7 +106,10 @@ describe('Examples', () => {
       example.cwd = path.join(cwd, example.path);
       console.log(`\tDeploying ${example.path}`);
       prepareExample(cwd, example.path, (err) => {
-        const increaseCont = () => {
+        const increaseCont = (e) => {
+          if (e) {
+            console.error(`\tERROR: Unable to deploy ${example.path}: \n${e}`);
+          }
           console.log(`\t${example.path} deployed`);
           count++;
           if (count === _.keys(examples).length) {
@@ -139,26 +142,6 @@ describe('Examples', () => {
     });
   });
 
-  describe('event-trigger-python', function () {
-    this.timeout(10000);
-    it('should get a submmited message "hello world"', (done) => {
-      exec('kubeless topic publish --topic hello_topic --data "hello world"', (err, stdout) => {
-        if (err) {
-          console.error(stdout);
-          throw err;
-        }
-        exec(
-          'serverless logs -f events',
-          { cwd: examples['event-trigger-python'].cwd },
-          (eerr, logs) => {
-            if (eerr) throw eerr;
-            expect(logs).to.contain('hello world');
-            done();
-          }
-        );
-      });
-    });
-  });
   describe('get-python', function () {
     this.timeout(10000);
     it('should return a "hello world"', (done) => {
@@ -221,6 +204,26 @@ describe('Examples', () => {
           done();
         }
       );
+    });
+  });
+  describe('event-trigger-python', function () {
+    this.timeout(10000);
+    it('should get a submmited message "hello world"', (done) => {
+      exec('kubeless topic publish --topic hello_topic --data "hello world"', (err, stdout) => {
+        if (err) {
+          console.error(stdout);
+          throw err;
+        }
+        exec(
+          'serverless logs -f events',
+          { cwd: examples['event-trigger-python'].cwd },
+          (eerr, logs) => {
+            if (eerr) throw eerr;
+            expect(logs).to.contain('hello world');
+            done();
+          }
+        );
+      });
     });
   });
   describe('post-nodejs', function () {
