@@ -214,15 +214,18 @@ describe('Examples', () => {
           console.error(stdout);
           throw err;
         }
-        exec(
-          'serverless logs -f events',
-          { cwd: examples['event-trigger-python'].cwd },
-          (eerr, logs) => {
-            if (eerr) throw eerr;
-            expect(logs).to.contain('hello world');
-            done();
-          }
-        );
+        setTimeout(() => {
+          // Wait some seconds to check the logs
+          exec(
+            'serverless logs -f events',
+            { cwd: examples['event-trigger-python'].cwd },
+            (eerr, logs) => {
+              if (eerr) throw eerr;
+              expect(logs).to.contain('hello world');
+              done();
+            }
+          );
+        }, 2000);
       });
     });
   });
