@@ -12,4 +12,4 @@ env:
   global:
     - KUBELESS_VERSION=0.1.0
 install:
-  - ./scripts/install-test-environment.sh
+  - sudo ./scripts/install-test-environment.sh

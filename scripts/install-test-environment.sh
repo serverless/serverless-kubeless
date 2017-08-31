@@ -7,7 +7,7 @@ install_kubectl() {
 }
 
 install_minikube() {
-    ./install-minikube.sh
+    `dirname $0`/install-minikube.sh
 }
 
 install_kubecfg() {
