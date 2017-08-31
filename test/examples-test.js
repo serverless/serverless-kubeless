@@ -115,6 +115,7 @@ describe('Examples', () => {
         };
         if (err) {
           // Retry the deployment
+          console.log(`\t${example.path} deployment failed, retrying...`);
           deployExample(example.cwd, increaseCont);
         } else {
           increaseCont();
