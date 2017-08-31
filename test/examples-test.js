@@ -96,7 +96,7 @@ describe('Examples', () => {
     'todo-app': { cwd: null, path: 'todo-app/backend' },
   };
   before(function (done) {
-    this.timeout(300000 * examples.length);
+    this.timeout(300000 * _.keys(examples).length);
     let count = 0;
     cwd = path.join('/tmp', moment().valueOf().toString());
     fs.mkdirSync(cwd);
@@ -124,7 +124,7 @@ describe('Examples', () => {
     });
   });
   after(function (done) {
-    this.timeout(10000 * examples.length);
+    this.timeout(10000 * _.keys(examples).length);
     let count = 0;
     _.each(examples, example => {
       removeExample(example.cwd, () => {
