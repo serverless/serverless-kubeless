@@ -304,7 +304,7 @@ describe('KubelessInfo', () => {
     it('should return the description in case it exists', (done) => {
       mockGetCalls(
         [{ name: func, namespace: 'default' }],
-        { annotations: { 'kubeless.serverless.com/description': 'Test Description' } }
+        { metadata: { annotations: { 'kubeless.serverless.com/description': 'Test Description' } } }
       );
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       kubelessInfo.infoFunction({ color: false }).then((message) => {
@@ -315,7 +315,7 @@ describe('KubelessInfo', () => {
     it('should return the labels in case they exist', (done) => {
       mockGetCalls(
         [{ name: func, namespace: 'default' }],
-        { labels: { label1: 'text1', label2: 'text2' } }
+        { metadata: { labels: { label1: 'text1', label2: 'text2' } } }
       );
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       kubelessInfo.infoFunction({ color: false }).then((message) => {

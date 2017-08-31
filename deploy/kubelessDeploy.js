@@ -54,12 +54,12 @@ function getFunctionDescription(
     },
   };
   if (desc) {
-    funcs.annotations = {
+    funcs.metadata.annotations = {
       'kubeless.serverless.com/description': desc,
     };
   }
   if (labels) {
-    funcs.labels = labels;
+    funcs.metadata.labels = labels;
   }
   if (env || memory) {
     const container = {

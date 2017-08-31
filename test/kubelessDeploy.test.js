@@ -673,7 +673,7 @@ describe('KubelessDeploy', () => {
       expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
       expect(
         thirdPartyResources.ns.functions.post
-          .firstCall.args[0].body.annotations['kubeless.serverless.com/description']
+          .firstCall.args[0].body.metadata.annotations['kubeless.serverless.com/description']
       ).to.be.eql(desc);
       return result;
     });
@@ -692,7 +692,7 @@ describe('KubelessDeploy', () => {
       ).to.be.fulfilled;
       expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
       expect(
-        thirdPartyResources.ns.functions.post.firstCall.args[0].body.labels
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.metadata.labels
       ).to.be.eql(labels);
       return result;
     });
