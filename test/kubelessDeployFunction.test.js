@@ -20,34 +20,24 @@ const _ = require('lodash');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
 const fs = require('fs');
+const mocks = require('./lib/mocks');
 const moment = require('moment');
 const os = require('os');
 const path = require('path');
+const rm = require('./lib/rm');
 const sinon = require('sinon');
 
 const KubelessDeployFunction = require('../deployFunction/kubelessDeployFunction');
 const serverless = require('./lib/serverless')();
 
-require('chai').use(chaiAsPromised);
+const functionName = 'myFunction';
 
-function rm(p) {
-  if (fs.existsSync(p)) {
-    fs.readdirSync(p).forEach((file) => {
-      const curPath = `${p}/${file}`;
-      if (fs.lstatSync(curPath).isDirectory()) { // recurse
-        rm(curPath);
-      } else { // delete file
-        fs.unlinkSync(curPath);
-      }
-    });
-    fs.rmdirSync(p);
-  }
-}
+require('chai').use(chaiAsPromised);
 
 function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction, options) {
   const kubelessDeployFunction = new KubelessDeployFunction(
     serverlessWithFunction,
-    _.defaults({ function: 'myFunction', options })
+    _.defaults({ function: functionName, options })
   );
   // Mock call to getFunctionContent when retrieving the function code
   sinon.stub(kubelessDeployFunction, 'getFunctionContent')
@@ -66,32 +56,10 @@ function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction
   sinon.stub(kubelessDeployFunction, 'waitForDeployment');
   return kubelessDeployFunction;
 }
-function mockPutRequest(kubelessDeploy) {
-  const put = sinon.stub().callsFake((body, callback) => {
-    callback(null, { statusCode: 200 });
-  });
-  const thirdPartyResources = {
-    namespaces: {
-      namespace: 'default',
-    },
-    ns: {
-      functions: () => ({
-        put,
-      }),
-    },
-    addResource: sinon.stub(),
-  };
-  thirdPartyResources.ns.functions.get = () => {};
-  sinon.stub(thirdPartyResources.ns.functions, 'get').callsFake((c) => {
-    c(null, { statusCode: 200, body: { items: [] } });
-  });
-  sinon.stub(kubelessDeploy, 'getThirdPartyResources').returns(thirdPartyResources);
-  return put;
-}
 
 describe('KubelessDeployFunction', () => {
   describe('#deploy', () => {
-    const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+    let cwd = null;
     let handlerFile = null;
     let depsFile = null;
     const serverlessWithFunction = _.defaultsDeep({}, serverless, {
@@ -99,18 +67,21 @@ describe('KubelessDeployFunction', () => {
         servicePath: cwd,
       },
       service: {
-        functions: {
-          myFunction: {
-            handler: 'function.hello',
-          },
-        },
+        functions: {},
       },
     });
+    serverlessWithFunction.service.functions[functionName] = {
+      handler: 'function.hello',
+    };
+    serverlessWithFunction.service.functions.otherFunction = {
+      handler: 'function.hello',
+    };
+
     let kubelessDeployFunction = null;
-    let put = null;
+    let thirdPartyResources = null;
 
     before(() => {
-      fs.mkdirSync(cwd);
+      cwd = mocks.kubeConfig();
     });
     beforeEach(() => {
       handlerFile = path.join(cwd, 'function.py');
@@ -121,70 +92,54 @@ describe('KubelessDeployFunction', () => {
         depsFile,
         serverlessWithFunction
       );
-      put = mockPutRequest(kubelessDeployFunction);
+      thirdPartyResources = mocks.thirdPartyResources(kubelessDeployFunction);
     });
     after(() => {
-      rm(cwd);
+      mocks.restoreKubeConfig(cwd);
     });
-    it('should redeploy a function', () => {
+    it('should deploy the chosen function', () => {
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeployFunction.deployFunction()
       ).to.be.fulfilled;
-
-      expect(put.calledOnce).to.be.eql(true);
-      expect(put.firstCall.args[0].body).to.be.eql(
-        { apiVersion: 'k8s.io/v1',
-          kind: 'Function',
-          metadata: { name: 'myFunction', namespace: 'default' },
-          spec:
-          { deps: '',
-            function: 'function code',
-            handler: 'function.hello',
-            runtime: 'python2.7',
-            type: 'HTTP' } }
-      );
-      expect(put.firstCall.args[1]).to.be.a('function');
+      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions.post.firstCall.args[0].body.metadata.name
+      ).to.be.eql(functionName);
       return result;
-    });
-    it('should fail if a deployment returns an error code', () => {
-      put.callsFake((data, ff) => {
-        ff({ code: 500, message: 'Internal server error' });
-      });
-      return expect( // eslint-disable-line no-unused-expressions
-        kubelessDeployFunction.deployFunction()
-      ).to.be.eventually.rejectedWith(
-        'Found errors while deploying the given functions:\n' +
-        'Error: Unable to update the function myFunction. Received:\n' +
-        '  Code: 500\n' +
-        '  Message: Internal server error'
-      );
     });
     it('should redeploy only the chosen function', () => {
+      kubelessDeployFunction.getThirdPartyResources().ns.functions.get.callsFake((ff) => {
+        ff(null, {
+          items: [{
+            metadata: {
+              name: functionName,
+              labels: { function: functionName },
+              creationTimestamp: moment(),
+            },
+            status: {
+              containerStatuses: [{
+                ready: true,
+                restartCount: 0,
+                state: 'Ready',
+              }],
+            },
+            spec: {
+              deps: '',
+              function: 'previous function code',
+              handler: 'function.hello',
+              runtime: 'python2.7',
+              type: 'HTTP',
+            },
+          }],
+        });
+      });
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeployFunction.deployFunction()
       ).to.be.fulfilled;
-
-      expect(put.calledOnce).to.be.eql(true);
-      expect(put.firstCall.args[0].body.metadata.name).to.be.eql('myFunction');
-      return result;
-    });
-    it('should not try to deploy a new ingress controller', () => {
-      const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
-      serverlessWithCustomNamespace.service.functions.myFunction.events = [{
-        http: { path: '/test' },
-      }];
-      kubelessDeployFunction = instantiateKubelessDeploy(
-        handlerFile,
-        depsFile,
-        serverlessWithCustomNamespace
-      );
-      mockPutRequest(kubelessDeployFunction);
-      sinon.stub(kubelessDeployFunction, 'getExtensions');
-      const result = expect( // eslint-disable-line no-unused-expressions
-        kubelessDeployFunction.deployFunction().then(() => {
-          expect(kubelessDeployFunction.getExtensions.callCount).to.be.eql(0);
-        })
-      ).to.be.fulfilled;
+      expect(thirdPartyResources.ns.functions().put.calledOnce).to.be.eql(true);
+      expect(
+        thirdPartyResources.ns.functions().put.firstCall.args[0].body.metadata.name
+      ).to.be.eql(functionName);
       return result;
     });
   });
