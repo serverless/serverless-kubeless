@@ -66,6 +66,7 @@ function getURL(info, regexp) {
       'API_URL',
       helpers.getKubernetesAPIURL(helpers.loadKubeConfig()).replace(/:[0-9]+$/, ''));
   }
+  URL = _.startsWith(URL, 'http://') ? URL : `http://${URL}`;
   return URL;
 }
 
@@ -179,7 +180,7 @@ describe('Examples', () => {
         if (err) throw err;
         const URL = getURL(stdout);
         expect(URL).to.match(/.*\/hello/);
-        request.get({ url: URL, strictSSL: false }, (gerr, res) => {
+        request.get(URL, (gerr, res) => {
           if (gerr) throw gerr;
           expect(res.body).to.contain('hello world');
           done();
