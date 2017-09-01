@@ -1,4 +1,4 @@
-export const API_URL = 'https://backend';
+export const API_URL = 'http://backend';
 console.log(process.env);
 
 if (!API_URL) {

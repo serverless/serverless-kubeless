@@ -13,6 +13,9 @@ import {
 
 export function createTodo(todo) {
   return (dispatch) => fetch(`${API_URL}/create`, {
+    headers: {
+      'Content-Type': 'application/json'
+    },
     method: 'POST',
     body: JSON.stringify(todo),
   })
@@ -59,6 +62,9 @@ export function getTodo(todo) {
 
 export function updateTodo(todo) {
   return (dispatch) => fetch(`${API_URL}/update?id=${todo.id}`, {
+    headers: {
+      'Content-Type': 'application/json'
+    },
     method: 'POST',
     body: JSON.stringify(todo),
   })

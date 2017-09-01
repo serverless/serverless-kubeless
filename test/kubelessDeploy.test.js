@@ -408,7 +408,7 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.waitForDeployment(f, moment());
         clock.tick(10001);
         expect(logStub.lastCall.args[0]).to.contain(
-          'the deployment of the function test seems to have failed'
+          'unable to retrieve the status of the test deployment'
         );
       } finally {
         logStub.restore();
@@ -799,6 +799,129 @@ describe('KubelessDeploy', () => {
             },
             spec: {
               rules: [{
+                host: '1.2.3.4.nip.io',
+                http: {
+                  paths: [{
+                    path: '/test',
+                    backend: { serviceName: functionName, servicePort: 8080 },
+                  }],
+                },
+              }],
+            },
+          });
+        })).to.be.fulfilled;
+      return result;
+    });
+    it('should deploy a function with a specific hostname', () => {
+      const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomPath.service.functions[functionName].events = [{
+        http: { },
+      }];
+      serverlessWithCustomPath.service.provider.hostname = 'test.com';
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomPath
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const extensions = mockExtensions(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction().then(() => {
+          expect(extensions.ns.ingress.post.firstCall.args[0].body).to.be.eql({
+            kind: 'Ingress',
+            metadata: {
+              name: `ingress-${functionName}`,
+              labels: { function: functionName },
+              annotations:
+              {
+                'kubernetes.io/ingress.class': 'nginx',
+                'ingress.kubernetes.io/rewrite-target': '/',
+              },
+            },
+            spec: {
+              rules: [{
+                host: 'test.com',
+                http: {
+                  paths: [{
+                    path: '/',
+                    backend: { serviceName: functionName, servicePort: 8080 },
+                  }],
+                },
+              }],
+            },
+          });
+        })).to.be.fulfilled;
+      return result;
+    });
+
+    it('should deploy a function with a specific hostname and path', () => {
+      const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomPath.service.functions[functionName].events = [{
+        http: { hostname: 'test.com', path: '/test' },
+      }];
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomPath
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const extensions = mockExtensions(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction().then(() => {
+          expect(extensions.ns.ingress.post.firstCall.args[0].body).to.be.eql({
+            kind: 'Ingress',
+            metadata: {
+              name: `ingress-${functionName}`,
+              labels: { function: functionName },
+              annotations:
+              {
+                'kubernetes.io/ingress.class': 'nginx',
+                'ingress.kubernetes.io/rewrite-target': '/',
+              },
+            },
+            spec: {
+              rules: [{
+                host: 'test.com',
+                http: {
+                  paths: [{
+                    path: '/test',
+                    backend: { serviceName: functionName, servicePort: 8080 },
+                  }],
+                },
+              }],
+            },
+          });
+        })).to.be.fulfilled;
+      return result;
+    });
+    it('should deploy a function with a specific hostname (in the function section)', () => {
+      const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomPath.service.functions[functionName].events = [{
+        http: { hostname: 'test.com', path: '/test' },
+      }];
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomPath
+      );
+      thirdPartyResources = mockThirdPartyResources(kubelessDeploy);
+      const extensions = mockExtensions(kubelessDeploy);
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction().then(() => {
+          expect(extensions.ns.ingress.post.firstCall.args[0].body).to.be.eql({
+            kind: 'Ingress',
+            metadata: {
+              name: `ingress-${functionName}`,
+              labels: { function: functionName },
+              annotations:
+              {
+                'kubernetes.io/ingress.class': 'nginx',
+                'ingress.kubernetes.io/rewrite-target': '/',
+              },
+            },
+            spec: {
+              rules: [{
+                host: 'test.com',
                 http: {
                   paths: [{
                     path: '/test',
