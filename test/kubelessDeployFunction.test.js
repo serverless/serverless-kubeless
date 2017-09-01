@@ -22,9 +22,7 @@ const expect = require('chai').expect;
 const fs = require('fs');
 const mocks = require('./lib/mocks');
 const moment = require('moment');
-const os = require('os');
 const path = require('path');
-const rm = require('./lib/rm');
 const sinon = require('sinon');
 
 const KubelessDeployFunction = require('../deployFunction/kubelessDeployFunction');
