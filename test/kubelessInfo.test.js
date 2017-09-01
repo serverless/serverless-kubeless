@@ -153,7 +153,7 @@ describe('KubelessInfo', () => {
                   },
                 },
                 spec: {
-                  rules: [{ http: { paths: [{ path: f.path }] } }],
+                  rules: [{ host: '1.2.3.4.nip.io', http: { paths: [{ path: f.path }] } }],
                 },
                 status: {
                   loadBalancer: {
@@ -304,7 +304,7 @@ describe('KubelessInfo', () => {
     it('should return the description in case it exists', (done) => {
       mockGetCalls(
         [{ name: func, namespace: 'default' }],
-        { annotations: { 'kubeless.serverless.com/description': 'Test Description' } }
+        { metadata: { annotations: { 'kubeless.serverless.com/description': 'Test Description' } } }
       );
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       kubelessInfo.infoFunction({ color: false }).then((message) => {
@@ -315,7 +315,7 @@ describe('KubelessInfo', () => {
     it('should return the labels in case they exist', (done) => {
       mockGetCalls(
         [{ name: func, namespace: 'default' }],
-        { labels: { label1: 'text1', label2: 'text2' } }
+        { metadata: { labels: { label1: 'text1', label2: 'text2' } } }
       );
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       kubelessInfo.infoFunction({ color: false }).then((message) => {
@@ -323,11 +323,11 @@ describe('KubelessInfo', () => {
         done();
       });
     });
-    it('should return the trigger topic in case it exists', (done) => {
+    it('should return the URL in case a path is specified', (done) => {
       mockGetCalls([{ name: func, namespace: 'default', path: '/hello' }]);
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       kubelessInfo.infoFunction({ color: false }).then((message) => {
-        expect(message).to.match(/URL: {2}1.2.3.4\/hello\n/);
+        expect(message).to.match(/URL: {2}1.2.3.4.nip.io\/hello\n/);
         done();
       });
     });
