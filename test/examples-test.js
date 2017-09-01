@@ -365,7 +365,7 @@ describe('Examples', () => {
     it('should read all the TODOs', (done) => {
       const URL = getURL(info, /Service Information "read-all"\n(?:.*\n)*?URL:\s+(.*)/);
       expect(URL).to.match(/.*\/read-all/);
-      request.get({ url: URL, strictSSL: false }, (err, res) => {
+      request.get({ url: URL }, (err, res) => {
         if (err) throw err;
         const response = JSON.parse(res.body);
         expect(response).to.be.an('array').with.length(1);
@@ -377,7 +377,7 @@ describe('Examples', () => {
     it('should read one TODO', (done) => {
       const URL = getURL(info, /Service Information "read-one"\n(?:.*\n)*?URL:\s+(.*)/m);
       expect(URL).to.match(/.*\/read/);
-      request.get({ url: `${URL}?id=${id}`, strictSSL: false }, (err, res) => {
+      request.get({ url: `${URL}?id=${id}` }, (err, res) => {
         if (err) throw err;
         const response = JSON.parse(res.body);
         expect(response).to.contain.keys(['body', 'id', 'updatedAt']);
@@ -400,7 +400,7 @@ describe('Examples', () => {
     it('should delete one TODO', (done) => {
       const URL = getURL(info, /Service Information "delete"\n(?:.*\n)*?URL:\s+(.*)/m);
       expect(URL).to.match(/.*\/delete/);
-      request.get({ url: `${URL}?id=${id}`, strictSSL: false }, (err, res) => {
+      request.get({ url: `${URL}?id=${id}` }, (err, res) => {
         if (err) throw err;
         const response = JSON.parse(res.body);
         expect(response).to.contain.keys(['body', 'id', 'updatedAt']);

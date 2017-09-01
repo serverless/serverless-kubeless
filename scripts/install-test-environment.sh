@@ -27,7 +27,7 @@ install_kubeles() {
     local release_yaml=`curl -L https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless-v$KUBELESS_VERSION.yaml`
     local controller_image=`expr match "$release_yaml" '.*\(bitnami\/kubeless-controller@sha256:[a-z..0-9]*\).*'`
     kubecfg -V controller_image=$controller_image update ./test/kubeless-novols.jsonnet
-    curl -sL https://raw.githubusercontent.com/kubeless/kubeless/0.0.20/manifests/ingress/ingress-controller.yaml | kubectl create -f -
+    curl -sL https://raw.githubusercontent.com/kubeless/kubeless/master/manifests/ingress/ingress-controller-http-only.yaml | kubectl create -f -
     curl -LO https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless_linux-amd64.zip
     unzip kubeless_linux-amd64.zip
     sudo mv ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/kubeless
