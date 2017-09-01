@@ -101,6 +101,9 @@ describe('Examples', () => {
     let index = 0;
     cwd = path.join('/tmp', moment().valueOf().toString());
     fs.mkdirSync(cwd);
+    exec('kubeless topic create hello_topic', (err, stdout) => {
+      console.log('TOPIC CREATION STDOUT: ', stdout);
+    });
     console.log('    Deploying examples');
     _.each(examples, (example) => {
       /* eslint no-param-reassign: ["error", { "props": false }]*/
@@ -216,12 +219,10 @@ describe('Examples', () => {
     this.timeout(15000);
     it('should get a submmited message "hello world"', (done) => {
       setTimeout(() => {
-        exec('kubeless topic create hello_topic', (err, stdout) => {
-          console.log('TOPIC CREATION STDOUT: ', stdout);
-          exec(
+        exec(
             'kubeless topic publish --topic hello_topic --data "hello world"',
-            (perr, pstdout) => {
-              console.log('STDOUT: ', pstdout);
+            (err, stdout) => {
+              console.log('STDOUT: ', stdout);
               exec('kubectl describe pod kafka-0 -n kubeless', (derr, describe) => {
                 console.log(describe);
               });
@@ -242,7 +243,6 @@ describe('Examples', () => {
             }
           );
             }, 2000);
-        });
       });
     });
   });
