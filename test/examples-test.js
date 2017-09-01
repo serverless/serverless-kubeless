@@ -132,21 +132,21 @@ describe('Examples', () => {
       index++;
     });
   });
-  after(function (done) {
-    this.timeout(10000 * _.keys(examples).length);
-    let count = 0;
-    _.each(examples, example => {
-      removeExample(example.cwd, () => {
-        count++;
-        if (count === _.keys(examples).length) {
-          fs.remove(cwd, (rmErr) => {
-            if (rmErr) throw rmErr;
-          });
-          done();
-        }
-      });
-    });
-  });
+  // after(function (done) {
+  //   this.timeout(10000 * _.keys(examples).length);
+  //   let count = 0;
+  //   _.each(examples, example => {
+  //     removeExample(example.cwd, () => {
+  //       count++;
+  //       if (count === _.keys(examples).length) {
+  //         fs.remove(cwd, (rmErr) => {
+  //           if (rmErr) throw rmErr;
+  //         });
+  //         done();
+  //       }
+  //     });
+  //   });
+  // });
 
   describe('get-python', function () {
     this.timeout(10000);
@@ -215,13 +215,20 @@ describe('Examples', () => {
   describe('event-trigger-python', function () {
     this.timeout(10000);
     it('should get a submmited message "hello world"', (done) => {
-      exec('kubeless topic publish --topic hello_topic --data "hello world"', (err, stdout) => {
-        if (err) {
-          console.error(stdout);
-          throw err;
-        }
-        setTimeout(() => {
+      setTimeout(() => {
           // Wait some seconds to check the logs
+        exec('kubeless topic publish --topic hello_topic --data "hello world"', (err, stdout) => {
+          console.log('STDOUT: ', stdout);
+          exec('kubectl describe pod kafka-0 -n kubeless', (derr, describe) => {
+            console.log(describe);
+          });
+          exec('kubectl get pods -n kubeless', (gerr, pods) => {
+            console.log(pods);
+          });
+          if (err) {
+            console.error(stdout);
+            throw err;
+          }
           exec(
             'serverless logs -f events',
             { cwd: examples['event-trigger-python'].cwd },
