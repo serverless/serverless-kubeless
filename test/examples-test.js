@@ -101,9 +101,6 @@ describe('Examples', () => {
     let index = 0;
     cwd = path.join('/tmp', moment().valueOf().toString());
     fs.mkdirSync(cwd);
-    exec('kubeless topic create hello_topic', (err, stdout) => {
-      console.log('TOPIC CREATION STDOUT: ', stdout);
-    });
     console.log('    Deploying examples');
     _.each(examples, (example) => {
       /* eslint no-param-reassign: ["error", { "props": false }]*/
@@ -218,17 +215,11 @@ describe('Examples', () => {
   describe('event-trigger-python', function () {
     this.timeout(15000);
     it('should get a submmited message "hello world"', (done) => {
+      this.retry(3);
       setTimeout(() => {
         exec(
             'kubeless topic publish --topic hello_topic --data "hello world"',
             (err, stdout) => {
-              console.log('STDOUT: ', stdout);
-              exec('kubectl describe pod kafka-0 -n kubeless', (derr, describe) => {
-                console.log(describe);
-              });
-              exec('kubectl get pods -n kubeless', (gerr, pods) => {
-                console.log(pods);
-              });
               if (err) {
                 console.error(stdout);
                 throw err;
