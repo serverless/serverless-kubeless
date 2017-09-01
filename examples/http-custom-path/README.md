@@ -7,7 +7,7 @@ In this example we will deploy a function that will be available under the path 
 We will need to have an Ingress controller deployed in order to be able to deploy your function in a specific path. If you don't have it yet you can deploy one executing:
 
 ```
-curl -sL https://raw.githubusercontent.com/kubeless/kubeless/0.0.20/manifests/ingress/ingress-controller.yaml | kubectl create -f -  
+curl -sL https://raw.githubusercontent.com/kubeless/kubeless/master/manifests/ingress/ingress-controller-http-only.yaml | kubectl create -f -  
 ```
 
 ## Deployment
@@ -22,7 +22,7 @@ Serverless: Waiting for function hello to be fully deployed. Pods status: {"wait
 Serverless: Function hello succesfully deployed
 ```
 
-As we can see in the logs an Ingress Rule has been deployed to run our function at `/hello`. We can know the specific URL in which the function will be listening executing `serverless info`:
+As we can see in the logs an Ingress Rule has been deployed to run our function at `/hello`. If no host is specified, by default it will use `API_URL.nip.io` being `API_URL` the URL/IP of the Kubernetes IP. We can know the specific URL in which the function will be listening executing `serverless info`:
 ```console
 $ serverless info
 Service Information "hello"
@@ -34,7 +34,7 @@ Ports:
   Target Port:  8080
   Node Port:  31444
 Function Info
-URL:  192.168.99.100/hello
+URL:  192.168.99.100.nip.io/hello
 Handler:  handler.hello
 Runtime:  python2.7
 Trigger:  HTTP
@@ -43,7 +43,7 @@ Dependencies:
 
 Depending on the Ingress configuration the URL may be redirected to use the HTTPS protocol. You can call your function with a browser or executing:
 ```console
-$ curl -kL 192.168.99.100/hello
+$ curl 192.168.99.100.nip.io/hello
 hello world
 ```
 

@@ -24,6 +24,7 @@ const helpers = require('../lib/helpers');
 const JSZip = require('jszip');
 const moment = require('moment');
 const path = require('path');
+const url = require('url');
 
 function getFunctionDescription(
   funcName,
@@ -54,12 +55,12 @@ function getFunctionDescription(
     },
   };
   if (desc) {
-    funcs.annotations = {
+    funcs.metadata.annotations = {
       'kubeless.serverless.com/description': desc,
     };
   }
   if (labels) {
-    funcs.labels = labels;
+    funcs.metadata.labels = labels;
   }
   if (env || memory) {
     const container = {
@@ -102,7 +103,7 @@ function getFunctionDescription(
   return funcs;
 }
 
-function getIngressDescription(funcName, funcPath) {
+function getIngressDescription(funcName, funcPath, funcHost) {
   return {
     kind: 'Ingress',
     metadata: {
@@ -115,6 +116,7 @@ function getIngressDescription(funcName, funcPath) {
     },
     spec: {
       rules: [{
+        host: funcHost,
         http: {
           paths: [{
             path: funcPath,
@@ -225,8 +227,7 @@ class KubelessDeploy {
     const loop = setInterval(() => {
       if (retries > 3) {
         this.serverless.cli.log(
-          `Giving up, the deployment of the function ${funcName} seems to have failed. ` +
-          'Check the kubeless-controller pod logs for more info'
+          `Giving up, unable to retrieve the status of the ${funcName} deployment. `
         );
         clearInterval(loop);
         return;
@@ -349,17 +350,24 @@ class KubelessDeploy {
     });
   }
 
-  addIngressRuleIfNecessary(funcName, eventType, eventPath, namespace) {
+  addIngressRuleIfNecessary(funcName, eventType, eventPath, eventHostname, namespace) {
+    const config = helpers.loadKubeConfig();
     const extensions = this.getExtensions(helpers.getConnectionOptions(
-      helpers.loadKubeConfig(), { namespace })
+      config, { namespace })
     );
+    const fpath = eventPath || '/';
+    const hostname = eventHostname ||
+      `${url.parse(helpers.getKubernetesAPIURL(config)).hostname}.nip.io`;
     return new BbPromise((resolve, reject) => {
-      if (eventType === 'http' && eventPath && eventPath !== '/') {
+      if (
+        eventType === 'http' &&
+        ((!_.isEmpty(eventPath) && eventPath !== '/') || !_.isEmpty(eventHostname))
+      ) {
         // Found a path to deploy the function
-        const absolutePath = _.startsWith(eventPath, '/') ?
-          eventPath :
-          `/${eventPath}`;
-        const ingressDef = getIngressDescription(funcName, absolutePath);
+        const absolutePath = _.startsWith(fpath, '/') ?
+          fpath :
+          `/${fpath}`;
+        const ingressDef = getIngressDescription(funcName, absolutePath, hostname);
         extensions.ns.ingress.post({ body: ingressDef }, (err) => {
           if (err) {
             reject(
@@ -469,6 +477,7 @@ class KubelessDeploy {
                             name,
                             eventType,
                             event[eventType].path,
+                            this.serverless.service.provider.hostname || event[eventType].hostname,
                             connectionOptions.namespace
                           );
                         })

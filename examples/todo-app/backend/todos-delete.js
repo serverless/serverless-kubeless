@@ -8,7 +8,6 @@ const url = 'mongodb://mongodb:27017/todo_app';
 
 module.exports = {
   delete: (req, res) => new Promise((resolve, reject) => {
-    res.header('Access-Control-Allow-Origin', '*');
     MongoClient.connect(url, (err, db) => {
       if (err) {
         reject(err);
