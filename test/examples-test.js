@@ -214,7 +214,7 @@ describe('Examples', () => {
   });
   describe('event-trigger-python', function () {
     this.timeout(15000);
-    it('should get a submmited message "hello world"', (done) => {
+    it('should get a submmited message "hello world"', function (done) {
       this.retry(3);
       setTimeout(() => {
         exec(
