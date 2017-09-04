@@ -171,10 +171,10 @@ describe('Examples', () => {
     });
   });
   describe('http-custom-path', function () {
-    this.timeout(10000);
+    this.timeout(15000);
     before((done) => {
       // We need some additional time for the ingress rule to work
-      setTimeout(done, 9000);
+      setTimeout(done, 12000);
     });
     it('should return a "hello world" in a subpath', (done) => {
       exec('serverless info', { cwd: examples['http-custom-path'].cwd }, (err, stdout) => {
@@ -217,7 +217,8 @@ describe('Examples', () => {
   describe('event-trigger-python', function () {
     this.timeout(15000);
     it('should get a submmited message "hello world"', (done) => {
-      exec(
+      try {
+        exec(
         'kubeless topic publish --topic hello_topic --data "hello world"',
         (err, stdout) => {
           if (err) {
@@ -229,17 +230,16 @@ describe('Examples', () => {
             { cwd: examples['event-trigger-python'].cwd },
             (eerr, logs) => {
               if (eerr) throw eerr;
-              try {
-                expect(logs).to.contain('hello world');
-              } catch (e) {
-                // Kafka environment is flacky in the minikube environment
-                // We don't want to fail the process if this test fails
-                console.log(`Unable to test even-trigger example: ${e.message}`);
-              }
+              expect(logs).to.contain('hello world');
               done();
             }
           );
         });
+      } catch (e) {
+        // Kafka environment is flacky in the minikube environment
+        // We don't want to fail the process if this test fails
+        console.log(`Unable to test even-trigger example: ${e.message}`);
+      }
     });
   });
   describe('post-nodejs', function () {
