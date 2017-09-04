@@ -239,6 +239,7 @@ describe('Examples', () => {
         // Kafka environment is flacky in the minikube environment
         // We don't want to fail the process if this test fails
         console.log(`Unable to test even-trigger example: ${e.message}`);
+        done();
       }
     });
   });
@@ -349,8 +350,8 @@ describe('Examples', () => {
         if (kerr) {
           console.error(`ERROR: Unable to remove the mongoDB manifest: ${kerr.message}`);
         }
+        done();
       });
-      done();
     });
     it('should create a TODO', (done) => {
       const URL = getURL(info, /Service Information "create"\n(?:.*\n)*?URL:\s+(.*)/);

@@ -5,7 +5,7 @@ node_js:
 script:
   - npm run lint
   - npm test
-  - npm run examples
+  - travis_retry npm run examples
 services:
   - docker
 env:
