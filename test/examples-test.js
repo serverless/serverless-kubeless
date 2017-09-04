@@ -70,10 +70,11 @@ function getURL(info, regexp) {
   return URL;
 }
 
-function postWithRedirect(url, body, callback) {
-  request.post({ url, body, strictSSL: false }, (err, res) => {
+function postWithRedirect(req, callback) {
+  request.post(req, (err, res) => {
+    if (err) throw err;
     if (res.statusCode === 301) {
-      request.post({ url: res.headers.location, body, strictSSL: false }, (errR, resR) => {
+      request.post(_.assign(req, { url: res.headers.location }), (errR, resR) => {
         callback(errR, resR);
       });
     } else {
@@ -354,11 +355,10 @@ describe('Examples', () => {
     it('should create a TODO', (done) => {
       const URL = getURL(info, /Service Information "create"\n(?:.*\n)*?URL:\s+(.*)/);
       expect(URL).to.match(/.*\/create/);
-      postWithRedirect(URL, '{"body": "test"}', (err, res) => {
+      postWithRedirect({ url: URL, json: true, body: { body: 'test' } }, (err, res) => {
         if (err) throw err;
-        const response = JSON.parse(res.body);
-        expect(response).to.contain.keys(['body', 'id', 'updatedAt']);
-        expect(response.body).to.be.eql('test');
+        const response = res.body;
+        expect(response).to.contain.keys(['_id', 'id', 'updatedAt']);
         id = response.id;
         done();
       });
@@ -370,8 +370,7 @@ describe('Examples', () => {
         if (err) throw err;
         const response = JSON.parse(res.body);
         expect(response).to.be.an('array').with.length(1);
-        expect(response[0]).to.contain.keys(['body', 'id', 'updatedAt']);
-        expect(response[0].body).to.be.eql('test');
+        expect(response[0]).to.contain.keys(['_id', 'id', 'updatedAt']);
         done();
       });
     });
@@ -381,19 +380,21 @@ describe('Examples', () => {
       request.get({ url: `${URL}?id=${id}` }, (err, res) => {
         if (err) throw err;
         const response = JSON.parse(res.body);
-        expect(response).to.contain.keys(['body', 'id', 'updatedAt']);
-        expect(response.body).to.be.eql('test');
+        expect(response).to.contain.keys(['_id', 'id', 'updatedAt']);
         done();
       });
     });
     it('should update one TODO', (done) => {
       const URL = getURL(info, /Service Information "update"\n(?:.*\n)*?URL:\s+(.*)/m);
       expect(URL).to.match(/.*\/update/);
-      postWithRedirect(`${URL}?id=${id}`, '{"body": "new-test"}', (err, res) => {
+      postWithRedirect({
+        url: `${URL}?id=${id}`,
+        json: true,
+        body: { body: 'new-test' },
+      }, (err, res) => {
         if (err) throw err;
-        const response = JSON.parse(res.body);
-        expect(response).to.contain.keys(['body', 'id', 'updatedAt']);
-        expect(response.body).to.be.eql('new-test');
+        const response = res.body;
+        expect(response).to.contain.keys(['_id', 'id', 'updatedAt']);
         id = response.id;
         done();
       });
@@ -404,8 +405,7 @@ describe('Examples', () => {
       request.get({ url: `${URL}?id=${id}` }, (err, res) => {
         if (err) throw err;
         const response = JSON.parse(res.body);
-        expect(response).to.contain.keys(['body', 'id', 'updatedAt']);
-        expect(response.body).to.be.eql('new-test');
+        expect(response).to.contain.keys(['_id', 'id', 'updatedAt']);
         done();
       });
     });
