@@ -42,7 +42,7 @@ describe('Helper functions', () => {
     });
     it('should find kubernetes config on its default path', () => {
       process.env.HOME = cwd;
-      fs.mkdir(path.join(cwd, '.kube'));
+      fs.mkdirSync(path.join(cwd, '.kube'));
       fs.writeFileSync(path.join(cwd, '.kube/config'), yaml.safeDump(configSample));
       expect(helpers.loadKubeConfig()).to.be.eql(configSample);
     });
