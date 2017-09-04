@@ -309,7 +309,8 @@ class KubelessDeploy {
           if (err.code === 409) {
             this.serverless.cli.log(
               `The function ${body.metadata.name} already exists. ` +
-              `Remove or redeploy it executing "sls deploy function -f ${body.metadata.name}".`
+              'Redeploy it usign --force or executing ' +
+              `"sls deploy function -f ${body.metadata.name}".`
             );
             resolve(false);
           } else {
@@ -325,6 +326,24 @@ class KubelessDeploy {
             requestMoment,
             thirdPartyResources.namespaces.namespace
           );
+          resolve(true);
+        }
+      });
+    });
+  }
+
+  redeployFunctionAndWait(body, thirdPartyResources) {
+    const requestMoment = moment().milliseconds(0);
+    return new BbPromise((resolve, reject) => {
+      thirdPartyResources.ns.functions(body.metadata.name).put({ body }, (err) => {
+        if (err) {
+          reject(new Error(
+            `Unable to update the function ${body.metadata.name}. Received:\n` +
+            `  Code: ${err.code}\n` +
+            `  Message: ${err.message}`
+          ));
+        } else {
+          this.waitForDeployment(body.metadata.name, requestMoment);
           resolve(true);
         }
       });
@@ -414,18 +433,33 @@ class KubelessDeploy {
                       event.trigger
                     );
                     let deploymentPromise = null;
+                    let redeployed = false;
                     thirdPartyResources.ns.functions.get((err, functionsInfo) => {
                       if (err) throw err;
-                      const existingFunction = _.find(functionsInfo.items, item => (
-                        name === item.metadata.name &&
-                        _.isEqual(item.spec, funcs.spec)
-                      ));
-                      if (existingFunction) {
+                      // Check if the function has been already deployed
+                      let existingFunction = false;
+                      let existingSameFunction = false;
+                      _.each(functionsInfo.items, item => {
+                        if (_.isEqual(item.metadata.name, funcs.metadata.name)) {
+                          existingFunction = true;
+                          if (_.isEqual(item.spec, funcs.spec)) {
+                            existingSameFunction = true;
+                          }
+                        }
+                      });
+                      if (existingSameFunction) {
                         // The same function is already deployed, skipping the deployment
                         this.serverless.cli.log(
-                          `Function ${name} has not changed. Skipping deployment`
-                        );
+                            `Function ${name} has not changed. Skipping deployment`
+                          );
                         deploymentPromise = new BbPromise(r => r(false));
+                      } else if (existingFunction && this.options.force) {
+                        // The function already exits but with a different content
+                        deploymentPromise = this.redeployFunctionAndWait(
+                            funcs,
+                            thirdPartyResources
+                          );
+                        redeployed = true;
                       } else {
                         deploymentPromise = this.deployFunctionAndWait(funcs, thirdPartyResources);
                       }
@@ -433,8 +467,9 @@ class KubelessDeploy {
                         errors.push(deploymentErr);
                       })
                         .then((deployed) => {
-                          if (!deployed) {
+                          if (!deployed || redeployed) {
                             // If there were an error with the deployment
+                            // or the function is already deployed
                             // don't try to add an ingress rule
                             return new BbPromise((r) => r());
                           }
