@@ -19,40 +19,17 @@ limitations under the License.
 const _ = require('lodash');
 const BbPromise = require('bluebird');
 const KubelessDeploy = require('../deploy/kubelessDeploy');
-const moment = require('moment');
 
 class KubelessDeployFunction extends KubelessDeploy {
   constructor(serverless, options) {
     super(serverless, options);
     if (this.options.v) this.options.verbose = true;
+    this.options.force = true;
     this.hooks = {
       'deploy:function:deploy': () => BbPromise.bind(this)
       .then(this.validate)
       .then(this.deployFunction),
     };
-  }
-
-  deployFunctionAndWait(body, thirdPartyResources) {
-    const requestMoment = moment().milliseconds(0);
-    return new BbPromise((resolve, reject) => {
-      thirdPartyResources.ns.functions(body.metadata.name).put({ body }, (err) => {
-        if (err) {
-          reject(new Error(
-            `Unable to update the function ${body.metadata.name}. Received:\n` +
-            `  Code: ${err.code}\n` +
-            `  Message: ${err.message}`
-          ));
-        } else {
-          this.waitForDeployment(body.metadata.name, requestMoment);
-          resolve(true);
-        }
-      });
-    });
-  }
-
-  addIngressRuleIfNecessary() {
-    // It is not necessary to add an Ingress rule again
-    return new BbPromise((r) => r());
   }
 
   deployFunction() {

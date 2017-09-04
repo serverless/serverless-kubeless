@@ -1,0 +1,99 @@
+'use strict';
+
+const _ = require('lodash');
+const fs = require('fs');
+const moment = require('moment');
+const os = require('os');
+const path = require('path');
+const rm = require('./rm');
+const sinon = require('sinon');
+
+function thirdPartyResources(kubelessDeploy, namespace) {
+  const put = sinon.stub().callsFake((body, callback) => {
+    callback(null, { statusCode: 200 });
+  });
+  const result = {
+    namespaces: {
+      namespace: namespace || 'default',
+    },
+    ns: {
+      functions: () => ({
+        put,
+      }),
+    },
+    addResource: sinon.stub(),
+  };
+  result.ns.functions.post = sinon.stub().callsFake((body, callback) => {
+    callback(null, { statusCode: 200 });
+  });
+  result.ns.functions.get = sinon.stub().callsFake((callback) => {
+    callback(null, { statusCode: 200, body: { items: [] } });
+  });
+  if (kubelessDeploy.getThirdPartyResources.isSinonProxy) {
+    kubelessDeploy.getThirdPartyResources.returns(result);
+  } else {
+    sinon.stub(kubelessDeploy, 'getThirdPartyResources').returns(result);
+  }
+  return result;
+}
+
+function extensions(kubelessDeploy, namespace) {
+  const result = {
+    namespaces: {
+      namespace: namespace || 'default',
+    },
+    ns: {
+      ingress: {
+        post: sinon.stub().callsFake((body, callback) => {
+          callback(null, { statusCode: 200 });
+        }),
+      },
+    },
+    addResource: sinon.stub(),
+  };
+  sinon.stub(kubelessDeploy, 'getExtensions').returns(result);
+  return result;
+}
+
+function kubeConfig() {
+  const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+  fs.mkdirSync(cwd);
+  fs.mkdirSync(path.join(cwd, '.kube'));
+  fs.writeFileSync(
+        path.join(cwd, '.kube/config'),
+        'apiVersion: v1\n' +
+        'current-context: cluster-id\n' +
+        'clusters:\n' +
+        '- cluster:\n' +
+        '    certificate-authority-data: LS0tLS1\n' +
+        '    server: http://1.2.3.4:4433\n' +
+        '  name: cluster-name\n' +
+        'contexts:\n' +
+        '- context:\n' +
+        '    cluster: cluster-name\n' +
+        '    namespace: custom\n' +
+        '    user: cluster-user\n' +
+        '  name: cluster-id\n' +
+        'users:\n' +
+        '- name: cluster-user\n' +
+        '  user:\n' +
+        '    username: admin\n' +
+        '    password: password1234\n'
+    );
+  process.env.HOME = cwd;
+  return cwd;
+}
+
+const previousEnv = _.cloneDeep(process.env);
+
+function restoreKubeConfig(cwd) {
+  rm(cwd);
+  process.env = _.cloneDeep(previousEnv);
+}
+
+module.exports = {
+  thirdPartyResources,
+  extensions,
+  kubeConfig,
+  restoreKubeConfig,
+};
