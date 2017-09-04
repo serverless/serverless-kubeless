@@ -1,8 +1,17 @@
 language: node_js
 node_js:
   - "8"
-  - "7"
   - "6"
 script:
   - npm run lint
   - npm test
+  - travis_retry npm run examples
+services:
+  - docker
+env:
+  global:
+    - KUBELESS_VERSION=0.1.0
+install:
+  - ./scripts/install-test-environment.sh
+  - npm install -g serverless
+  - npm install

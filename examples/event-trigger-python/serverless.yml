@@ -1,4 +1,4 @@
-service: hello
+service: events
 
 provider:
   name: kubeless
@@ -8,7 +8,7 @@ plugins:
   - serverless-kubeless
 
 functions:
-  hello:
-    handler: handler.hello
+  events:
+    handler: handler.events
     events:
       - trigger: 'hello_topic'

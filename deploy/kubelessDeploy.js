@@ -274,21 +274,21 @@ class KubelessDeploy {
               successfulCount++;
               if (successfulCount === 2) {
                 this.serverless.cli.log(
-                    `Function ${funcName} succesfully deployed`
-                  );
+                  `Function ${funcName} succesfully deployed`
+                );
                 clearInterval(loop);
               }
             } else if (this.options.verbose) {
               successfulCount = 0;
               const currentPodStatus = _.map(functionPods, p => (
-                  p.status.containerStatuses ?
-                    JSON.stringify(p.status.containerStatuses[0].state) :
-                    'unknown'
-                ));
+                p.status.containerStatuses ?
+                  JSON.stringify(p.status.containerStatuses[0].state) :
+                  'unknown'
+              ));
               if (!_.isEqual(previousPodStatus, currentPodStatus)) {
                 this.serverless.cli.log(
-                    `Pods status: ${currentPodStatus}`
-                  );
+                  `Pods status: ${currentPodStatus}`
+                );
                 previousPodStatus = currentPodStatus;
               }
             }
@@ -395,8 +395,8 @@ class KubelessDeploy {
     let counter = 0;
     return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (description, name) => {
-        const runtime = this.serverless.service.provider.runtime;
         if (description.handler) {
+          const runtime = this.serverless.service.provider.runtime;
           const files = this.getRuntimeFilenames(runtime, description.handler);
           const connectionOptions = helpers.getConnectionOptions(
             helpers.loadKubeConfig(), {
@@ -472,6 +472,12 @@ class KubelessDeploy {
                             // or the function is already deployed
                             // don't try to add an ingress rule
                             return new BbPromise((r) => r());
+                          }
+                          if (_.isUndefined(event[eventType])) {
+                            throw new Error(
+                              `Wrong defintion for the event ${event}. ` +
+                              'Expecting an Object with valid keys.'
+                            );
                           }
                           return this.addIngressRuleIfNecessary(
                             name,

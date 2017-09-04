@@ -138,7 +138,7 @@ class KubelessInfo {
                   service.metadata.labels.function === f
                 )
               );
-              if (_.isEmpty(functionService)) {
+              if (_.isEmpty(functionService) || _.isEmpty(fDesc)) {
                 this.serverless.cli.consoleLog(
                   `Not found any information about the function "${f}"`
                 );

@@ -4,3 +4,8 @@ npm-debug.log
 .eslintcache
 coverage
 .serverless
+# Test leftovers
+node-dependencies-*
+ksonnet-lib
+kubeless_linux-amd64.zip
+test/kubeless.jsonnet

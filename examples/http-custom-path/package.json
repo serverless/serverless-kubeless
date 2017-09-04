@@ -1,5 +1,5 @@
 {
-  "name": "hello",
+  "name": "hello-http",
   "version": "1.0.0",
   "description": "Example function for serverless kubeless",
   "dependencies": {
