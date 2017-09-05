@@ -17,10 +17,6 @@ function release_tag {
   git fetch --tags
   local last_tag=`curl -s https://api.github.com/repos/$REPO_DOMAIN/$REPO_NAME/tags | jq --raw-output '.[0].name'`
   local release_notes=`git log $last_tag..HEAD --oneline`
-  # Parse relase notes like an list (e.g):
-  # - 12345abcd Merge pull request #1 Title
-  #   - 12345efgh commit included 1
-  #   - 12345hijk commit included 2
   local parsed_release_notes=$(echo "$release_notes" | sed -n -e 'H;${x;s/\n/\\n   - /g;s/^\\n//;p;}')
   parsed_release_notes=`echo "$parsed_release_notes" | sed -e '${s/  \( - [^ ]* Merge pull request\)/\1/g;}'`
   release=`curl -H "Authorization: token $ACCESS_TOKEN" -s --data "{
@@ -39,12 +35,6 @@ version=`get_version`
 if [[ -z "$REPO_NAME" || -z "$REPO_DOMAIN" ]]; then
   echo "Github repository not specified" > /dev/stderr
   exit 1
-fi
-
-origin=`git config --get remote.origin.url`
-if [[ "$origin" != "https://github.com/$REPO_DOMAIN/$REPO_NAME" ]]; then
-  echo "The current origin is not the goal of the relase. Skipping..."
-  exit 0
 fi
 
 repo_check=`curl -s https://api.github.com/repos/$REPO_DOMAIN/$REPO_NAME`
