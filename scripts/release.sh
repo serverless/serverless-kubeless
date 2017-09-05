@@ -41,6 +41,12 @@ if [[ -z "$REPO_NAME" || -z "$REPO_DOMAIN" ]]; then
   exit 1
 fi
 
+origin=`git config --get remote.origin.url`
+if [[ "$origin" != "https://github.com/$REPO_DOMAIN/$REPO_NAME" ]]; then
+  echo "The current origin is not the goal of the relase. Skipping..."
+  exit 0
+fi
+
 repo_check=`curl -s https://api.github.com/repos/$REPO_DOMAIN/$REPO_NAME`
 if [[ $repo_check == *"Not Found"* ]]; then
   echo "Not found a Github repository for $REPO_DOMAIN/$REPO_NAME, it is not possible to publish it" > /dev/stderr
