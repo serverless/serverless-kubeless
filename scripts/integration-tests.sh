@@ -16,11 +16,13 @@ install_kubecfg() {
     chmod +x ./kubecfg-linux-amd64
     sudo mv ./kubecfg-linux-amd64 /usr/local/bin/kubecfg
     chmod +x  /usr/local/bin/kubecfg
-    git clone --depth=1 https://github.com/ksonnet/ksonnet-lib.git
+    if [ ! -d "ksonnet-lib" ]; then
+      git clone --depth=1 https://github.com/ksonnet/ksonnet-lib.git ksonnet-lib
+    fi
     export KUBECFG_JPATH=$PWD/ksonnet-lib
 }
 
-install_kubeles() {
+install_kubeless() {
     kubectl create ns kubeless
     curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/v$KUBELESS_VERSION/kubeless.jsonnet
     mv kubeless.jsonnet ./test
@@ -35,9 +37,20 @@ install_kubeles() {
     until kubectl get all --all-namespaces | sed -n 's/po\/kafka//p' | grep Running; do kubectl -n kubeless describe pod kafka-0; sleep 10; done
 }
 
+# Install dependencies
 install_kubectl
 install_minikube
 install_kubecfg
-install_kubeles
-
+install_kubeless
 kubectl get all --all-namespaces
+
+# Run tests
+set +e
+npm run examples
+result=$?
+set -e
+
+# Clean up
+minikube delete
+
+exit $result
