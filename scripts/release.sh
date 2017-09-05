@@ -36,7 +36,7 @@ function release_tag {
 
 version=`get_version`
 
-if [[ -z $REPO_NAME ]]; then
+if [[ -z "$REPO_NAME" || -z "$REPO_DOMAIN" ]]; then
   echo "Github repository not specified" > /dev/stderr
   exit 1
 fi
