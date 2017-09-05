@@ -11,7 +11,22 @@ services:
 env:
   global:
     - KUBELESS_VERSION=0.1.0
+    secure: "dPepHM5HTKrejZx4Ec3q2t/T0bqM6K5boZpVLdKAnHy4pIQ2+AQwYBRJO+DixQeD4vinhEEucDJuE9zJIe+nghB7RsdVMCMw8xDK7/QAW+rw+YO22sWcIye9kWYmHnteq6q+wAzcnOvyJ/UHY8ZhOXm42Lu6ZWc2u7ksibFGri2eC53Ot529P44Yy4gGUE+hZ14mXvivCSgiQp/cEEK/t7+t1ISl0BK97P7SeSCuNSZzXGu9aZTSjcaM52XqFwfnzn2Lb+qGqj8mthZOUBgnAnP5e9mmVPfeZURlFRDGZVY74erJarSlSNkko7RDZ5s8J0HQ/ur+KXWh9d9PICuJb5mPyfAVK9hYjd8R+hZ7MAH3UBQBIyJekflDCWiPVZLX3fsKsX4vX20lpYrEMwO7HSzrJiX2XHEnQU8aPJ+GtONpoeVH5c7MWhv5XpCo03nSMvxkIBe9P8tv4Wz1bTgU48NUn+noxz5aTu+G/35SCIeGfQOpWp1FSNFoB0NKOh9P15Uwlhot+gEA7XsxkCPpn4da8fs3rjcLhLCiZqUo1Anwitx3hMtViXqkR/QAlaEErIYqjLdIj15xfIND5JmveP7WveHotboprlblyMOqSDHc2B9L24RrlKNiZNS3W8Mr8qLh8S7kFqH9ixCPQRj+kfLrs/SWEbTY8tU/uTulHDA="
 install:
   - ./scripts/install-test-environment.sh
   - npm install -g serverless
   - npm install
+after_success:
+  - |
+    if [[ "$TRAVIS_BRANCH" == master && \
+          "$TRAVIS_PULL_REQUEST" == false ]]; then
+        REPO_DOMAIN=serverless REPO_NAME=serverless-kubeless ./scripts/release.sh
+    fi
+deploy:
+  provider: npm
+  email: npm@bitnami.com
+  api_key:
+    secure: "rgqKaazC2RPDx4BJobB/XZcpClX7H4XZeZb2MHB6GYoibzf1EqDdHK3eGX2MwbtN9I2xMAn6h88gjbPSvPZrxIWQAfrrbwzPzOtteFfiRWWzlQpuNEuLTs3pAHpsYfrbJGMBBMLVq2X0+i1NGrEIlQfRfQvCBkV1xdCO0nRxheKhoikWCAVkd8MXDmmTre9+Uxk44MjjSKpn3eqM/IDMHDUoisLFnw4lsbM80TjMHNagQozBeoGQwLK81+0ZbFhW9qCSw8GeSznqJdkeJzz3iIYQs9JMqBv9VpLADTpPgUdbMvvtKhL5nGaJVDQCmLjVxmo9lZDNfrCjVq5zARt6s688tUqXZmC+pqJXPVqCTcs5UgcOUgU2hZejv0croE55lMNcCKTaICBg9MVBLUNEYXZVOKArAl9uvRc/FNOnnv7PVHMYC0iHBQADuIgskOBCboV6kC2EBH0h2mZdm4Y2hoFOD/ZEwfDtfWlrakKxPsD3zbDPhS31CjOQwp1UJqbj94w9ztXiqEI5B/Oo7OEpQ72aHbtlysQPKaa2BAyzxICJzB17otJjP7pcj3lmwiU3scIJjbzCAzPRKByQmyjGhHLZItJRMn6CMWY/EeodZXRrqej6ToTLNyzSt8c7r9xl8W9ViyRJxFbElYkZ/OLgLwc3sD1sB0vVvWfoM9xyzQI="
+  on:
+    tags: true
+    repo: serverless/serverless-kubeless
