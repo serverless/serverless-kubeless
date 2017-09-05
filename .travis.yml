@@ -22,7 +22,7 @@ after_success:
   - |
     if [[ "$TRAVIS_BRANCH" == master && \
           "$TRAVIS_PULL_REQUEST" == false && \
-          "$TRAVIS_REPO_SLUG" == "$REPO_DOMAIN/$REPO_NAME" ]]; then
+          -n "$ACCESS_TOKEN" ]]; then
          ./scripts/release.sh
     fi
 deploy:
