@@ -37,7 +37,7 @@ if [[ -z "$REPO_NAME" || -z "$REPO_DOMAIN" ]]; then
   exit 1
 fi
 
-if [[ -n "$ACCESS_TOKEN" ]]; then
+if [[ -z "$ACCESS_TOKEN" ]]; then
   echo "Unable to release: Github Token not specified" > /dev/stderr
   exit 1
 fi
