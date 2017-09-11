@@ -55,5 +55,5 @@ Hit Ctrl-C to quit.
 Finally, remove the service and associated functions
 
 ```console
-$ servereless remove
+$ serverless remove
 ```
