@@ -3,10 +3,11 @@
 const _ = require('lodash');
 const fs = require('fs');
 const moment = require('moment');
-const os = require('os');
+const nock = require('nock');
 const path = require('path');
 const rm = require('./rm');
 const sinon = require('sinon');
+const yaml = require('js-yaml');
 
 function thirdPartyResources(kubelessDeploy, namespace) {
   const put = sinon.stub().callsFake((body, callback) => {
@@ -55,9 +56,7 @@ function extensions(kubelessDeploy, namespace) {
   return result;
 }
 
-function kubeConfig() {
-  const cwd = path.join(os.tmpdir(), moment().valueOf().toString());
-  fs.mkdirSync(cwd);
+function kubeConfig(cwd) {
   fs.mkdirSync(path.join(cwd, '.kube'));
   fs.writeFileSync(
         path.join(cwd, '.kube/config'),
@@ -81,7 +80,7 @@ function kubeConfig() {
         '    password: password1234\n'
     );
   process.env.HOME = cwd;
-  return cwd;
+  return yaml.safeLoad(fs.readFileSync(path.join(cwd, '.kube/config')));
 }
 
 const previousEnv = _.cloneDeep(process.env);
@@ -91,9 +90,86 @@ function restoreKubeConfig(cwd) {
   process.env = _.cloneDeep(previousEnv);
 }
 
+
+function createDeploymentNocks(endpoint, func, funcSpec, options) {
+  const opts = _.defaults({}, options, {
+    namespace: 'default',
+    existingFunctions: [],
+    description: null,
+    labels: null,
+    postReply: 'OK',
+  });
+  const postBody = {
+    apiVersion: 'k8s.io/v1',
+    kind: 'Function',
+    metadata: { name: func, namespace: opts.namespace },
+    spec: funcSpec,
+  };
+  if (opts.description) {
+    postBody.metadata.annotations = {
+      'kubeless.serverless.com/description': opts.description,
+    };
+  }
+  if (opts.labels) {
+    postBody.metadata.labels = opts.labels;
+  }
+  nock(endpoint)
+    .persist()
+    .get(`/apis/k8s.io/v1/namespaces/${opts.namespace}/functions`)
+    .reply(200, { items: opts.existingFunctions });
+  nock(endpoint)
+    .post(`/apis/k8s.io/v1/namespaces/${opts.namespace}/functions`, postBody)
+    .reply(200, opts.postReply);
+  nock(endpoint)
+    .persist()
+    .get('/api/v1/pods')
+    .reply(200, {
+      items: [{
+        metadata: {
+          name: func,
+          labels: { function: func },
+          creationTimestamp: moment().add('60', 's'),
+        },
+        spec: funcSpec,
+        status: {
+          containerStatuses: [{ ready: true, restartCount: 0 }],
+        },
+      }],
+    });
+}
+
+function createIngressNocks(endpoint, func, hostname, p, options) {
+  const opts = _.defaults({}, options, {
+    namespace: 'default',
+  });
+  nock(endpoint)
+    .post(`/apis/extensions/v1beta1/namespaces/${opts.namespace}/ingresses`, {
+      kind: 'Ingress',
+      metadata: {
+        name: 'ingress-myFunction',
+        labels: { function: func },
+        annotations: {
+          'kubernetes.io/ingress.class': 'nginx',
+          'ingress.kubernetes.io/rewrite-target': '/',
+        },
+      },
+      spec: {
+        rules: [{
+          host: hostname,
+          http: {
+            paths: [{ path: p, backend: { serviceName: func, servicePort: 8080 } }],
+          },
+        }],
+      },
+    })
+    .reply(200, 'OK');
+}
+
 module.exports = {
   thirdPartyResources,
   extensions,
   kubeConfig,
   restoreKubeConfig,
+  createDeploymentNocks,
+  createIngressNocks,
 };

@@ -76,30 +76,28 @@ describe('KubelessRemove', () => {
   describe('#validate', () => {
     it('prints a message if an unsupported option is given', () => {
       const kubelessRemove = new KubelessRemove(serverless, { region: 'us-east1' });
-      sinon.stub(serverless.cli, 'log');
-      try {
-        expect(() => kubelessRemove.validate()).to.not.throw();
-        expect(serverless.cli.log.firstCall.args).to.be.eql(
-          ['Warning: Option region is not supported for the kubeless plugin']
-        );
-      } finally {
-        serverless.cli.log.restore();
-      }
+      expect(() => kubelessRemove.validate()).to.not.throw();
+      expect(serverless.cli.log.firstCall.args).to.be.eql(
+        ['Warning: Option region is not supported for the kubeless plugin']
+      );
     });
   });
   describe('#remove', () => {
     let cwd = null;
-    const serverlessWithFunction = _.defaultsDeep({}, serverless, {
-      service: {
-        functions: {
-          myFunction: {
-            handler: 'function.hello',
+    let serverlessWithFunction = null;
+    let kubelessRemove = null;
+
+    beforeEach(() => {
+      serverlessWithFunction = _.defaultsDeep({}, serverless, {
+        service: {
+          functions: {
+            myFunction: {
+              handler: 'function.hello',
+            },
           },
         },
-      },
-    });
-    let kubelessRemove = new KubelessRemove(serverlessWithFunction);
-    beforeEach(() => {
+      });
+      kubelessRemove = new KubelessRemove(serverlessWithFunction);
       cwd = path.join(os.tmpdir(), moment().valueOf().toString());
       fs.mkdirSync(cwd);
       fs.writeFileSync(path.join(cwd, 'function.py'), 'function code');
@@ -138,17 +136,12 @@ describe('KubelessRemove', () => {
       Api.ThirdPartyResources.prototype.delete.callsFake((data, ff) => {
         ff({ code: 404 });
       });
-      sinon.stub(serverlessWithFunction.cli, 'log');
-      try {
-        expect( // eslint-disable-line no-unused-expressions
-          kubelessRemove.removeFunction(cwd)
-        ).to.be.fulfilled;
-        expect(serverlessWithFunction.cli.log.lastCall.args).to.be.eql(
-          ['The function myFunction doesn\'t exist. Skipping removal.']
-        );
-      } finally {
-        serverlessWithFunction.cli.log.restore();
-      }
+      expect( // eslint-disable-line no-unused-expressions
+        kubelessRemove.removeFunction(cwd)
+      ).to.be.fulfilled;
+      expect(serverlessWithFunction.cli.log.lastCall.args).to.be.eql(
+        ['The function myFunction doesn\'t exist. Skipping removal.']
+      );
     });
     it('should fail if a removal returns an error code', () => {
       Api.ThirdPartyResources.prototype.delete.callsFake((data, ff) => {

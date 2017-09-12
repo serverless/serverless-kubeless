@@ -17,14 +17,9 @@
 'use strict';
 
 const _ = require('lodash');
-const Api = require('kubernetes-client');
 const BbPromise = require('bluebird');
-const chalk = require('chalk');
+const getInfo = require('../lib/get-info');
 const helpers = require('../lib/helpers');
-
-function toMultipleWords(word) {
-  return word.replace(/([A-Z])/, ' $1').replace(/^./, (l) => l.toUpperCase());
-}
 
 class KubelessInfo {
   constructor(serverless, options) {
@@ -62,136 +57,12 @@ class KubelessInfo {
     return BbPromise.resolve();
   }
 
-  formatMessage(service, f, options) {
-    if (options && !options.color) chalk.enabled = false;
-    let message = '';
-    message += `\n${chalk.yellow.underline(`Service Information "${service.name}"`)}\n`;
-    message += `${chalk.yellow('Cluster IP: ')} ${service.ip}\n`;
-    message += `${chalk.yellow('Type: ')} ${service.type}\n`;
-    message += `${chalk.yellow('Ports: ')}\n`;
-    _.each(service.ports, (port) => {
-      // Ports can have variable properties
-      _.each(port, (value, key) => {
-        message += `  ${chalk.yellow(`${toMultipleWords(key)}: `)} ${value}\n`;
-      });
-    });
-    if (this.options.verbose) {
-      message += `${chalk.yellow('Metadata')}\n`;
-      message += `  ${chalk.yellow('Self Link: ')} ${service.selfLink}\n`;
-      message += `  ${chalk.yellow('UID: ')} ${service.uid}\n`;
-      message += `  ${chalk.yellow('Timestamp: ')} ${service.timestamp}\n`;
-    }
-    message += `${chalk.yellow.underline('Function Info')}\n`;
-    if (f.url) {
-      message += `${chalk.yellow('URL: ')} ${f.url}\n`;
-    }
-    if (f.annotations && f.annotations['kubeless.serverless.com/description']) {
-      message += `${chalk.yellow('Description:')} ` +
-        `${f.annotations['kubeless.serverless.com/description']}\n`;
-    }
-    if (f.labels) {
-      message += `${chalk.yellow('Labels:\n')}`;
-      _.each(f.labels, (v, k) => {
-        message += `${chalk.yellow(`  ${k}:`)} ${v}\n`;
-      });
-    }
-    message += `${chalk.yellow('Handler: ')} ${f.handler}\n`;
-    message += `${chalk.yellow('Runtime: ')} ${f.runtime}\n`;
-    if (f.type === 'PubSub' && !_.isEmpty(f.topic)) {
-      message += `${chalk.yellow('Topic Trigger:')} ${f.topic}\n`;
-    } else {
-      message += `${chalk.yellow('Trigger: ')} ${f.type}\n`;
-    }
-    message += `${chalk.yellow('Dependencies: ')} ${f.deps}`;
-    if (this.options.verbose) {
-      message += `\n${chalk.yellow('Metadata:')}\n`;
-      message += `  ${chalk.yellow('Self Link: ')} ${f.selfLink}\n`;
-      message += `  ${chalk.yellow('UID: ')} ${f.uid}\n`;
-      message += `  ${chalk.yellow('Timestamp: ')} ${f.timestamp}`;
-    }
-    return message;
-  }
-
   infoFunction(options) {
-    let counter = 0;
-    let message = '';
-    return new BbPromise((resolve) => {
-      _.each(this.serverless.service.functions, (desc, f) => {
-        const connectionOptions = helpers.getConnectionOptions(helpers.loadKubeConfig(), {
-          namespace: desc.namespace || this.serverless.service.provider.namespace,
-        });
-        const core = new Api.Core(connectionOptions);
-        const thirdPartyResources = new Api.ThirdPartyResources(connectionOptions);
-        const extensions = new Api.Extensions(connectionOptions);
-        thirdPartyResources.addResource('functions');
-        core.services.get((err, servicesInfo) => {
-          if (err) throw new this.serverless.classes.Error(err);
-          thirdPartyResources.ns.functions.get((ferr, functionsInfo) => {
-            if (ferr) throw new this.serverless.classes.Error(ferr);
-            extensions.ns.ingress.get((ierr, ingressInfo) => {
-              if (ierr) throw this.serverless.classes.Error(ierr);
-              const fDesc = _.find(functionsInfo.items, item => item.metadata.name === f);
-              const functionService = _.find(
-                servicesInfo.items,
-                (service) => (
-                  service.metadata.labels &&
-                  service.metadata.labels.function === f
-                )
-              );
-              if (_.isEmpty(functionService) || _.isEmpty(fDesc)) {
-                this.serverless.cli.consoleLog(
-                  `Not found any information about the function "${f}"`
-                );
-              } else {
-                const fIngress = _.find(ingressInfo.items, item => (
-                  item.metadata.labels && item.metadata.labels.function === f
-                ));
-                let url = null;
-                if (fIngress) {
-                  url = `${fIngress.spec.rules[0].host || 'API_URL'}` +
-                    `${fIngress.spec.rules[0].http.paths[0].path}`;
-                }
-                const service = {
-                  name: functionService.metadata.name,
-                  ip: functionService.spec.clusterIP,
-                  type: functionService.spec.type,
-                  ports: functionService.spec.ports,
-                  selfLink: functionService.metadata.selfLink,
-                  uid: functionService.metadata.uid,
-                  timestamp: functionService.metadata.creationTimestamp,
-                };
-                const func = {
-                  name: f,
-                  url,
-                  handler: fDesc.spec.handler,
-                  runtime: fDesc.spec.runtime,
-                  topic: fDesc.spec.topic,
-                  type: fDesc.spec.type,
-                  deps: fDesc.spec.deps,
-                  annotations: fDesc.metadata.annotations,
-                  labels: fDesc.metadata.labels,
-                  selfLink: fDesc.metadata.selfLink,
-                  uid: fDesc.metadata.uid,
-                  timestamp: fDesc.metadata.creationTimestamp,
-                };
-                message += this.formatMessage(
-                  service,
-                  func,
-                  _.defaults({}, options, { color: true })
-                );
-              }
-              counter++;
-              if (counter === _.keys(this.serverless.service.functions).length) {
-                if (!_.isEmpty(message)) {
-                  this.serverless.cli.consoleLog(message);
-                }
-                resolve(message);
-              }
-            });
-          });
-        });
-      });
-    });
+    return getInfo(this.serverless.service.functions, _.defaults({}, options, {
+      namespace: this.serverless.service.provider.namespace,
+      verbose: this.options.verbose,
+      log: this.serverless.cli.consoleLog,
+    }));
   }
 }
 

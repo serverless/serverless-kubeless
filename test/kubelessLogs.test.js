@@ -72,15 +72,10 @@ describe('KubelessLogs', () => {
   describe('#validate', () => {
     it('prints a message if an unsupported option is given', () => {
       const kubelessLogs = new KubelessLogs(serverless, { region: 'us-east1', function: f });
-      sinon.stub(serverless.cli, 'log');
-      try {
-        expect(() => kubelessLogs.validate()).to.not.throw();
-        expect(serverless.cli.log.firstCall.args).to.be.eql(
-          ['Warning: Option region is not supported for the kubeless plugin']
-        );
-      } finally {
-        serverless.cli.log.restore();
-      }
+      expect(() => kubelessLogs.validate()).to.not.throw();
+      expect(serverless.cli.log.firstCall.args).to.be.eql(
+        ['Warning: Option region is not supported for the kubeless plugin']
+      );
     });
     it('throws an error if the function provider is not present in the description', () => {
       const kubelessInvoke = new KubelessLogs(serverless, {

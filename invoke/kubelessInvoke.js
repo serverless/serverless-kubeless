@@ -19,8 +19,8 @@
 const _ = require('lodash');
 const BbPromise = require('bluebird');
 const path = require('path');
-const request = require('request');
 const helpers = require('../lib/helpers');
+const invoke = require('../lib/invoke');
 
 class KubelessInvoke {
   constructor(serverless, options) {
@@ -36,46 +36,7 @@ class KubelessInvoke {
     };
   }
 
-  getData(data) {
-    let result = null;
-    const d = data || this.options.data;
-    try {
-      if (!_.isEmpty(d)) {
-        try {
-          // Try to parse data as JSON
-          result = {
-            body: JSON.parse(d),
-            json: true,
-          };
-        } catch (e) {
-          // Assume data is a string
-          result = {
-            body: d,
-          };
-        }
-      } else if (this.options.path) {
-        const absolutePath = path.isAbsolute(this.options.path) ?
-          this.options.path :
-          path.join(this.serverless.config.servicePath, this.options.path);
-        if (!this.serverless.utils.fileExistsSync(absolutePath)) {
-          throw new this.serverless.classes.Error('The file you provided does not exist.');
-        }
-        result = {
-          body: this.serverless.utils.readFileSync(absolutePath),
-          json: true,
-        };
-      }
-    } catch (e) {
-      throw new this.serverless.classes.Error(
-        `Unable to parse data given in the arguments: \n${e.message}`
-      );
-    }
-    return result;
-  }
-
   validate() {
-    // Parse data to ensure it has a correct format
-    this.getData();
     const unsupportedOptions = ['stage', 'region', 'type'];
     helpers.warnUnsupportedOptions(
       unsupportedOptions,
@@ -93,58 +54,19 @@ class KubelessInvoke {
   invokeFunction(func, data) {
     const f = func || this.options.function;
     this.serverless.cli.log(`Calling function: ${f}...`);
-    const config = helpers.loadKubeConfig();
-    const APIRootUrl = helpers.getKubernetesAPIURL(config);
-    const namespace = this.serverless.service.functions[f].namespace ||
-      this.serverless.service.provider.namespace ||
-      helpers.getDefaultNamespace(config);
-    const url = `${APIRootUrl}/api/v1/proxy/namespaces/${namespace}/services/${f}/`;
-    const connectionOptions = Object.assign(
-      helpers.getConnectionOptions(helpers.loadKubeConfig()),
-      { url }
-    );
-    const requestData = this.getData(data);
-    if (this.serverless.service.functions[f].sequence) {
-      let promise = null;
-      _.each(this.serverless.service.functions[f].sequence.slice(), sequenceFunction => {
-        if (promise) {
-          promise = promise.then(
-            result => this.invokeFunction(sequenceFunction, result.body)
-          );
-        } else {
-          promise = this.invokeFunction(sequenceFunction, data);
-        }
-      });
-      return new BbPromise((resolve, reject) => promise.then(
-        (response) => resolve(response),
-        err => reject(err)
-      ));
+    let dataPath = this.options.path;
+    if (dataPath && !path.isAbsolute(dataPath)) {
+      dataPath = path.join(this.serverless.config.servicePath, dataPath);
     }
-    return new BbPromise((resolve, reject) => {
-      const parseReponse = (err, response) => {
-        if (err) {
-          reject(new this.serverless.classes.Error(err.message, err.statusCode));
-        } else {
-          if (response.statusCode !== 200) {
-            reject(new this.serverless.classes.Error(response.statusMessage, response.statusCode));
-          }
-          resolve(response);
-        }
-      };
-      if (_.isEmpty(requestData)) {
-          // There is no data to send, sending a GET request
-        request.get(connectionOptions, parseReponse);
-      } else {
-          // Sending request data with a POST
-        request.post(
-            Object.assign(
-              connectionOptions,
-              requestData
-            ),
-            parseReponse
-          );
+    return invoke(
+      f,
+      data || this.options.data,
+      _.map(this.serverless.service.functions, (desc, ff) => _.assign({}, desc, { id: ff })),
+      {
+        namespace: this.serverless.service.provider.namespace,
+        path: dataPath,
       }
-    });
+     );
   }
 
   log(response) {
