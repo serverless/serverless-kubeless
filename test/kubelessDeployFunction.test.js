@@ -22,6 +22,8 @@ const expect = require('chai').expect;
 const fs = require('fs');
 const mocks = require('./lib/mocks');
 const moment = require('moment');
+const nock = require('nock');
+const os = require('os');
 const path = require('path');
 const sinon = require('sinon');
 
@@ -51,13 +53,14 @@ function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction
       return f(null);
     } }) })
   );
-  sinon.stub(kubelessDeployFunction, 'waitForDeployment');
   return kubelessDeployFunction;
 }
 
 describe('KubelessDeployFunction', () => {
   describe('#deploy', () => {
     let cwd = null;
+    let clock = null;
+    let config = null;
     let handlerFile = null;
     let depsFile = null;
     const serverlessWithFunction = _.defaultsDeep({}, serverless, {
@@ -76,69 +79,73 @@ describe('KubelessDeployFunction', () => {
     };
 
     let kubelessDeployFunction = null;
-    let thirdPartyResources = null;
 
-    before(() => {
-      cwd = mocks.kubeConfig();
-    });
     beforeEach(() => {
+      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      fs.mkdirSync(cwd);
+      config = mocks.kubeConfig(cwd);
       handlerFile = path.join(cwd, 'function.py');
       fs.writeFileSync(handlerFile, 'function code');
       depsFile = path.join(cwd, 'requirements.txt');
+      setInterval(() => {
+        clock.tick(2001);
+      }, 100);
+      clock = sinon.useFakeTimers();
       kubelessDeployFunction = instantiateKubelessDeploy(
         handlerFile,
         depsFile,
         serverlessWithFunction
       );
-      thirdPartyResources = mocks.thirdPartyResources(kubelessDeployFunction);
-    });
-    after(() => {
-      mocks.restoreKubeConfig(cwd);
-    });
-    it('should deploy the chosen function', () => {
-      const result = expect( // eslint-disable-line no-unused-expressions
-        kubelessDeployFunction.deployFunction()
-      ).to.be.fulfilled;
-      expect(thirdPartyResources.ns.functions.post.calledOnce).to.be.eql(true);
-      expect(
-        thirdPartyResources.ns.functions.post.firstCall.args[0].body.metadata.name
-      ).to.be.eql(functionName);
-      return result;
-    });
-    it('should redeploy only the chosen function', () => {
-      kubelessDeployFunction.getThirdPartyResources().ns.functions.get.callsFake((ff) => {
-        ff(null, {
-          items: [{
-            metadata: {
-              name: functionName,
-              labels: { function: functionName },
-              creationTimestamp: moment(),
-            },
-            status: {
-              containerStatuses: [{
-                ready: true,
-                restartCount: 0,
-                state: 'Ready',
-              }],
-            },
-            spec: {
-              deps: '',
-              function: 'previous function code',
-              handler: 'function.hello',
-              runtime: 'python2.7',
-              type: 'HTTP',
-            },
-          }],
-        });
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+        deps: 'request',
+        function: 'function code modified',
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        type: 'HTTP',
+      }, {
+        existingFunctions: [{
+          metadata: {
+            name: functionName,
+            labels: { function: functionName },
+          },
+          spec: {
+            deps: 'request',
+            function: 'function code',
+            handler: serverlessWithFunction.service.functions[functionName].handler,
+            runtime: serverlessWithFunction.service.provider.runtime,
+            type: 'HTTP',
+          },
+        }],
       });
-      const result = expect( // eslint-disable-line no-unused-expressions
-        kubelessDeployFunction.deployFunction()
-      ).to.be.fulfilled;
-      expect(thirdPartyResources.ns.functions().put.calledOnce).to.be.eql(true);
-      expect(
-        thirdPartyResources.ns.functions().put.firstCall.args[0].body.metadata.name
-      ).to.be.eql(functionName);
-      return result;
+      nock(config.clusters[0].cluster.server)
+        .put(`/apis/k8s.io/v1/namespaces/default/functions/${functionName}`, {
+          apiVersion: 'k8s.io/v1',
+          kind: 'Function',
+          metadata: { name: 'myFunction', namespace: 'default' },
+          spec: {
+            deps: '',
+            function: 'function code',
+            handler: 'function.hello',
+            runtime: 'python2.7',
+            type: 'HTTP',
+          },
+        })
+        .reply(200, 'OK');
     });
+    afterEach(() => {
+      mocks.restoreKubeConfig(cwd);
+      nock.cleanAll();
+      clock.restore();
+    });
+    it('should deploy the chosen function', () => expect(
+        kubelessDeployFunction.deployFunction()
+      ).to.be.fulfilled);
+    it('should redeploy only the chosen function', () => expect(
+      kubelessDeployFunction.deployFunction().then(() => {
+        expect(kubelessDeployFunction.serverless.service.functions).to.be.eql(
+          { myFunction: { handler: 'function.hello' } }
+        );
+      })
+    ).to.be.fulfilled);
   });
 });

@@ -18,11 +18,12 @@
 
 const _ = require('lodash');
 const fs = require('fs');
+const sinon = require('sinon');
 
 class CLI {
   constructor() {
-    this.log = function () {};
-    this.consoleLog = function () {};
+    this.log = sinon.stub();
+    this.consoleLog = () => {};
   }
 }
 

@@ -20,10 +20,8 @@ const _ = require('lodash');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
-const fs = require('fs');
 const helpers = require('../lib/helpers');
 const loadKubeConfig = require('./lib/load-kube-config');
-const path = require('path');
 const request = require('request');
 const sinon = require('sinon');
 
@@ -68,36 +66,12 @@ describe('KubelessInvoke', () => {
     });
   });
   describe('#validate', () => {
-    it('throws an error if the given path with the data does not exists', () => {
-      const kubelessInvoke = new KubelessInvoke(serverless, { path: '/not-exist' });
-      expect(() => kubelessInvoke.validate()).to.throw(
-        'The file you provided does not exist'
-      );
-    });
-    it('throws an error if the given path with the data does not contain a valid JSON', () => {
-      const filePath = path.join('/tmp/data.json');
-      fs.writeFileSync(filePath, 'not-a-json');
-      try {
-        const kubelessInvoke = new KubelessInvoke(serverless, { path: '/tmp/data.json' });
-        expect(() => kubelessInvoke.validate()).to.throw(
-          'Unable to parse data given in the arguments: \n' +
-          'Unexpected token o in JSON at position 1'
-        );
-      } finally {
-        fs.unlinkSync('/tmp/data.json');
-      }
-    });
     it('prints a message if an unsupported option is given', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, { region: 'us-east1', function: func });
-      sinon.stub(serverless.cli, 'log');
-      try {
-        expect(() => kubelessInvoke.validate()).to.not.throw();
-        expect(serverless.cli.log.firstCall.args).to.be.eql(
+      expect(() => kubelessInvoke.validate()).to.not.throw();
+      expect(serverless.cli.log.firstCall.args).to.be.eql(
           ['Warning: Option region is not supported for the kubeless plugin']
         );
-      } finally {
-        serverless.cli.log.restore();
-      }
     });
     it('throws an error if the function provider is not present in the description', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
@@ -119,6 +93,15 @@ describe('KubelessInvoke', () => {
       request.post.restore();
       request.get.restore();
       helpers.loadKubeConfig.restore();
+    });
+    it('throws an error if the given path with the data does not exists', () => {
+      const kubelessInvoke = new KubelessInvoke(serverless, {
+        function: func,
+        path: '/not-exist',
+      });
+      expect(() => kubelessInvoke.invokeFunction()).to.throw(
+        'The file you provided does not exist'
+      );
     });
     it('calls the API end point with the correct arguments (without data)', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
