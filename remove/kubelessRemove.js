@@ -45,7 +45,6 @@ class KubelessRemove {
   }
 
   removeFunction() {
-    this.serverless.cli.log(`Removing Service ${this.serverless.service.service}...`);
     const parsedFunctions = _.map(
       this.serverless.service.functions,
       (f, id) => _.assign({ id }, f)

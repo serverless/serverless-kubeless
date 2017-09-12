@@ -110,15 +110,7 @@ describe('KubelessDeploy', () => {
     let depsFile = null;
     const functionName = 'myFunction';
     const functionText = 'function code';
-    const serverlessWithFunction = _.defaultsDeep({}, serverless, {
-      config: {},
-      service: {
-        functions: {},
-      },
-    });
-    serverlessWithFunction.service.functions[functionName] = {
-      handler: 'function.hello',
-    };
+    let serverlessWithFunction = null;
 
     let kubelessDeploy = null;
 
@@ -130,6 +122,15 @@ describe('KubelessDeploy', () => {
       }, 100);
       clock = sinon.useFakeTimers();
       config = mocks.kubeConfig(cwd);
+      serverlessWithFunction = _.defaultsDeep({}, serverless, {
+        config: {},
+        service: {
+          functions: {},
+        },
+      });
+      serverlessWithFunction.service.functions[functionName] = {
+        handler: 'function.hello',
+      };
       serverlessWithFunction.config.servicePath = cwd;
       handlerFile = path.join(cwd, 'function.py');
       fs.writeFileSync(handlerFile, functionText);

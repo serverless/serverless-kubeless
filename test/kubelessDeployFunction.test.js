@@ -63,20 +63,7 @@ describe('KubelessDeployFunction', () => {
     let config = null;
     let handlerFile = null;
     let depsFile = null;
-    const serverlessWithFunction = _.defaultsDeep({}, serverless, {
-      config: {
-        servicePath: cwd,
-      },
-      service: {
-        functions: {},
-      },
-    });
-    serverlessWithFunction.service.functions[functionName] = {
-      handler: 'function.hello',
-    };
-    serverlessWithFunction.service.functions.otherFunction = {
-      handler: 'function.hello',
-    };
+    let serverlessWithFunction = null;
 
     let kubelessDeployFunction = null;
 
@@ -91,6 +78,20 @@ describe('KubelessDeployFunction', () => {
         clock.tick(2001);
       }, 100);
       clock = sinon.useFakeTimers();
+      serverlessWithFunction = _.defaultsDeep({}, serverless, {
+        config: {
+          servicePath: cwd,
+        },
+        service: {
+          functions: {},
+        },
+      });
+      serverlessWithFunction.service.functions[functionName] = {
+        handler: 'function.hello',
+      };
+      serverlessWithFunction.service.functions.otherFunction = {
+        handler: 'function.hello',
+      };
       kubelessDeployFunction = instantiateKubelessDeploy(
         handlerFile,
         depsFile,
