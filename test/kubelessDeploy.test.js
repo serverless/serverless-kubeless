@@ -443,6 +443,28 @@ describe('KubelessDeploy', () => {
       ).to.be.fulfilled;
       return result;
     });
+    it('should deploy a function triggered by a schedule', () => {
+      const serverlessWithScheduler = _.cloneDeep(serverlessWithFunction);
+      serverlessWithScheduler.service.functions[functionName].events = [{
+        schedule: '* * * * *',
+      }];
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithScheduler
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+        deps: '',
+        function: functionText,
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        type: 'Scheduler',
+      });
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      return result;
+    });
     it('should deploy a function with a description', () => {
       const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
       const desc = 'Test Description';
