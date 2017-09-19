@@ -15,8 +15,8 @@ functions:
 $ npm install
 $ serverless deploy
 Serverless: Packaging service...
-Serverless: Function foo succesfully deployed
-Serverless: Function bar succesfully deployed
+Serverless: Function foo successfully deployed
+Serverless: Function bar successfully deployed
 ```
 
 You can invoke each function

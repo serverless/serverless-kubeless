@@ -19,7 +19,7 @@ Serverless: Packaging service...
 Serverless: Deploying function hello...
 Serverless: Deployed Ingress rule to map /hello
 Serverless: Waiting for function hello to be fully deployed. Pods status: {"waiting":{"reason":"PodInitializing"}}
-Serverless: Function hello succesfully deployed
+Serverless: Function hello successfully deployed
 ```
 
 As we can see in the logs an Ingress Rule has been deployed to run our function at `/hello`. If no host is specified, by default it will use `API_URL.nip.io` being `API_URL` the URL/IP of the Kubernetes IP. We can know the specific URL in which the function will be listening executing `serverless info`:
