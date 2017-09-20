@@ -42,6 +42,7 @@ There are two different possibilities, using `35.185.47.240.nip.io` or `35.196.2
 In any case we need to go to the [google console](https://console.cloud.google.com/) to enable HTTP traffic for the IP that we want to use.
 
 On the left menu go to: `NETWORKING` -> `VPC Network` -> `Firewall rules` and select the Firewall rule that applies to all the Targets:
+
 <img src="./img/gce_firewall_rules.png" width="700">
 
 Then click on EDIT and modify the `Source IP ranges` to make it accessible from outside of the cluster and click on `Save`:
