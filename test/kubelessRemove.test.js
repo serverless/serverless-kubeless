@@ -225,7 +225,7 @@ describe('KubelessRemove', () => {
           statusCode: 200,
           body: {
             items: [
-              { metadata: { labels: { function: 'myFunction' } } },
+              { metadata: { labels: { myFunction: '1' } } },
             ],
           },
         });
@@ -250,7 +250,7 @@ describe('KubelessRemove', () => {
           statusCode: 200,
           body: {
             items: [
-              { metadata: { labels: { function: 'myFunction' } } },
+              { metadata: { labels: { myFunction: '1' } } },
             ],
           },
         });
