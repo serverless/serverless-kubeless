@@ -47,7 +47,7 @@ $ curl 192.168.99.100.nip.io/hello
 hello world
 ```
 
-## GCE and Firewall limitation
+## GKE and Firewall limitation
 
 For some providers like Google you may need to add a firewall rule for allowing the traffic for the port 80 and 443 so you can connect to the IP the ingress controller provides.
 

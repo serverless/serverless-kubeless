@@ -28,7 +28,7 @@ Serverless: Function create successfully deployed
 Serverless: Function read-one successfully deployed
 ```
 
-# Running the Backend in GCE
+# Running the Backend in GKE
 
 In case your cluster is running on GCE you need to perform an additional step. If you check the Ingress rules that has been created:
 ```

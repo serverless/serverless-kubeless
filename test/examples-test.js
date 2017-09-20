@@ -38,17 +38,21 @@ function prepareExample(cwd, example, callback) {
     if (err) throw err;
     fs.remove(`${cwd}/${example}/node_modules`, rmErr => {
       if (rmErr) throw rmErr;
-      fs.mkdir(`${cwd}/${example}/node_modules`, mkdirErr => {
-        if (mkdirErr) throw mkdirErr;
-        fs.symlink(
-          `${__dirname}/..`,
-          `${cwd}/${example}/node_modules/serverless-kubeless`,
-          (linkErr) => {
-            if (linkErr) throw linkErr;
-            deployExample(`${cwd}/${example}`, callback);
-          }
-        );
-      });
+      if (!fs.existsSync(`${cwd}/node_modules/serverless-kubeless`)) {
+        fs.mkdir(`${cwd}/node_modules`, mkdirErr => {
+          if (mkdirErr) throw mkdirErr;
+          fs.symlink(
+            `${__dirname}/..`,
+            `${cwd}/node_modules/serverless-kubeless`,
+            (linkErr) => {
+              if (linkErr) throw linkErr;
+              deployExample(`${cwd}/${example}`, callback);
+            }
+          );
+        });
+      } else {
+        deployExample(`${cwd}/${example}`, callback);
+      }
     });
   });
 }
