@@ -38,7 +38,7 @@ function prepareExample(cwd, example, callback) {
     if (err) throw err;
     fs.remove(`${cwd}/${example}/node_modules`, rmErr => {
       if (rmErr) throw rmErr;
-      if (!fs.existsSync(`${cwd}/node_modules/serverless-kubeless`)) {
+      if (!fs.existsSync(`${cwd}/node_modules`)) {
         fs.mkdir(`${cwd}/node_modules`, mkdirErr => {
           if (mkdirErr) throw mkdirErr;
           fs.symlink(
