@@ -54,7 +54,7 @@ $ serverless deploy
 Serverless: Packaging service...
 Serverless: Excluding development dependencies...
 Serverless: Deploying function hello...
-Serverless: Function hello succesfully deployed
+Serverless: Function hello successfully deployed
 ```
 
 The function will be deployed to k8s via kubeless.
@@ -120,12 +120,12 @@ If you have a change in your function and you want to redeploy it you can run:
 ```bash
 $ serverless deploy function -f hello
 Serverless: Redeploying hello...
-Serverless: Function hello succesfully deployed
+Serverless: Function hello successfully deployed
 ```
 
 Finally you can remove the function.
 ```bash
 $ serverless remove
 Serverless: Removing function: hello...
-Serverless: Function hello succesfully deleted
+Serverless: Function hello successfully deleted
 ```

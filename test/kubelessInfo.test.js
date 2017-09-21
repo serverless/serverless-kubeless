@@ -22,6 +22,7 @@ const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
 const helpers = require('../lib/helpers');
+const ingressHelper = require('../lib/ingress');
 const loadKubeConfig = require('./lib/load-kube-config');
 const sinon = require('sinon');
 const getServerlessObj = require('./lib/serverless');
@@ -84,16 +85,16 @@ describe('KubelessInfo', () => {
           statusCode: 200,
           body: {
             items: _.map(functions, (f) => ({ metadata:
-            { name: f.name,
+            { name: f.id,
               namespace: f.namespace,
-              selfLink: `/api/v1/namespaces/${f.namespace}/services/${f.name}`,
+              selfLink: `/api/v1/namespaces/${f.namespace}/services/${f.id}`,
               uid: '010a169d-618c-11e7-9939-080027abf356',
               resourceVersion: '248',
               creationTimestamp: '2017-07-05T14:12:39Z',
-              labels: { function: f.name } },
+              labels: { function: f.id } },
               spec:
               { ports: [{ protocol: 'TCP', port: 8080, targetPort: 8080, nodePort: 30817 }],
-                selector: { function: f.name },
+                selector: { function: f.id },
                 clusterIP: '10.0.0.177',
                 type: 'NodePort',
                 sessionAffinity: 'None' },
@@ -110,9 +111,9 @@ describe('KubelessInfo', () => {
         kind: 'Function',
         metadata:
         {
-          name: f.name,
+          name: f.id,
           namespace: f.namespace,
-          selfLink: `/apis/k8s.io/v1/namespaces/${f.namespace}/functions/${f.name}`,
+          selfLink: `/apis/k8s.io/v1/namespaces/${f.namespace}/functions/${f.id}`,
           uid: '0105ba84-618c-11e7-9939-080027abf356',
           resourceVersion: '244',
           creationTimestamp: '2017-07-05T14:12:39Z',
@@ -120,7 +121,7 @@ describe('KubelessInfo', () => {
         spec: {
           deps: '',
           function: '',
-          handler: `${f.name}.hello`,
+          handler: `${f.id}.hello`,
           runtime: 'python2.7',
           topic: '',
           type: 'HTTP',
@@ -143,12 +144,18 @@ describe('KubelessInfo', () => {
             if (f.path) {
               return {
                 metadata: {
-                  labels: {
-                    function: f.name,
-                  },
+                  labels: ingressHelper.getIngressRuleLabels(functions),
                 },
                 spec: {
-                  rules: [{ host: '1.2.3.4.nip.io', http: { paths: [{ path: f.path }] } }],
+                  rules: [{
+                    host: '1.2.3.4.nip.io',
+                    http: {
+                      paths: [{
+                        path: f.path,
+                        backend: { serviceName: f.id },
+                      }],
+                    },
+                  }],
                 },
                 status: {
                   loadBalancer: {
@@ -191,7 +198,7 @@ describe('KubelessInfo', () => {
       helpers.loadKubeConfig.restore();
     });
     it('should return logs with the correct formating', () => {
-      mockGetCalls([{ name: func, namespace: 'default' }]);
+      mockGetCalls([{ id: func, namespace: 'default' }]);
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       return expect(kubelessInfo.infoFunction({ color: false })).to.become(
         infoMock(func)
@@ -199,8 +206,8 @@ describe('KubelessInfo', () => {
     });
     it('should return info for functions in different namespaces', (done) => {
       mockGetCalls([
-        { name: 'my-function-1', namespace: 'custom-1' },
-        { name: 'my-function-2', namespace: 'custom-2' },
+        { id: 'my-function-1', namespace: 'custom-1' },
+        { id: 'my-function-2', namespace: 'custom-2' },
       ]);
       const serverlessWithNS = getServerlessObj({ service: {
         provider: {
@@ -230,8 +237,8 @@ describe('KubelessInfo', () => {
     });
     it('should return info only for the functions defined in the current scope', (done) => {
       mockGetCalls([
-        { name: 'my-function-1', namespace: 'custom-1' },
-        { name: 'my-function-2', namespace: 'custom-2' },
+        { id: 'my-function-1', namespace: 'custom-1' },
+        { id: 'my-function-2', namespace: 'custom-2' },
       ]);
       const serverlessWithNS = getServerlessObj({
         service: {
@@ -287,7 +294,7 @@ describe('KubelessInfo', () => {
     });
     it('should return the trigger topic in case it exists', (done) => {
       mockGetCalls(
-        [{ name: func, namespace: 'default' }],
+        [{ id: func, namespace: 'default' }],
         { spec: { type: 'PubSub', topic: 'test_topic' } }
       );
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
@@ -298,7 +305,7 @@ describe('KubelessInfo', () => {
     });
     it('should return the description in case it exists', (done) => {
       mockGetCalls(
-        [{ name: func, namespace: 'default' }],
+        [{ id: func, namespace: 'default' }],
         { metadata: { annotations: { 'kubeless.serverless.com/description': 'Test Description' } } }
       );
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
@@ -309,7 +316,7 @@ describe('KubelessInfo', () => {
     });
     it('should return the labels in case they exist', (done) => {
       mockGetCalls(
-        [{ name: func, namespace: 'default' }],
+        [{ id: func, namespace: 'default' }],
         { metadata: { labels: { label1: 'text1', label2: 'text2' } } }
       );
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
@@ -319,7 +326,7 @@ describe('KubelessInfo', () => {
       });
     });
     it('should return the URL in case a path is specified', (done) => {
-      mockGetCalls([{ name: func, namespace: 'default', path: '/hello' }]);
+      mockGetCalls([{ id: func, namespace: 'default', path: '/hello' }]);
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       kubelessInfo.infoFunction({ color: false }).then((message) => {
         expect(message).to.match(/URL: {2}1.2.3.4.nip.io\/hello\n/);

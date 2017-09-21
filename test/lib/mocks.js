@@ -142,12 +142,13 @@ function createIngressNocks(endpoint, func, hostname, p, options) {
   const opts = _.defaults({}, options, {
     namespace: 'default',
   });
+  const labels = {};
+  labels[func] = '1';
   nock(endpoint)
     .post(`/apis/extensions/v1beta1/namespaces/${opts.namespace}/ingresses`, {
       kind: 'Ingress',
       metadata: {
-        name: 'ingress-myFunction',
-        labels: { function: func },
+        labels,
         annotations: {
           'kubernetes.io/ingress.class': 'nginx',
           'ingress.kubernetes.io/rewrite-target': '/',

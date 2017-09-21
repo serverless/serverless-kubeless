@@ -19,7 +19,7 @@ Serverless: Packaging service...
 Serverless: Deploying function hello...
 Serverless: Deployed Ingress rule to map /hello
 Serverless: Waiting for function hello to be fully deployed. Pods status: {"waiting":{"reason":"PodInitializing"}}
-Serverless: Function hello succesfully deployed
+Serverless: Function hello successfully deployed
 ```
 
 As we can see in the logs an Ingress Rule has been deployed to run our function at `/hello`. If no host is specified, by default it will use `API_URL.nip.io` being `API_URL` the URL/IP of the Kubernetes IP. We can know the specific URL in which the function will be listening executing `serverless info`:
@@ -47,7 +47,7 @@ $ curl 192.168.99.100.nip.io/hello
 hello world
 ```
 
-## GCE and Firewall limitation
+## GKE and Firewall limitation
 
 For some providers like Google you may need to add a firewall rule for allowing the traffic for the port 80 and 443 so you can connect to the IP the ingress controller provides.
 
