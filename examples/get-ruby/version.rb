@@ -1,6 +1,5 @@
 # Obtains the latest Kubeless release published
-class Kubelessfunction
-  def self.run(request)
+def run(request)
     require "net/https"
     require "uri"
     require "json"
@@ -22,8 +21,7 @@ class Kubelessfunction
     output = JSON.parse(response.body)
     puts output
     # Create a Hash for output
-    output_hash = { :version => output[0]['name'] }
+    output_hash = { :version => output[0]['tag_name'] }
 
     return output_hash[:version]
-  end
 end
