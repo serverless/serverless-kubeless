@@ -286,13 +286,14 @@ describe('Examples', () => {
   describe('scheduled-node', function () {
     this.timeout(60000);
     it('should print the time in the logs', (done) => {
-      setInterval(() => {
+      const int = setInterval(() => {
         exec(
           'serverless logs -f clock',
           { cwd: examples['scheduled-node'].cwd },
           (err, stdout) => {
             if (err) throw err;
             if (stdout.match(/^\d{2}:\d{2}$/m)) {
+              clearInterval(int);
               done();
             }
           }
