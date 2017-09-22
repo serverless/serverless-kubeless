@@ -458,7 +458,8 @@ describe('KubelessDeploy', () => {
         function: functionText,
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'Scheduler',
+        type: 'Scheduled',
+        schedule: '* * * * *',
       });
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
