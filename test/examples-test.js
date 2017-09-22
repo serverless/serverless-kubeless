@@ -38,21 +38,7 @@ function prepareExample(cwd, example, callback) {
     if (err) throw err;
     fs.remove(`${cwd}/${example}/node_modules`, rmErr => {
       if (rmErr) throw rmErr;
-      if (!fs.existsSync(`${cwd}/node_modules`)) {
-        fs.mkdir(`${cwd}/node_modules`, mkdirErr => {
-          if (mkdirErr) throw mkdirErr;
-          fs.symlink(
-            `${__dirname}/..`,
-            `${cwd}/node_modules/serverless-kubeless`,
-            (linkErr) => {
-              if (linkErr) throw linkErr;
-              deployExample(`${cwd}/${example}`, callback);
-            }
-          );
-        });
-      } else {
-        deployExample(`${cwd}/${example}`, callback);
-      }
+      deployExample(`${cwd}/${example}`, callback);
     });
   });
 }
@@ -108,34 +94,43 @@ describe('Examples', () => {
     cwd = path.join('/tmp', moment().valueOf().toString());
     fs.mkdirSync(cwd);
     console.log('    Deploying examples');
-    _.each(examples, (example) => {
-      /* eslint no-param-reassign: ["error", { "props": false }]*/
-      example.cwd = path.join(cwd, example.path);
-      // Delay batches of deployment to avoid high resources consumption
-      const timeoutMultiplier = parseInt(index / 5, 10);
-      setTimeout(() => {
-        console.log(`\tDeploying ${example.path}`);
-        prepareExample(cwd, example.path, (err) => {
-          const increaseCont = (e) => {
-            if (e) {
-              console.error(`\tERROR: Unable to deploy ${example.path}: \n${e}`);
-            }
-            console.log(`\t${example.path} deployed`);
-            count++;
-            if (count === _.keys(examples).length) {
-              done();
-            }
-          };
-          if (err) {
-            // Retry the deployment
-            console.log(`\t${example.path} deployment failed, retrying...`);
-            deployExample(example.cwd, increaseCont);
-          } else {
-            increaseCont();
-          }
+    fs.mkdir(`${cwd}/node_modules`, mkdirErr => {
+      if (mkdirErr) throw mkdirErr;
+      fs.symlink(
+        `${__dirname}/..`,
+        `${cwd}/node_modules/serverless-kubeless`,
+        (linkErr) => {
+          if (linkErr) throw linkErr;
+          _.each(examples, (example) => {
+            /* eslint no-param-reassign: ["error", { "props": false }]*/
+            example.cwd = path.join(cwd, example.path);
+            // Delay batches of deployment to avoid high resources consumption
+            const timeoutMultiplier = parseInt(index / 2, 10);
+            setTimeout(() => {
+              console.log(`\tDeploying ${example.path}`);
+              prepareExample(cwd, example.path, (err) => {
+                const increaseCont = (e) => {
+                  if (e) {
+                    console.error(`\tERROR: Unable to deploy ${example.path}: \n${e}`);
+                  }
+                  console.log(`\t${example.path} deployed`);
+                  count++;
+                  if (count === _.keys(examples).length) {
+                    done();
+                  }
+                };
+                if (err) {
+                  // Retry the deployment
+                  console.log(`\t${example.path} deployment failed, retrying...`);
+                  deployExample(example.cwd, increaseCont);
+                } else {
+                  increaseCont();
+                }
+              });
+            }, 10000 * (process.env.TIMEOUT_MULTIPLIER || timeoutMultiplier));
+            index++;
+          });
         });
-      }, 30000 * (process.env.TIMEOUT_MULTIPLIER || timeoutMultiplier));
-      index++;
     });
   });
   after(function (done) {

@@ -11,7 +11,7 @@ Make sure you have a kubernetes endpoint running and kubeless installed:
 ```bash
 $ kubectl version
 $ brew install kubeless/tap/kubeless
-$ KUBELESS_VERSION=0.1.0
+$ KUBELESS_VERSION=0.2.0
 $ kubectl create ns kubeless
 $ curl -sL https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless-v$KUBELESS_VERSION.yaml | kubectl create -f -
 ```
