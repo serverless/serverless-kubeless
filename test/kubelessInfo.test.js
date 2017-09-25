@@ -17,13 +17,17 @@
 'use strict';
 
 const _ = require('lodash');
-const Api = require('kubernetes-client');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
-const helpers = require('../lib/helpers');
+const fs = require('fs');
 const ingressHelper = require('../lib/ingress');
-const loadKubeConfig = require('./lib/load-kube-config');
+const moment = require('moment');
+const mocks = require('./lib/mocks');
+const nock = require('nock');
+const os = require('os');
+const path = require('path');
+const rm = require('./lib/rm');
 const sinon = require('sinon');
 const getServerlessObj = require('./lib/serverless');
 const KubelessInfo = require('../info/kubelessInfo');
@@ -77,71 +81,76 @@ describe('KubelessInfo', () => {
         );
     });
   });
-  function mockGetCalls(functions, functionModif) {
-    sinon.stub(Api.Core.prototype, 'get').callsFake((p, ff) => {
-      if (p.path[0] === '/api/v1/services') {
-          // Mock call to get.services
-        ff(null, {
-          statusCode: 200,
-          body: {
-            items: _.map(functions, (f) => ({ metadata:
-            { name: f.id,
-              namespace: f.namespace,
-              selfLink: `/api/v1/namespaces/${f.namespace}/services/${f.id}`,
-              uid: '010a169d-618c-11e7-9939-080027abf356',
-              resourceVersion: '248',
-              creationTimestamp: '2017-07-05T14:12:39Z',
-              labels: { function: f.id } },
-              spec:
-              { ports: [{ protocol: 'TCP', port: 8080, targetPort: 8080, nodePort: 30817 }],
-                selector: { function: f.id },
-                clusterIP: '10.0.0.177',
-                type: 'NodePort',
-                sessionAffinity: 'None' },
-              status: { loadBalancer: {} } })),
+  function mockGetCalls(config, functions, functionModif) {
+    const namespaces = _.uniq(_.map(functions, (f) => (
+      _.get(functionModif, 'namespace', f.namespace)
+    )));
+
+    nock(config.clusters[0].cluster.server)
+      .get('/api/v1/services')
+      .reply(200, {
+        items: _.map(functions, (f) => ({
+          metadata:
+          {
+            name: f.id,
+            namespace: f.namespace,
+            selfLink: `/api/v1/namespaces/${f.namespace}/services/${f.id}`,
+            uid: '010a169d-618c-11e7-9939-080027abf356',
+            resourceVersion: '248',
+            creationTimestamp: '2017-07-05T14:12:39Z',
+            labels: { function: f.id },
           },
-        });
-      }
-    });
+          spec:
+          {
+            ports: [{ protocol: 'TCP', port: 8080, targetPort: 8080, nodePort: 30817 }],
+            selector: { function: f.id },
+            clusterIP: '10.0.0.177',
+            type: 'NodePort',
+            sessionAffinity: 'None',
+          },
+          status: { loadBalancer: {} },
+        })),
+      })
+      .persist();
 
     // Mock call to get.functions per namespace
-    sinon.stub(Api.ThirdPartyResources.prototype, 'get').callsFake(function (p, ff) {
-      const allFunctions = _.map(functions, (f) => (_.defaultsDeep({}, functionModif, {
-        apiVersion: 'k8s.io/v1',
-        kind: 'Function',
-        metadata:
-        {
-          name: f.id,
-          namespace: f.namespace,
-          selfLink: `/apis/k8s.io/v1/namespaces/${f.namespace}/functions/${f.id}`,
-          uid: '0105ba84-618c-11e7-9939-080027abf356',
-          resourceVersion: '244',
-          creationTimestamp: '2017-07-05T14:12:39Z',
-        },
-        spec: {
-          deps: '',
-          function: '',
-          handler: `${f.id}.hello`,
-          runtime: 'python2.7',
-          topic: '',
-          type: 'HTTP',
-        },
-      })));
-      ff(null, {
-        statusCode: 200,
-        body: {
-          items: _.filter(allFunctions, f => f.metadata.namespace === this.namespaces.namespace),
-        },
-      });
+    const allFunctions = _.map(functions, (f) => (_.defaultsDeep({}, functionModif, {
+      apiVersion: 'k8s.io/v1',
+      kind: 'Function',
+      metadata:
+      {
+        name: f.id,
+        namespace: f.namespace,
+        selfLink: `/apis/k8s.io/v1/namespaces/${f.namespace}/functions/${f.id}`,
+        uid: '0105ba84-618c-11e7-9939-080027abf356',
+        resourceVersion: '244',
+        creationTimestamp: '2017-07-05T14:12:39Z',
+      },
+      spec: {
+        deps: '',
+        function: '',
+        handler: `${f.id}.hello`,
+        runtime: 'python2.7',
+        topic: '',
+        type: 'HTTP',
+      },
+    })));
+    _.each(namespaces, n => {
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/k8s.io/v1/namespaces/${n}/functions/`)
+        .reply(200, {
+          items: _.filter(allFunctions, f => f.metadata.namespace === n),
+        });
     });
 
+
     // Mock call to get.ingress
-    sinon.stub(Api.Extensions.prototype, 'get').callsFake((p, ff) => {
-      ff(null, {
-        statusCode: 200,
-        body: {
+    _.each(namespaces, n => {
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/extensions/v1beta1/namespaces/${n}/ingresses`)
+        .reply(200, {
           items: _.compact(_.map(functions, (f) => {
-            if (f.path) {
+            if (f.path && f.namespace === n) {
               return {
                 metadata: {
                   labels: ingressHelper.getIngressRuleLabels(functions),
@@ -166,8 +175,7 @@ describe('KubelessInfo', () => {
             }
             return null;
           })),
-        },
-      });
+        });
     });
   }
   function infoMock(f) {
@@ -188,24 +196,27 @@ describe('KubelessInfo', () => {
 
 
   describe('#printInfo', () => {
+    let config = null;
+    let cwd = null;
+
     beforeEach(() => {
-      sinon.stub(helpers, 'loadKubeConfig').callsFake(loadKubeConfig);
+      cwd = path.join(os.tmpdir(), moment().valueOf().toString());
+      fs.mkdirSync(cwd);
+      config = mocks.kubeConfig(cwd);
     });
     afterEach(() => {
-      Api.Core.prototype.get.restore();
-      Api.ThirdPartyResources.prototype.get.restore();
-      Api.Extensions.prototype.get.restore();
-      helpers.loadKubeConfig.restore();
+      rm(cwd);
+      nock.cleanAll();
     });
     it('should return logs with the correct formating', () => {
-      mockGetCalls([{ id: func, namespace: 'default' }]);
+      mockGetCalls(config, [{ id: func, namespace: 'default' }]);
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       return expect(kubelessInfo.infoFunction({ color: false })).to.become(
         infoMock(func)
       );
     });
     it('should return info for functions in different namespaces', (done) => {
-      mockGetCalls([
+      mockGetCalls(config, [
         { id: 'my-function-1', namespace: 'custom-1' },
         { id: 'my-function-2', namespace: 'custom-2' },
       ]);
@@ -218,25 +229,14 @@ describe('KubelessInfo', () => {
           'my-function-2': { namespace: 'custom-2' },
         },
       } });
-      sinon.stub(helpers, 'getConnectionOptions');
-      helpers.getConnectionOptions.onFirstCall().returns({ namespace: 'custom-1' });
-      helpers.getConnectionOptions.onSecondCall().returns({ namespace: 'custom-2' });
       const kubelessInfo = new KubelessInfo(serverlessWithNS);
-      kubelessInfo.infoFunction().then((message) => {
-        expect(helpers.getConnectionOptions.callCount).to.be.eql(2);
-        expect(helpers.getConnectionOptions.firstCall.args[1]).to.be.eql({
-          namespace: 'custom-1',
-        });
-        expect(helpers.getConnectionOptions.secondCall.args[1]).to.be.eql(
-          { namespace: 'custom-2' }
-        );
+      kubelessInfo.infoFunction({ color: false }).then((message) => {
         expect(message).to.be.eql(`${infoMock('my-function-1')}${infoMock('my-function-2')}`);
-        helpers.getConnectionOptions.restore();
         done();
       });
     });
     it('should return info only for the functions defined in the current scope', (done) => {
-      mockGetCalls([
+      mockGetCalls(config, [
         { id: 'my-function-1', namespace: 'custom-1' },
         { id: 'my-function-2', namespace: 'custom-2' },
       ]);
@@ -250,21 +250,25 @@ describe('KubelessInfo', () => {
           },
         },
       });
-      sinon.stub(helpers, 'getConnectionOptions');
-      helpers.getConnectionOptions.onFirstCall().returns({ namespace: 'custom-1' });
       const kubelessInfo = new KubelessInfo(serverlessWithNS);
-      kubelessInfo.infoFunction().then((message) => {
-        expect(helpers.getConnectionOptions.callCount).to.be.eql(1);
-        expect(helpers.getConnectionOptions.firstCall.args[1]).to.be.eql({
-          namespace: 'custom-1',
-        });
+      kubelessInfo.infoFunction({ color: false }).then((message) => {
         expect(message).to.be.eql(`${infoMock('my-function-1')}`);
-        helpers.getConnectionOptions.restore();
         done();
       });
     });
     it('should return an error message if no function is found', (done) => {
-      mockGetCalls([]);
+      mockGetCalls(config, []);
+      nock(config.clusters[0].cluster.server)
+        .get('/apis/k8s.io/v1/namespaces/custom-1/functions/')
+        .reply(200, {
+          items: [],
+        });
+      nock(config.clusters[0].cluster.server)
+        .get('/apis/k8s.io/v1/namespaces/custom-1/functions/')
+        .reply(200, { items: [] });
+      nock(config.clusters[0].cluster.server)
+        .get('/apis/extensions/v1beta1/namespaces/custom-1/ingresses')
+        .reply(200, { items: [] });
       const serverlessWithNS = getServerlessObj({
         service: {
           provider: {
@@ -275,25 +279,19 @@ describe('KubelessInfo', () => {
           },
         },
       });
-      sinon.stub(helpers, 'getConnectionOptions');
       sinon.stub(serverlessWithNS.cli, 'consoleLog');
-      helpers.getConnectionOptions.onFirstCall().returns({ namespace: 'custom-1' });
       const kubelessInfo = new KubelessInfo(serverlessWithNS);
       kubelessInfo.infoFunction().then(() => {
-        expect(helpers.getConnectionOptions.callCount).to.be.eql(1);
-        expect(helpers.getConnectionOptions.firstCall.args[1]).to.be.eql({
-          namespace: 'custom-1',
-        });
         expect(serverlessWithNS.cli.consoleLog.callCount).to.be.eql(1);
         expect(serverlessWithNS.cli.consoleLog.firstCall.args[0]).to.be.eql(
           'Not found any information about the function "my-function-1"'
         );
-        helpers.getConnectionOptions.restore();
         done();
       });
     });
     it('should return the trigger topic in case it exists', (done) => {
       mockGetCalls(
+        config,
         [{ id: func, namespace: 'default' }],
         { spec: { type: 'PubSub', topic: 'test_topic' } }
       );
@@ -305,6 +303,7 @@ describe('KubelessInfo', () => {
     });
     it('should return the description in case it exists', (done) => {
       mockGetCalls(
+        config,
         [{ id: func, namespace: 'default' }],
         { metadata: { annotations: { 'kubeless.serverless.com/description': 'Test Description' } } }
       );
@@ -316,6 +315,7 @@ describe('KubelessInfo', () => {
     });
     it('should return the labels in case they exist', (done) => {
       mockGetCalls(
+        config,
         [{ id: func, namespace: 'default' }],
         { metadata: { labels: { label1: 'text1', label2: 'text2' } } }
       );
@@ -326,7 +326,7 @@ describe('KubelessInfo', () => {
       });
     });
     it('should return the URL in case a path is specified', (done) => {
-      mockGetCalls([{ id: func, namespace: 'default', path: '/hello' }]);
+      mockGetCalls(config, [{ id: func, namespace: 'default', path: '/hello' }]);
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       kubelessInfo.infoFunction({ color: false }).then((message) => {
         expect(message).to.match(/URL: {2}1.2.3.4.nip.io\/hello\n/);

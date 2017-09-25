@@ -395,7 +395,7 @@ describe('KubelessDeploy', () => {
             ]
             );
           expect(nock.pendingMocks()).to.contain(
-            `POST ${config.clusters[0].cluster.server}/apis/k8s.io/v1/namespaces/default/functions`
+            `POST ${config.clusters[0].cluster.server}/apis/k8s.io/v1/namespaces/default/functions/`
           );
         })
       ).to.be.fulfilled;
@@ -403,12 +403,13 @@ describe('KubelessDeploy', () => {
     });
     it('should skip a deployment if an error 409 is returned', () => {
       nock(config.clusters[0].cluster.server)
-        .get('/apis/k8s.io/v1/namespaces/default/functions')
+        .get('/apis/k8s.io/v1/namespaces/default/functions/')
         .reply(200, []);
       nock(config.clusters[0].cluster.server)
-        .post('/apis/k8s.io/v1/namespaces/default/functions')
-        .reply(409, 'Resource already exists');
+        .post('/apis/k8s.io/v1/namespaces/default/functions/')
+        .reply(409, '{"code": 409, "message": "Resource already exists"}');
       let result = null;
+      kubelessDeploy.options.force = false;
       result = expect( // eslint-disable-line no-unused-expressions
           kubelessDeploy.deployFunction().then(() => {
             expect(serverlessWithFunction.cli.log.lastCall.args).to.be.eql(
@@ -437,6 +438,7 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'PubSub',
+        topic: 'topic',
       });
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
@@ -765,11 +767,11 @@ describe('KubelessDeploy', () => {
     });
     it('should fail if a deployment returns an error code', () => {
       nock(config.clusters[0].cluster.server)
-        .get('/apis/k8s.io/v1/namespaces/default/functions')
+        .get('/apis/k8s.io/v1/namespaces/default/functions/')
         .reply(200, []);
       nock(config.clusters[0].cluster.server)
-        .post('/apis/k8s.io/v1/namespaces/default/functions')
-        .reply(500, 'Internal server error');
+        .post('/apis/k8s.io/v1/namespaces/default/functions/')
+        .reply(500, JSON.stringify({ code: 500, message: 'Internal server error' }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.eventually.rejectedWith(
@@ -933,7 +935,7 @@ describe('KubelessDeploy', () => {
         }],
       });
       nock(config.clusters[0].cluster.server)
-        .put(`/apis/k8s.io/v1/namespaces/default/functions/${functionName}`, {
+        .patch(`/apis/k8s.io/v1/namespaces/default/functions/${functionName}`, {
           apiVersion: 'k8s.io/v1',
           kind: 'Function',
           metadata: { name: 'myFunction', namespace: 'default' },
@@ -945,16 +947,16 @@ describe('KubelessDeploy', () => {
             type: 'HTTP',
           },
         })
-        .reply(200, 'OK');
+        .reply(200, '{"message": "OK"}');
       kubelessDeploy.options.force = true;
       let result = null;
       result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction().then(() => {
           expect(nock.pendingMocks()).to.contain(
-            `POST ${config.clusters[0].cluster.server}/apis/k8s.io/v1/namespaces/default/functions`
+            `POST ${config.clusters[0].cluster.server}/apis/k8s.io/v1/namespaces/default/functions/`
           );
           expect(nock.pendingMocks()).to.not.contain(
-            `POST ${config.clusters[0].cluster.server}/apis/k8s.io/v1/namespaces/default/functions/${functionName}` // eslint-disable-line max-len
+            `PATCH ${config.clusters[0].cluster.server}/apis/k8s.io/v1/namespaces/default/functions/${functionName}` // eslint-disable-line max-len
           );
         })
       ).to.be.fulfilled;
@@ -984,7 +986,7 @@ describe('KubelessDeploy', () => {
         }],
       });
       nock(config.clusters[0].cluster.server)
-        .put(`/apis/k8s.io/v1/namespaces/default/functions/${functionName}`, {
+        .patch(`/apis/k8s.io/v1/namespaces/default/functions/${functionName}`, {
           apiVersion: 'k8s.io/v1',
           kind: 'Function',
           metadata: { name: 'myFunction', namespace: 'default' },
@@ -996,7 +998,7 @@ describe('KubelessDeploy', () => {
             type: 'HTTP',
           },
         })
-        .reply(500, 'Internal server error');
+        .reply(500, '{"code": 500, "message": "Internal server error"}');
       kubelessDeploy.options.force = true;
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
