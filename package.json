@@ -41,7 +41,7 @@
     "eslint-plugin-react": "^6.1.1",
     "fs-extra": "^4.0.1",
     "mocha": "^3.4.2",
-    "nock": "^9.0.14",
+    "nock": "9.0.14",
     "request": "^2.81.0",
     "sinon": "^2.3.6"
   }

@@ -115,15 +115,15 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
   }
   nock(endpoint)
     .persist()
-    .get(`/apis/k8s.io/v1/namespaces/${opts.namespace}/functions`)
-    .reply(200, { items: opts.existingFunctions });
+    .get(`/apis/k8s.io/v1/namespaces/${opts.namespace}/functions/`)
+    .reply(200, JSON.stringify({ items: opts.existingFunctions }));
   nock(endpoint)
-    .post(`/apis/k8s.io/v1/namespaces/${opts.namespace}/functions`, postBody)
-    .reply(200, opts.postReply);
+    .post(`/apis/k8s.io/v1/namespaces/${opts.namespace}/functions/`, postBody)
+    .reply(200, JSON.stringify(opts.postReply));
   nock(endpoint)
     .persist()
     .get('/api/v1/pods')
-    .reply(200, {
+    .reply(200, JSON.stringify({
       items: [{
         metadata: {
           name: func,
@@ -135,7 +135,7 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
           containerStatuses: [{ ready: true, restartCount: 0 }],
         },
       }],
-    });
+    }));
 }
 
 function createIngressNocks(endpoint, func, hostname, p, options) {
