@@ -119,7 +119,7 @@ describe('KubelessDeployFunction', () => {
         }],
       });
       nock(config.clusters[0].cluster.server)
-        .put(`/apis/k8s.io/v1/namespaces/default/functions/${functionName}`, {
+        .patch(`/apis/k8s.io/v1/namespaces/default/functions/${functionName}`, {
           apiVersion: 'k8s.io/v1',
           kind: 'Function',
           metadata: { name: 'myFunction', namespace: 'default' },
@@ -131,7 +131,7 @@ describe('KubelessDeployFunction', () => {
             type: 'HTTP',
           },
         })
-        .reply(200, 'OK');
+        .reply(200, '{"message": "OK"}');
     });
     afterEach(() => {
       mocks.restoreKubeConfig(cwd);

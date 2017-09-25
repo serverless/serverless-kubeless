@@ -21,10 +21,10 @@ const Api = require('kubernetes-client');
 const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
-const helpers = require('../lib/helpers');
-const loadKubeConfig = require('./lib/load-kube-config');
 const fs = require('fs');
+const mocks = require('./lib/mocks');
 const moment = require('moment');
+const nock = require('nock');
 const os = require('os');
 const path = require('path');
 const sinon = require('sinon');
@@ -83,6 +83,7 @@ describe('KubelessRemove', () => {
     });
   });
   describe('#remove', () => {
+    let config = null;
     let cwd = null;
     let serverlessWithFunction = null;
     let kubelessRemove = null;
@@ -100,54 +101,49 @@ describe('KubelessRemove', () => {
       kubelessRemove = new KubelessRemove(serverlessWithFunction);
       cwd = path.join(os.tmpdir(), moment().valueOf().toString());
       fs.mkdirSync(cwd);
+      config = mocks.kubeConfig(cwd);
       fs.writeFileSync(path.join(cwd, 'function.py'), 'function code');
-      sinon.stub(Api.ThirdPartyResources.prototype, 'delete');
       sinon.stub(Api.Extensions.prototype, 'delete');
       sinon.stub(Api.Extensions.prototype, 'get');
-      Api.ThirdPartyResources.prototype.delete.callsFake((data, ff) => {
-        ff(null, { statusCode: 200 });
+      Api.Extensions.prototype.get.callsFake((data, ff) => {
+        ff(null, { statusCode: 200, body: { items: [] } });
       });
-      // Api.Extensions.prototype.get.callsFake((data, ff) => {
-      //   ff(null, { statusCode: 200, body: { items: [] } });
-      // });
       Api.Extensions.prototype.delete.callsFake((data, ff) => {
         ff(null, { statusCode: 200 });
       });
-      sinon.stub(helpers, 'loadKubeConfig').callsFake(loadKubeConfig);
     });
     afterEach(() => {
-      Api.ThirdPartyResources.prototype.delete.restore();
+      nock.cleanAll();
       Api.Extensions.prototype.delete.restore();
       Api.Extensions.prototype.get.restore();
-      helpers.loadKubeConfig.restore();
       rm(cwd);
     });
     it('should remove a function', () => {
-      expect( // eslint-disable-line no-unused-expressions
-        kubelessRemove.removeFunction(cwd)
+      nock(config.clusters[0].cluster.server)
+        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction')
+        .reply(200, {});
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessRemove.removeFunction(cwd).then(() => {
+          expect(nock.pendingMocks()).to.not.contain('DELETE http://1.2.3.4:4433/apis/k8s.io/v1/namespaces/default/functions/myFunction');
+        })
       ).to.be.fulfilled;
-      expect(Api.ThirdPartyResources.prototype.delete.calledOnce).to.be.eql(true);
-      expect(
-        Api.ThirdPartyResources.prototype.delete.firstCall.args[0].path[1]
-      ).to.be.eql('myFunction');
-      expect(Api.ThirdPartyResources.prototype.delete.firstCall.args[1]).to.be.a('function');
+      return result;
     });
     it('should skip a removal if an error 404 is returned', () => {
-      Api.ThirdPartyResources.prototype.delete.callsFake((data, ff) => {
-        ff({ code: 404 });
-      });
-      expect( // eslint-disable-line no-unused-expressions
-        kubelessRemove.removeFunction(cwd)
+      nock(config.clusters[0].cluster.server)
+        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction')
+        .reply(404, { code: 404 });
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessRemove.removeFunction(cwd).then(() => {
+          expect(nock.pendingMocks()).to.not.contain('DELETE http://1.2.3.4:4433/apis/k8s.io/v1/namespaces/default/functions/myFunction');
+        })
       ).to.be.fulfilled;
-      expect(serverlessWithFunction.cli.log.lastCall.args).to.be.eql(
-        ['The function myFunction doesn\'t exist. Skipping removal.']
-      );
     });
     it('should fail if a removal returns an error code', () => {
-      Api.ThirdPartyResources.prototype.delete.callsFake((data, ff) => {
-        ff({ code: 500, message: 'Internal server error' });
-      });
-      expect( // eslint-disable-line no-unused-expressions
+      nock(config.clusters[0].cluster.server)
+        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction')
+        .reply(500, { code: 500, message: 'Internal server error' });
+      return expect( // eslint-disable-line no-unused-expressions
         kubelessRemove.removeFunction(cwd)
       ).to.be.eventually.rejectedWith(
         'Found errors while removing the given functions:\n' +
@@ -156,7 +152,7 @@ describe('KubelessRemove', () => {
         '  Message: Internal server error'
       );
     });
-    it('should remove the possible functions even if one of them fails', () => {
+    it('should remove the possible functions even if one of them fails', (done) => {
       const serverlessWithFunctions = _.defaultsDeep({}, serverless, {
         service: {
           functions: {
@@ -172,54 +168,58 @@ describe('KubelessRemove', () => {
           },
         },
       });
-      const functionsRemoved = [];
-      Api.ThirdPartyResources.prototype.delete.onFirstCall().callsFake((data, ff) => {
-        functionsRemoved.push(data.path[1]);
-        ff(null, { statusCode: 200 });
-      });
-      Api.ThirdPartyResources.prototype.delete.onSecondCall().callsFake((data, ff) => {
-        ff({ code: 500, message: 'Internal server error' });
-      });
-      Api.ThirdPartyResources.prototype.delete.onThirdCall().callsFake((data, ff) => {
-        functionsRemoved.push(data.path[1]);
-        ff(null, { statusCode: 200 });
-      });
+      nock(config.clusters[0].cluster.server)
+        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction1')
+        .reply(200, {});
+      nock(config.clusters[0].cluster.server)
+        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction2')
+        .reply(500, { code: 500, message: 'Internal server error' });
+      nock(config.clusters[0].cluster.server)
+        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction3')
+        .reply(200, {});
       kubelessRemove = new KubelessRemove(serverlessWithFunctions);
-      expect( // eslint-disable-line no-unused-expressions
-        kubelessRemove.removeFunction(cwd)
-      ).to.be.eventually.rejectedWith(
-        'Found errors while removing the given functions:\n' +
-        'Unable to remove the function myFunction2. Received:\n' +
-        '  Code: 500\n' +
-        '  Message: Internal server error'
-      );
-      expect(functionsRemoved).to.be.eql(['myFunction1', 'myFunction3']);
+      kubelessRemove.removeFunction(cwd).catch(e => {
+        expect(e).to.be.eql(
+          'Found errors while removing the given functions:\n' +
+          'Unable to remove the function myFunction2. Received:\n' +
+          '  Code: 500\n' +
+          '  Message: Internal server error'
+
+        );
+        expect(nock.pendingMocks()).to.be.eql([]);
+        done();
+      });
     });
     it('calls Kubernetes API with the correct namespace (in provider)', () => {
       const serverlessWithNS = _.cloneDeep(serverlessWithFunction);
       serverlessWithNS.service.provider.namespace = 'test';
+      nock(config.clusters[0].cluster.server)
+        .delete('/apis/k8s.io/v1/namespaces/test/functions/myFunction')
+        .reply(200, {});
       kubelessRemove = new KubelessRemove(serverlessWithNS);
-      expect( // eslint-disable-line no-unused-expressions
-        kubelessRemove.removeFunction(cwd)
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessRemove.removeFunction(cwd).then(() => {
+          expect(nock.pendingMocks()).to.be.eql([]);
+        })
       ).to.be.fulfilled;
-      expect(Api.ThirdPartyResources.prototype.delete.calledOnce).to.be.eql(true);
-      expect(
-        Api.ThirdPartyResources.prototype.delete.firstCall.args[0].path[0]
-      ).to.be.eql('/apis/k8s.io/v1/namespaces/test/functions');
     });
     it('calls Kubernetes API with the correct namespace (in function)', () => {
       const serverlessWithNS = _.cloneDeep(serverlessWithFunction);
       serverlessWithNS.service.functions.myFunction.namespace = 'test';
+      nock(config.clusters[0].cluster.server)
+        .delete('/apis/k8s.io/v1/namespaces/test/functions/myFunction')
+        .reply(200, {});
       kubelessRemove = new KubelessRemove(serverlessWithNS);
-      expect( // eslint-disable-line no-unused-expressions
-        kubelessRemove.removeFunction(cwd)
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessRemove.removeFunction(cwd).then(() => {
+          expect(nock.pendingMocks()).to.be.eql([]);
+        })
       ).to.be.fulfilled;
-      expect(Api.ThirdPartyResources.prototype.delete.calledOnce).to.be.eql(true);
-      expect(
-        Api.ThirdPartyResources.prototype.delete.firstCall.args[0].path[0]
-      ).to.be.eql('/apis/k8s.io/v1/namespaces/test/functions');
     });
     it('should remove the ingress controller if exists', () => {
+      nock(config.clusters[0].cluster.server)
+        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction')
+        .reply(200, {});
       Api.Extensions.prototype.get.callsFake((data, ff) => {
         ff(null, {
           statusCode: 200,
@@ -236,15 +236,19 @@ describe('KubelessRemove', () => {
         path: '/test',
       }];
       kubelessRemove = new KubelessRemove(serverlessWithIngress, { verbose: false });
-      expect( // eslint-disable-line no-unused-expressions
-        kubelessRemove.removeFunction(cwd)
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessRemove.removeFunction(cwd).then(() => {
+          expect(Api.Extensions.prototype.delete.calledOnce).to.be.eql(true);
+          expect(
+            Api.Extensions.prototype.delete.firstCall.args[0].path[0]
+          ).to.be.eql('/apis/extensions/v1beta1/namespaces/default/ingresses');
+        })
       ).to.be.fulfilled;
-      expect(Api.Extensions.prototype.delete.calledOnce).to.be.eql(true);
-      expect(
-        Api.Extensions.prototype.delete.firstCall.args[0].path[0]
-      ).to.be.eql('/apis/extensions/v1beta1/namespaces/default/ingresses');
     });
     it('should remove the ingress controller if exists (with a different namespace)', () => {
+      nock(config.clusters[0].cluster.server)
+        .delete('/apis/k8s.io/v1/namespaces/test/functions/myFunction')
+        .reply(200, {});
       Api.Extensions.prototype.get.callsFake((data, ff) => {
         ff(null, {
           statusCode: 200,
@@ -262,13 +266,14 @@ describe('KubelessRemove', () => {
       }];
       serverlessWithIngress.service.functions.myFunction.namespace = 'test';
       kubelessRemove = new KubelessRemove(serverlessWithIngress, { verbose: false });
-      expect( // eslint-disable-line no-unused-expressions
-        kubelessRemove.removeFunction(cwd)
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessRemove.removeFunction(cwd).then(() => {
+          expect(Api.Extensions.prototype.delete.calledOnce).to.be.eql(true);
+          expect(
+            Api.Extensions.prototype.delete.firstCall.args[0].path[0]
+          ).to.be.eql('/apis/extensions/v1beta1/namespaces/test/ingresses');
+        })
       ).to.be.fulfilled;
-      expect(Api.Extensions.prototype.delete.calledOnce).to.be.eql(true);
-      expect(
-        Api.Extensions.prototype.delete.firstCall.args[0].path[0]
-      ).to.be.eql('/apis/extensions/v1beta1/namespaces/test/ingresses');
     });
   });
 });
