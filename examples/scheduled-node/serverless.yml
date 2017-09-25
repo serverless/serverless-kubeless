@@ -1,0 +1,14 @@
+service: clock
+
+provider:
+  name: kubeless
+  runtime: nodejs6
+
+plugins:
+  - serverless-kubeless
+
+functions:
+  clock:
+    handler: handler.printClock
+    events:
+      - schedule: "* * * * *"

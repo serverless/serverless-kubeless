@@ -103,6 +103,8 @@ class KubelessDeploy {
                         const type = _.keys(event)[0];
                         if (type === 'trigger') {
                           return _.assign({ type }, { trigger: event[type] });
+                        } else if (type === 'schedule') {
+                          return _.assign({ type }, { schedule: event[type] });
                         }
                         return _.assign({ type }, event[type]);
                       }),

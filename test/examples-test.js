@@ -85,6 +85,7 @@ describe('Examples', () => {
     'post-nodejs': { cwd: null, path: 'post-nodejs' },
     'post-python': { cwd: null, path: 'post-python' },
     'post-ruby': { cwd: null, path: 'post-ruby' },
+    'scheduled-node': { cwd: null, path: 'scheduled-node' },
     'todo-app': { cwd: null, path: 'todo-app/backend' },
   };
   before(function (done) {
@@ -280,6 +281,24 @@ describe('Examples', () => {
           done();
         }
       );
+    });
+  });
+  describe('scheduled-node', function () {
+    this.timeout(60000);
+    it('should print the time in the logs', (done) => {
+      const int = setInterval(() => {
+        exec(
+          'serverless logs -f clock',
+          { cwd: examples['scheduled-node'].cwd },
+          (err, stdout) => {
+            if (err) throw err;
+            if (stdout.match(/^\d{2}:\d{2}$/m)) {
+              clearInterval(int);
+              done();
+            }
+          }
+        );
+      }, 5000);
     });
   });
   describe('node-chaining-functions', function () {
