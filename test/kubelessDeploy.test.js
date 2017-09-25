@@ -438,6 +438,7 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'PubSub',
+        topic: 'topic',
       });
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
