@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Example function for serverless kubeless",
   "dependencies": {
-    "serverless-kubeless": "^0.1.9",
+    "serverless-kubeless": "^0.2.0",
     "lodash": "^4.1.0"
   },
   "devDependencies": {},
