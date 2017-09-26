@@ -10,7 +10,7 @@
   "dependencies": {
     "lodash": "^4.17.4",
     "mongodb": "^2.2.30",
-    "serverless-kubeless": "^0.1.8",
+    "serverless-kubeless": "^0.2.0",
     "uuid": "^2.0.3"
   }
 }
