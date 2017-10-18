@@ -22,6 +22,7 @@ const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
 const helpers = require('../lib/helpers');
 const loadKubeConfig = require('./lib/load-kube-config');
+const nock = require('nock');
 const request = require('request');
 const sinon = require('sinon');
 
@@ -32,6 +33,34 @@ const serverless = require('./lib/serverless')({ service: { functions: { 'my-fun
 
 require('chai').use(chaiAsPromised);
 
+function nocksvc(url, funcs) {
+  nock(url)
+    .get('/api/v1/services')
+    .reply(200, {
+      items: _.map(_.flatten([funcs]), f => ({
+        metadata:
+        {
+          name: f,
+          namespace: 'default',
+          selfLink: `/api/v1/namespaces/default/services/${f}`,
+          uid: '010a169d-618c-11e7-9939-080027abf356',
+          resourceVersion: '248',
+          creationTimestamp: '2017-07-05T14:12:39Z',
+          labels: { function: f },
+        },
+        spec:
+        {
+          ports: [{ protocol: 'TCP', port: 8080, targetPort: 8080, nodePort: 30817 }],
+          selector: { function: f },
+          clusterIP: '10.0.0.177',
+          type: 'NodePort',
+          sessionAffinity: 'None',
+        },
+        status: { loadBalancer: {} },
+      })),
+    })
+    .persist();
+}
 describe('KubelessInvoke', () => {
   describe('#constructor', () => {
     const options = { test: 1 };
@@ -93,6 +122,7 @@ describe('KubelessInvoke', () => {
       request.post.restore();
       request.get.restore();
       helpers.loadKubeConfig.restore();
+      nock.cleanAll();
     });
     it('throws an error if the given path with the data does not exists', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
@@ -113,16 +143,19 @@ describe('KubelessInvoke', () => {
           statusMessage: 'OK',
         });
       });
-      expect(kubelessInvoke.invokeFunction()).to.become({
-        statusCode: 200,
-        statusMessage: 'OK',
+      nocksvc(kubeApiURL, func);
+      return kubelessInvoke.invokeFunction().then((res) => {
+        expect(res).to.be.eql({
+          statusCode: 200,
+          statusMessage: 'OK',
+        });
+        expect(
+            request.get.firstCall.args[0]
+          ).to.contain.keys(['ca', 'auth', 'url']);
+        expect(request.get.firstCall.args[0].url).to.be.eql(
+            `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function:8080/`
+          );
       });
-      expect(
-        request.get.firstCall.args[0]
-      ).to.contain.keys(['ca', 'auth', 'url']);
-      expect(request.get.firstCall.args[0].url).to.be.eql(
-        `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function/`
-      );
     });
     it('calls the API end point with the correct arguments (with raw data)', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
@@ -135,17 +168,20 @@ describe('KubelessInvoke', () => {
           statusMessage: 'OK',
         });
       });
-      expect(kubelessInvoke.invokeFunction()).to.become({
-        statusCode: 200,
-        statusMessage: 'OK',
-      });
-      expect(
+      nocksvc(kubeApiURL, func);
+      return kubelessInvoke.invokeFunction().then((res) => {
+        expect(res).to.be.eql({
+          statusCode: 200,
+          statusMessage: 'OK',
+        });
+        expect(
         request.post.firstCall.args[0]
       ).to.contain.keys(['url', 'body']);
-      expect(request.post.firstCall.args[0].url).to.be.eql(
-        `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function/`
+        expect(request.post.firstCall.args[0].url).to.be.eql(
+        `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function:8080/`
       );
-      expect(request.post.firstCall.args[0].body).to.be.eql('hello');
+        expect(request.post.firstCall.args[0].body).to.be.eql('hello');
+      });
     });
     it('calls the API end point with the correct arguments (with JSON data)', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
@@ -158,18 +194,21 @@ describe('KubelessInvoke', () => {
           statusMessage: 'OK',
         });
       });
-      expect(kubelessInvoke.invokeFunction()).to.become({
-        statusCode: 200,
-        statusMessage: 'OK',
-      });
-      expect(
+      nocksvc(kubeApiURL, func);
+      return kubelessInvoke.invokeFunction().then((res) => {
+        expect(res).to.be.eql({
+          statusCode: 200,
+          statusMessage: 'OK',
+        });
+        expect(
         request.post.firstCall.args[0]
       ).to.contain.keys(['url', 'json', 'body']);
-      expect(request.post.firstCall.args[0].url).to.be.eql(
-        `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function/`
+        expect(request.post.firstCall.args[0].url).to.be.eql(
+        `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function:8080/`
       );
-      expect(request.post.firstCall.args[0].json).to.be.eql(true);
-      expect(request.post.firstCall.args[0].body).to.be.eql({ test: 1 });
+        expect(request.post.firstCall.args[0].json).to.be.eql(true);
+        expect(request.post.firstCall.args[0].body).to.be.eql({ test: 1 });
+      });
     });
     it('reject when an exit code different than 200 is returned', () => {
       const kubelessInvoke = new KubelessInvoke(serverless, {
@@ -195,13 +234,16 @@ describe('KubelessInvoke', () => {
           statusMessage: 'OK',
         });
       });
-      expect(kubelessInvoke.invokeFunction()).to.become({
-        statusCode: 200,
-        statusMessage: 'OK',
-      });
-      expect(request.get.firstCall.args[0].url).to.be.eql(
-        `${kubeApiURL}/api/v1/proxy/namespaces/test/services/my-function/`
+      nocksvc(kubeApiURL, func);
+      return kubelessInvoke.invokeFunction().then((res) => {
+        expect(res).to.be.eql({
+          statusCode: 200,
+          statusMessage: 'OK',
+        });
+        expect(request.get.firstCall.args[0].url).to.be.eql(
+        `${kubeApiURL}/api/v1/proxy/namespaces/test/services/my-function:8080/`
       );
+      });
     });
     it('calls the API end point with the correct namespace (in the function)', () => {
       const serverlessWithNS = _.cloneDeep(serverless);
@@ -215,15 +257,18 @@ describe('KubelessInvoke', () => {
           statusMessage: 'OK',
         });
       });
-      expect(kubelessInvoke.invokeFunction()).to.become({
-        statusCode: 200,
-        statusMessage: 'OK',
-      });
-      expect(request.get.firstCall.args[0].url).to.be.eql(
-        `${kubeApiURL}/api/v1/proxy/namespaces/test/services/my-function/`
+      nocksvc(kubeApiURL, func);
+      return kubelessInvoke.invokeFunction().then((res) => {
+        expect(res).to.be.eql({
+          statusCode: 200,
+          statusMessage: 'OK',
+        });
+        expect(request.get.firstCall.args[0].url).to.be.eql(
+        `${kubeApiURL}/api/v1/proxy/namespaces/test/services/my-function:8080/`
       );
+      });
     });
-    it('calls the API in the correct sequence', (done) => {
+    it('calls the API in the correct sequence', () => {
       const serverlessWithSequence = _.cloneDeep(serverless);
       serverlessWithSequence.service.functions = {
         sequenceFunc: {
@@ -258,7 +303,8 @@ describe('KubelessInvoke', () => {
           body: 'c',
         });
       });
-      kubelessInvoke.invokeFunction().then(res => {
+      nocksvc(kubeApiURL, ['func1', 'func2', 'func3']);
+      return kubelessInvoke.invokeFunction().then((res) => {
         expect(res).to.be.eql({
           statusCode: 200,
           statusMessage: 'OK',
@@ -266,21 +312,20 @@ describe('KubelessInvoke', () => {
         });
         expect(request.post.callCount).to.be.eql(3);
         expect(request.post.firstCall.args[0].url).to.be.eql(
-          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func1/`
+          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func1:8080/`
         );
         expect(request.post.firstCall.args[0].body).to.be.eql('hello');
         expect(request.post.secondCall.args[0].url).to.be.eql(
-          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func2/`
+          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func2:8080/`
         );
         expect(request.post.secondCall.args[0].body).to.be.eql('a');
         expect(request.post.thirdCall.args[0].url).to.be.eql(
-          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func3/`
+          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func3:8080/`
         );
         expect(request.post.thirdCall.args[0].body).to.be.eql('b');
-        done();
       });
     });
-    it('interrupts a sequence if any of the steps fails', (done) => {
+    it('interrupts a sequence if any of the steps fails', () => {
       const serverlessWithSequence = _.cloneDeep(serverless);
       serverlessWithSequence.service.functions = {
         sequenceFunc: {
@@ -314,10 +359,10 @@ describe('KubelessInvoke', () => {
           body: 'c',
         });
       });
-      kubelessInvoke.invokeFunction().catch(err => {
+      nocksvc(kubeApiURL, ['func1', 'func2', 'func3']);
+      return kubelessInvoke.invokeFunction().catch((err) => {
         expect(request.post.callCount).to.be.eql(2);
         expect(err.message).to.be.eql('INTERNAL ERROR');
-        done();
       });
     });
   });
