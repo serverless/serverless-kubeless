@@ -186,6 +186,25 @@ describe('Helper functions', () => {
         bearer: 'token1234',
       });
     });
+    it('should return connection options with an id token', () => {
+      const config = loadKubeConfig({
+        users: [
+          {
+            name: 'cluster-user',
+            user: {
+              'auth-provider': {
+                config: {
+                  'id-token': 'token1234',
+                },
+              },
+            },
+          },
+        ],
+      });
+      expect(helpers.getConnectionOptions(config).auth).to.be.eql({
+        bearer: 'token1234',
+      });
+    });
     it('should return connection options with an access token', () => {
       const config = loadKubeConfig({
         users: [
