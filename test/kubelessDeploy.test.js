@@ -510,7 +510,7 @@ describe('KubelessDeploy', () => {
       ).to.be.fulfilled;
       return result;
     });
-    it('should deploy a function with environment variables', () => {
+    it('should deploy a function with environment variables defined as a dictionary', () => {
       const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
       const env = { VAR: 'test', OTHER_VAR: 'test2' };
       serverlessWithEnvVars.service.functions[functionName].environment = env;
@@ -530,6 +530,44 @@ describe('KubelessDeploy', () => {
             containers: [{
               name: functionName,
               env: [{ name: 'VAR', value: 'test' }, { name: 'OTHER_VAR', value: 'test2' }],
+            }],
+          },
+        },
+      });
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      return result;
+    });
+    it('should deploy a function with environment variables defined as an array)', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+      const env = [
+        { name: 'VAR', value: 'test' },
+        { name: 'OTHER_VAR', valueFrom: { someRef: { name: 'REF_OBJECT', key: 'REF_KEY' } } },
+      ];
+      serverlessWithEnvVars.service.functions[functionName].environment = env;
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+        deps: '',
+        function: functionText,
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        type: 'HTTP',
+        template: {
+          spec: {
+            containers: [{
+              name: functionName,
+              env: [
+                { name: 'VAR', value: 'test' },
+                {
+                  name: 'OTHER_VAR',
+                  valueFrom: { someRef: { name: 'REF_OBJECT', key: 'REF_KEY' } },
+                },
+              ],
             }],
           },
         },
