@@ -99,6 +99,7 @@ class KubelessDeploy {
                       id: name,
                       text: functionContent,
                       deps: requirementsContent,
+                      image: description.image || this.serverless.service.provider.image,
                       events: _.map(description.events, (event) => {
                         const type = _.keys(event)[0];
                         if (type === 'trigger') {

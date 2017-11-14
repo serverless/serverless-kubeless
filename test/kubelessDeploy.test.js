@@ -194,6 +194,88 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
+    it('should deploy a function with custom runtime image (in the provider section)', () => {
+      const serverlessWithImage = _.cloneDeep(serverlessWithFunction);
+      serverlessWithImage.service.provider.image = 'some-custom-image';
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithImage
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+        deps: '',
+        function: functionText,
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        type: 'HTTP',
+        template: {
+          spec: {
+            containers: [{
+              name: functionName,
+              image: 'some-custom-image',
+            }],
+          },
+        },
+      });
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+    it('should deploy a function with custom runtime image (in the function section)', () => {
+      const serverlessWithImage = _.cloneDeep(serverlessWithFunction);
+      serverlessWithImage.service.functions[functionName].image = 'some-custom-image';
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithImage
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+        deps: '',
+        function: functionText,
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        type: 'HTTP',
+        template: {
+          spec: {
+            containers: [{
+              name: functionName,
+              image: 'some-custom-image',
+            }],
+          },
+        },
+      });
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+    it('should deploy a function with overriding runtime image', () => {
+      const serverlessWithImage = _.cloneDeep(serverlessWithFunction);
+      serverlessWithImage.service.provider.image = 'global-custom-image';
+      serverlessWithImage.service.functions[functionName].image = 'local-custom-image';
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithImage
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+        deps: '',
+        function: functionText,
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        type: 'HTTP',
+        template: {
+          spec: {
+            containers: [{
+              name: functionName,
+              image: 'local-custom-image',
+            }],
+          },
+        },
+      });
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
     it('should deploy a function in a custom namespace (in the provider section)', () => {
       const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomNamespace.service.provider.namespace = 'custom';
