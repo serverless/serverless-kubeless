@@ -6,17 +6,9 @@ Kubeless is a Kubernetes-native Serverless solution.
 
 ## Pre requisites
 
-Make sure you have a kubernetes endpoint running and kubeless installed:
+Make sure you have a kubernetes endpoint running and kubeless installed. You can find the installation intructions [here](https://github.com/kubeless/kubeless#installation).
 
-```bash
-$ kubectl version
-$ brew install kubeless/tap/kubeless
-$ KUBELESS_VERSION=0.2.4
-$ kubectl create ns kubeless
-$ kubectl create -f https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless-v$KUBELESS_VERSION.yaml
-```
-
-Then install serverless
+Once you have Kubeless running in your cluster you can install serverless
 ```bash
 $ npm install serverless -g
 ```
