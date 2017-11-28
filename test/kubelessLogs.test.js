@@ -105,9 +105,11 @@ describe('KubelessLogs', () => {
           ff(null, {
             statusCode: 200,
             body: {
-              items: [{
-                metadata: { name: pod, labels: { function: f } },
-              }],
+              items: [
+                // Check that pods that are not functions are ignored
+                { metadata: { name: 'unrelated' } },
+                { metadata: { name: pod, labels: { function: f } } },
+              ],
             },
           });
         }
