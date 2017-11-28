@@ -106,7 +106,8 @@ describe('KubelessLogs', () => {
             statusCode: 200,
             body: {
               items: [
-                { metadata: { name: 'unrelated' } }, // Check that pods that are not functions are ignored
+                // Check that pods that are not functions are ignored
+                { metadata: { name: 'unrelated' } },
                 { metadata: { name: pod, labels: { function: f } } },
               ],
             },
