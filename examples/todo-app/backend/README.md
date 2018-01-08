@@ -9,7 +9,7 @@ $ curl -sL https://raw.githubusercontent.com/kubeless/kubeless/master/manifests/
 ```
 3. Deploy a MongoDB service. It will be used to store the state of our application:
 ```console
-$ curl -sL https://raw.githubusercontent.com/bitnami/bitnami-docker-mongodb/master/kubernetes.yml | kubectl create -f -
+$ curl -sL https://raw.githubusercontent.com/bitnami/bitnami-docker-mongodb/3.4.7-r0/kubernetes.yml | kubectl create -f -
 ```
 4. Run `npm install` to install the used npm packages
 5. Run `serverless deploy` to deploy the `todo` service in our kubernetes cluster
