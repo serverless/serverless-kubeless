@@ -136,6 +136,7 @@ class KubelessDeploy {
         force: this.options.force,
         verbose: this.options.verbose,
         log: this.serverless.cli.log.bind(this.serverless.cli),
+        timeout: this.serverless.service.provider.timeout,
       }
     ));
   }
