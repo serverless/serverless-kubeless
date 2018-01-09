@@ -459,12 +459,18 @@ describe('KubelessDeploy', () => {
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
         timeout: '180',
-        service: [{
-          name: 'function-port',
-          port: 8080,
-          protocol: 'TCP',
-          targetPort: 8080,
-        }],
+        service: {
+          ports: [{
+            name: 'function-port',
+            port: 8080,
+            protocol: 'TCP',
+            targetPort: 8080,
+          }],
+          selector: {
+            function: functionName,
+          },
+          type: 'ClusterIP',
+        },
       };
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, funcSpec, {
         existingFunctions: [{
@@ -1192,12 +1198,18 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
-        service: [{
-          name: 'function-port',
-          port: 1234,
-          protocol: 'TCP',
-          targetPort: 1234,
-        }],
+        service: {
+          ports: [{
+            name: 'function-port',
+            port: 1234,
+            protocol: 'TCP',
+            targetPort: 1234,
+          }],
+          selector: {
+            function: functionName,
+          },
+          type: 'ClusterIP',
+        },
       });
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
