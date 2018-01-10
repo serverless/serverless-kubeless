@@ -458,6 +458,19 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
+        timeout: '180',
+        service: {
+          ports: [{
+            name: 'function-port',
+            port: 8080,
+            protocol: 'TCP',
+            targetPort: 8080,
+          }],
+          selector: {
+            function: functionName,
+          },
+          type: 'ClusterIP',
+        },
       };
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, funcSpec, {
         existingFunctions: [{
@@ -1128,6 +1141,80 @@ describe('KubelessDeploy', () => {
         '  Code: 500\n' +
         '  Message: Internal server error'
         );
+    });
+    it('should deploy a function with a timeout (in the function)', () => {
+      const serverlessWithCustomProperties = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomProperties.service.functions[functionName].timeout = 10;
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomProperties
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+        deps: '',
+        function: functionText,
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        type: 'HTTP',
+        timeout: '10',
+      });
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      return result;
+    });
+    it('should deploy a function with a timeout (in the provider)', () => {
+      const serverlessWithCustomProperties = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomProperties.service.provider.timeout = 10;
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomProperties
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+        deps: '',
+        function: functionText,
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        type: 'HTTP',
+        timeout: '10',
+      });
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      return result;
+    });
+    it('should deploy a function with a custom port', () => {
+      const serverlessWithCustomProperties = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomProperties.service.functions[functionName].port = 1234;
+      kubelessDeploy = instantiateKubelessDeploy(
+        handlerFile,
+        depsFile,
+        serverlessWithCustomProperties
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+        deps: '',
+        function: functionText,
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        type: 'HTTP',
+        service: {
+          ports: [{
+            name: 'function-port',
+            port: 1234,
+            protocol: 'TCP',
+            targetPort: 1234,
+          }],
+          selector: {
+            function: functionName,
+          },
+          type: 'ClusterIP',
+        },
+      });
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      return result;
     });
   });
 });
