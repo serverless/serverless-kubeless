@@ -97,7 +97,7 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
     existingFunctions: [],
     description: null,
     labels: null,
-    postReply: 'OK',
+    postReply: { message: 'OK' },
   });
   const postBody = {
     apiVersion: 'k8s.io/v1',
@@ -119,7 +119,7 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
     .reply(200, JSON.stringify({ items: opts.existingFunctions }));
   nock(endpoint)
     .post(`/apis/k8s.io/v1/namespaces/${opts.namespace}/functions/`, postBody)
-    .reply(200, JSON.stringify(opts.postReply));
+    .reply(200, opts.postReply);
   nock(endpoint)
     .persist()
     .get('/api/v1/pods')
@@ -163,7 +163,7 @@ function createIngressNocks(endpoint, func, hostname, p, options) {
         }],
       },
     })
-    .reply(200, 'OK');
+    .reply(200, { message: 'OK' });
 }
 
 module.exports = {
