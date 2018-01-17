@@ -460,21 +460,22 @@ describe('Examples', () => {
       this.timeout(300000);
       examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
       // We need to deploy a MongoDB for the todo-app example
-      exec(
-        'curl -sL https://raw.githubusercontent.com/bitnami/bitnami-docker-mongodb/3.4.7-r0/kubernetes.yml',
-        (err, manifest) => {
-          if (err) {
-            console.error('ERROR: Unable to download mongodb manifest');
-          } else {
-            fs.writeFile(`${examples['todo-app'].cwd}/mongodb.yaml`, manifest, (werr) => {
-              if (werr) throw werr;
-              exec(`kubectl create -f ${examples['todo-app'].cwd}/mongodb.yaml`, (kerr) => {
-                if (kerr) {
-                  console.error(`ERROR: Unable to deploy the mongoDB manifest: ${kerr.message}`);
-                }
-                prepareExample(cwd, exampleName, (e) => {
-                  if (e) {
-                    throw e;
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        exec(
+          'curl -sL https://raw.githubusercontent.com/bitnami/bitnami-docker-mongodb/3.4.7-r0/kubernetes.yml',
+          (err, manifest) => {
+            if (err) {
+              console.error('ERROR: Unable to download mongodb manifest');
+            } else {
+              console.log(manifest);
+              fs.writeFile(`${examples['todo-app'].cwd}/mongodb.yaml`, manifest, (werr) => {
+                if (werr) throw werr;
+                exec(`kubectl create -f ${examples['todo-app'].cwd}/mongodb.yaml`, (kerr) => {
+                  if (kerr) {
+                    console.error(`ERROR: Unable to deploy the mongoDB manifest: ${kerr.message}`);
                   }
                   deployExample(examples[exampleName].cwd, (ee) => {
                     if (ee) {
@@ -501,10 +502,10 @@ describe('Examples', () => {
                   });
                 });
               });
-            });
+            }
           }
-        }
-      );
+        );
+      });
     });
 
     after(function (done) {
