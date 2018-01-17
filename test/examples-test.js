@@ -35,7 +35,6 @@ function prepareExample(cwd, example, callback) {
   });
 }
 function deployExample(cwd, callback, retries = 0) {
-  console.log(`\tDeploying ${cwd}`);
   if (retries < 3) {
     exec('serverless deploy', { cwd }, (deployErr, stdout) => {
       if (deployErr) {
@@ -99,7 +98,6 @@ describe('Examples', () => {
     this.timeout(300000 * _.keys(examples).length);
     cwd = path.join('/tmp', moment().valueOf().toString());
     fs.mkdirSync(cwd);
-    console.log('    Deploying examples');
     fs.mkdir(`${cwd}/node_modules`, mkdirErr => {
       if (mkdirErr) throw mkdirErr;
       fs.symlink(
@@ -470,7 +468,6 @@ describe('Examples', () => {
             if (err) {
               console.error('ERROR: Unable to download mongodb manifest');
             } else {
-              console.log(manifest);
               fs.writeFile(`${examples['todo-app'].cwd}/mongodb.yaml`, manifest, (werr) => {
                 if (werr) throw werr;
                 exec(`kubectl create -f ${examples['todo-app'].cwd}/mongodb.yaml`, (kerr) => {
