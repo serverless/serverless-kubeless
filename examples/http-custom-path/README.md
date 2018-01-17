@@ -41,6 +41,8 @@ Trigger:  HTTP
 Dependencies:
 ```
 
+Note that if you don't specify a hostname in your `serverless.yaml` it will be configured to use a DNS service like [`nip.io`](http://nip.io) setting the property `defaultDNSResolution` in the provider section. You can also change the default DNS resolutor to a different service like [`xip.io`](http//xip.io).
+
 Depending on the Ingress configuration the URL may be redirected to use the HTTPS protocol. You can call your function with a browser or executing:
 ```console
 $ curl 192.168.99.100.nip.io/hello
