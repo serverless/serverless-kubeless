@@ -3,6 +3,7 @@ service: todos
 provider:
   name: kubeless
   runtime: nodejs6
+  defaultDNSResolution: 'xip.io'
 
 plugins:
   - serverless-kubeless
