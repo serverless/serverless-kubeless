@@ -41,7 +41,7 @@ EOF
 }
 check_or_install_minikube() {
     which minikube || {
-        wget --no-clobber -O minikube \
+        wget -q --no-clobber -O minikube \
             https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64
         install_bin ./minikube
     }
