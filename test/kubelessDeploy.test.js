@@ -30,19 +30,19 @@ const rm = require('./lib/rm');
 const sinon = require('sinon');
 
 const KubelessDeploy = require('../deploy/kubelessDeploy');
-const serverless = require('./lib/serverless')();
+const serverlessFact = require('./lib/serverless');
+
+let serverless = serverlessFact();
 
 require('chai').use(chaiAsPromised);
 
-function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction, options) {
+function instantiateKubelessDeploy(zipFile, depsFile, serverlessWithFunction, options) {
   const kubelessDeploy = new KubelessDeploy(serverlessWithFunction, options);
   // Mock call to getFunctionContent when retrieving the function code
-  sinon.stub(kubelessDeploy, 'getFunctionContent')
-    .withArgs(path.basename(handlerFile))
-    .callsFake(() => ({ then: (f) => f(fs.readFileSync(handlerFile).toString()) }));
+  sinon.stub(kubelessDeploy, 'getFileContent');
   // Mock call to getFunctionContent when retrieving the requirements text
-  kubelessDeploy.getFunctionContent
-    .withArgs(path.basename(depsFile))
+  kubelessDeploy.getFileContent
+    .withArgs(zipFile, path.basename(depsFile))
     .callsFake(() => ({ catch: () => ({ then: (f) => {
       if (fs.existsSync(depsFile)) {
         return f(fs.readFileSync(depsFile).toString());
@@ -106,36 +106,46 @@ describe('KubelessDeploy', () => {
     let clock = null;
     let cwd = null;
     let config = null;
-    let handlerFile = null;
+    let pkgFile = null;
     let depsFile = null;
     const functionName = 'myFunction';
-    const functionText = 'function code';
+    const functionRawText = 'function code';
+    const functionText = new Buffer(functionRawText).toString('base64');
     let serverlessWithFunction = null;
 
     let kubelessDeploy = null;
 
     beforeEach(() => {
+      serverless = serverlessFact();
       cwd = path.join(os.tmpdir(), moment().valueOf().toString());
       fs.mkdirSync(cwd);
+      fs.mkdirSync(path.join(cwd, '.serverless'));
       setInterval(() => {
         clock.tick(2001);
       }, 100);
       clock = sinon.useFakeTimers();
       config = mocks.kubeConfig(cwd);
+      pkgFile = path.join(cwd, `.serverless/${functionName}.zip`);
+      fs.writeFileSync(pkgFile, functionRawText);
       serverlessWithFunction = _.defaultsDeep({}, serverless, {
-        config: {},
+        config: {
+          serverless: {
+            service: {
+              artifact: pkgFile,
+            },
+          },
+        },
         service: {
           functions: {},
         },
       });
       serverlessWithFunction.service.functions[functionName] = {
         handler: 'function.hello',
+        package: {},
       };
       serverlessWithFunction.config.servicePath = cwd;
-      handlerFile = path.join(cwd, 'function.py');
-      fs.writeFileSync(handlerFile, functionText);
       depsFile = path.join(cwd, 'requirements.txt');
-      kubelessDeploy = instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction);
+      kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, serverlessWithFunction);
     });
     afterEach(() => {
       clock.restore();
@@ -149,43 +159,42 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
+        'function-content-type': 'base64+zip',
       });
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
     it('should deploy a function (nodejs)', () => {
-      handlerFile = path.join(cwd, 'function.js');
       depsFile = path.join(cwd, 'package.json');
-      fs.writeFileSync(handlerFile, 'nodejs function code');
       fs.writeFileSync(depsFile, 'nodejs function deps');
-      kubelessDeploy = instantiateKubelessDeploy(handlerFile, depsFile, _.defaultsDeep(
+      kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, _.defaultsDeep(
         { service: { provider: { runtime: 'nodejs6' } } },
         serverlessWithFunction
       ));
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
         deps: 'nodejs function deps',
-        function: 'nodejs function code',
+        function: functionText,
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: 'nodejs6',
         type: 'HTTP',
+        'function-content-type': 'base64+zip',
       });
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
     it('should deploy a function (ruby)', () => {
-      handlerFile = path.join(cwd, 'function.rb');
       depsFile = path.join(cwd, 'Gemfile');
-      fs.writeFileSync(handlerFile, 'ruby function code');
       fs.writeFileSync(depsFile, 'ruby function deps');
-      kubelessDeploy = instantiateKubelessDeploy(handlerFile, depsFile, _.defaultsDeep(
+      kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, _.defaultsDeep(
         { service: { provider: { runtime: 'ruby2.4' } } },
         serverlessWithFunction
       ));
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
         deps: 'ruby function deps',
-        function: 'ruby function code',
+        function: functionText,
+        'function-content-type': 'base64+zip',
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: 'ruby2.4',
         type: 'HTTP',
@@ -198,7 +207,7 @@ describe('KubelessDeploy', () => {
       const serverlessWithImage = _.cloneDeep(serverlessWithFunction);
       serverlessWithImage.service.provider.image = 'some-custom-image';
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithImage
       );
@@ -225,7 +234,7 @@ describe('KubelessDeploy', () => {
       const serverlessWithImage = _.cloneDeep(serverlessWithFunction);
       serverlessWithImage.service.functions[functionName].image = 'some-custom-image';
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithImage
       );
@@ -253,7 +262,7 @@ describe('KubelessDeploy', () => {
       serverlessWithImage.service.provider.image = 'global-custom-image';
       serverlessWithImage.service.functions[functionName].image = 'local-custom-image';
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithImage
       );
@@ -280,7 +289,7 @@ describe('KubelessDeploy', () => {
       const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomNamespace.service.provider.namespace = 'custom';
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomNamespace
       );
@@ -299,7 +308,7 @@ describe('KubelessDeploy', () => {
       const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomNamespace.service.functions.myFunction.namespace = 'custom';
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomNamespace
       );
@@ -387,6 +396,7 @@ describe('KubelessDeploy', () => {
       };
       nock(config.clusters[0].cluster.server)
         .get('/api/v1/pods')
+        .times(10)
         .reply(200, {
           items: [{
             metadata: {
@@ -400,18 +410,21 @@ describe('KubelessDeploy', () => {
             },
           }],
         });
-      kubelessDeploy.deployFunction().then(() => {
-        expect(kubelessDeploy.serverless.cli.log.lastCall.args[0]).to.be.eql(
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, funcSpec);
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction().catch(() => {
+          expect(kubelessDeploy.serverless.cli.log.lastCall.args[0]).to.be.eql(
             'ERROR: Failed to deploy the function'
           );
-        expect(process.exitCode).to.be.eql(1);
-        kubelessDeploy.serverless.cli.log.restore();
-      });
+          expect(process.exitCode).to.be.eql(1);
+        })
+      ).to.be.fulfilled;
     });
     it('should retry if it fails to retrieve pods info', () => {
       const funcSpec = {
         deps: '',
         function: functionText,
+        'function-content-type': 'base64+zip',
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
@@ -444,7 +457,7 @@ describe('KubelessDeploy', () => {
       // Second call, ready:
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, funcSpec);
       // return expect( // eslint-disable-line no-unused-expressions
-      expect(
+      return expect(
         kubelessDeploy.deployFunction()
       ).to.be.eventually.rejectedWith(
         `Unable to retrieve the status of the ${functionName} deployment`
@@ -455,6 +468,7 @@ describe('KubelessDeploy', () => {
       const funcSpec = {
         deps: '',
         function: functionText,
+        'function-content-type': 'base64+zip',
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
@@ -523,7 +537,7 @@ describe('KubelessDeploy', () => {
         trigger: 'topic',
       }];
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomNamespace
       );
@@ -546,7 +560,7 @@ describe('KubelessDeploy', () => {
         schedule: '* * * * *',
       }];
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithScheduler
       );
@@ -568,7 +582,7 @@ describe('KubelessDeploy', () => {
       const desc = 'Test Description';
       serverlessWithCustomNamespace.service.functions[functionName].description = desc;
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomNamespace
       );
@@ -589,7 +603,7 @@ describe('KubelessDeploy', () => {
       const labels = { label1: 'Test Label' };
       serverlessWithCustomNamespace.service.functions[functionName].labels = labels;
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomNamespace
       );
@@ -610,7 +624,7 @@ describe('KubelessDeploy', () => {
       const env = { VAR: 'test', OTHER_VAR: 'test2' };
       serverlessWithEnvVars.service.functions[functionName].environment = env;
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithEnvVars
       );
@@ -642,7 +656,7 @@ describe('KubelessDeploy', () => {
       ];
       serverlessWithEnvVars.service.functions[functionName].environment = env;
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithEnvVars
       );
@@ -676,7 +690,7 @@ describe('KubelessDeploy', () => {
       const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
       serverlessWithEnvVars.service.functions[functionName].memorySize = 128;
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithEnvVars
       );
@@ -706,7 +720,7 @@ describe('KubelessDeploy', () => {
       const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
       serverlessWithEnvVars.service.provider.memorySize = '128Gi';
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithEnvVars
       );
@@ -738,7 +752,7 @@ describe('KubelessDeploy', () => {
         http: { path: '/test' },
       }];
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomPath
       );
@@ -766,7 +780,7 @@ describe('KubelessDeploy', () => {
       }];
       serverlessWithCustomPath.service.provider.hostname = 'test.com';
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomPath
       );
@@ -794,7 +808,7 @@ describe('KubelessDeploy', () => {
         http: { hostname: 'test.com', path: '/test' },
       }];
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomPath
       );
@@ -821,7 +835,7 @@ describe('KubelessDeploy', () => {
         http: { hostname: 'test.com', path: '/test' },
       }];
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomPath
       );
@@ -849,7 +863,7 @@ describe('KubelessDeploy', () => {
       }];
       serverlessWithCustomPath.service.functions[functionName].namespace = 'custom';
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomPath
       );
@@ -877,7 +891,7 @@ describe('KubelessDeploy', () => {
         http: { path: 'test' },
       }];
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomPath
       );
@@ -948,53 +962,87 @@ describe('KubelessDeploy', () => {
           functions: {
             myFunction1: {
               handler: 'function.hello',
+              package: {},
             },
             myFunction2: {
               handler: 'function.hello',
+              package: {},
             },
             myFunction3: {
               handler: 'function.hello',
+              package: {},
             },
           },
         },
       });
       const functionsDeployed = [];
-      kubelessDeploy = instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunctions);
+      kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, serverlessWithFunctions);
       const funcSpec = {
         deps: '',
         function: functionText,
+        'function-content-type': 'base64+zip',
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
+        timeout: '180',
       };
       const postReply = (uri, req) => {
         functionsDeployed.push(req.metadata.name);
+        return JSON.stringify(req);
       };
+      nock(config.clusters[0].cluster.server)
+        .persist()
+        .get('/api/v1/pods')
+        .reply(200, () => ({
+          items: [
+            {
+              metadata: {
+                name: 'myFunction3',
+                labels: { function: 'myFunction3' },
+                creationTimestamp: moment().add('60', 's'),
+              },
+              spec: funcSpec,
+              status: {
+                containerStatuses: [{ ready: true, restartCount: 0 }],
+              },
+            },
+            {
+              metadata: {
+                name: 'myFunction1',
+                labels: { function: 'myFunction1' },
+                creationTimestamp: moment().add('60', 's'),
+              },
+              spec: funcSpec,
+              status: {
+                containerStatuses: [{ ready: true, restartCount: 0 }],
+              },
+            }],
+        }));
+
       // Call for myFunction1
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, 'myFunction1', funcSpec, {
         postReply,
       });
       // Call for myFunction2
       nock(config.clusters[0].cluster.server)
-        .post('/apis/k8s.io/v1/namespaces/default/functions', {
+        .post('/apis/k8s.io/v1/namespaces/default/functions/', {
           apiVersion: 'k8s.io/v1',
           kind: 'Function',
           metadata: { name: 'myFunction2', namespace: 'default' },
           spec: funcSpec,
         })
-        .reply(500, 'Internal server error');
+        .replyWithError({ message: 'Internal server error', code: 500 });
       // Call for myFunction3
       nock(config.clusters[0].cluster.server)
-        .post('/apis/k8s.io/v1/namespaces/default/functions', {
+        .post('/apis/k8s.io/v1/namespaces/default/functions/', {
           apiVersion: 'k8s.io/v1',
           kind: 'Function',
           metadata: { name: 'myFunction3', namespace: 'default' },
           spec: funcSpec,
         })
         .reply(200, postReply);
-
-      kubelessDeploy.deployFunction().catch(e => {
-        expect(e).to.be.eql(
+      return kubelessDeploy.deployFunction().catch(e => {
+        expect(e.message).to.be.eql(
           'Found errors while deploying the given functions:\n' +
           'Error: Unable to deploy the function myFunction2. Received:\n' +
           '  Code: 500\n' +
@@ -1008,20 +1056,12 @@ describe('KubelessDeploy', () => {
       kubelessDeploy = new KubelessDeploy(serverlessWithFunction, {
         package: path.join(cwd, 'package.zip'),
       });
-      fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), '');
-      sinon.stub(kubelessDeploy, 'loadZip').returns({
-        then: (f) => f({
-          file: () => ({
-            async: () => ({
-              then: (ff) => ff('different function content'),
-              catch: () => ({ then: (ff) => ff(null) }),
-            }),
-          }),
-        }),
-      });
+      const content = 'different function content';
+      const contentBase64 = new Buffer(content).toString('base64');
+      fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), content);
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
         deps: '',
-        function: 'different function content',
+        function: contentBase64,
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
@@ -1031,11 +1071,12 @@ describe('KubelessDeploy', () => {
       ).to.be.fulfilled;
     });
     it('should deploy a function with requirements', () => {
-      kubelessDeploy = new KubelessDeploy(serverlessWithFunction);
       fs.writeFileSync(depsFile, 'request');
+      kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, serverlessWithFunction);
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
         deps: 'request',
-        function: 'function code',
+        function: functionText,
+        'function-content-type': 'base64+zip',
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
@@ -1050,12 +1091,13 @@ describe('KubelessDeploy', () => {
       kubelessDeploy = new KubelessDeploy(serverlessWithFunction, {
         package: path.join(cwd, 'package.zip'),
       });
-      fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), '');
+      const content = 'different function content';
+      const contentBase64 = new Buffer(content).toString('base64');
+      fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), content);
       sinon.stub(kubelessDeploy, 'loadZip').returns({
         then: (f) => f({
           file: () => ({
             async: () => ({
-              then: (ff) => ff('different function content'),
               catch: () => ({ then: (ff) => ff('request') }),
             }),
           }),
@@ -1063,7 +1105,7 @@ describe('KubelessDeploy', () => {
       });
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
         deps: 'request',
-        function: 'different function content',
+        function: contentBase64,
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
@@ -1073,10 +1115,10 @@ describe('KubelessDeploy', () => {
       ).to.be.fulfilled;
     });
     it('should redeploy a function', () => {
-      fs.writeFileSync(handlerFile, 'function code modified');
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: 'request',
-        function: 'function code modified',
+        deps: '',
+        function: functionText,
+        'function-content-type': 'base64+zip',
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
@@ -1087,7 +1129,7 @@ describe('KubelessDeploy', () => {
             labels: { function: functionName },
           },
           spec: {
-            deps: 'request',
+            deps: '',
             function: 'function code',
             handler: serverlessWithFunction.service.functions[functionName].handler,
             runtime: serverlessWithFunction.service.provider.runtime,
@@ -1102,7 +1144,8 @@ describe('KubelessDeploy', () => {
           metadata: { name: 'myFunction', namespace: 'default' },
           spec: {
             deps: '',
-            function: 'function code modified',
+            function: functionText,
+            'function-content-type': 'base64+zip',
             handler: 'function.hello',
             runtime: 'python2.7',
             type: 'HTTP',
@@ -1124,10 +1167,10 @@ describe('KubelessDeploy', () => {
       return result;
     });
     it('should fail if a redeployment returns an error code', () => {
-      fs.writeFileSync(handlerFile, 'function code modified');
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
         deps: 'request',
-        function: 'function code modified',
+        function: functionText,
+        'function-content-type': 'base64+zip',
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
@@ -1153,7 +1196,8 @@ describe('KubelessDeploy', () => {
           metadata: { name: 'myFunction', namespace: 'default' },
           spec: {
             deps: '',
-            function: 'function code modified',
+            function: functionText,
+            'function-content-type': 'base64+zip',
             handler: 'function.hello',
             runtime: 'python2.7',
             type: 'HTTP',
@@ -1174,7 +1218,7 @@ describe('KubelessDeploy', () => {
       const serverlessWithCustomProperties = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomProperties.service.functions[functionName].timeout = 10;
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomProperties
       );
@@ -1195,7 +1239,7 @@ describe('KubelessDeploy', () => {
       const serverlessWithCustomProperties = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomProperties.service.provider.timeout = 10;
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomProperties
       );
@@ -1216,7 +1260,7 @@ describe('KubelessDeploy', () => {
       const serverlessWithCustomProperties = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomProperties.service.functions[functionName].port = 1234;
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomProperties
       );

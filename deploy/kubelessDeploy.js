@@ -22,7 +22,6 @@ const deploy = require('../lib/deploy');
 const fs = require('fs');
 const helpers = require('../lib/helpers');
 const JSZip = require('jszip');
-const path = require('path');
 
 class KubelessDeploy {
   constructor(serverless, options) {
@@ -31,12 +30,20 @@ class KubelessDeploy {
     this.provider = this.serverless.getProvider('kubeless');
 
     this.hooks = {
+      'before:package:createDeploymentArtifacts': () => BbPromise.bind(this)
+        .then(this.excludes),
       'deploy:deploy': () => BbPromise.bind(this)
         .then(this.validate)
         .then(this.deployFunction),
     };
     // Store the result of loading the Zip file
     this.loadZip = _.memoize(JSZip.loadAsync);
+  }
+
+  excludes() {
+    const exclude = this.serverless.service.package.exclude || [];
+    exclude.push('node_modules/**');
+    this.serverless.service.package.exclude = exclude;
   }
 
   validate() {
@@ -56,40 +63,42 @@ class KubelessDeploy {
     return BbPromise.resolve();
   }
 
-  getFunctionContent(relativePath) {
-    const pkg = this.options.package ||
-      this.serverless.service.package.path;
-    let resultPromise = null;
-    if (pkg) {
-      resultPromise = this.loadZip(fs.readFileSync(pkg)).then(
-        (zip) => zip.file(relativePath).async('string')
+  getFileContent(zipFile, relativePath) {
+    return this.loadZip(fs.readFileSync(zipFile)).then(
+      (zip) => zip.file(relativePath).async('string')
+    );
+  }
+
+  checkSize(pkg) {
+    const stat = fs.statSync(pkg);
+    // Maximum size for a etcd entry is 1 MB and right now Kubeless is storing files as
+    // etcd entries
+    const oneMB = 1024 * 1024;
+    if (stat.size > oneMB) {
+      this.serverless.cli.log(
+        `WARNING! Function zip file is ${Math.round(stat.size / oneMB)}MB. ` +
+        'The maximum size allowed is 1MB: please use package.exclude directives to include ' +
+        'only the required files'
       );
-    } else {
-      resultPromise = new BbPromise((resolve, reject) => {
-        fs.readFile(
-          path.join(this.serverless.config.servicePath || '.', relativePath),
-          (err, d) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(d.toString());
-            }
-          });
-      });
     }
-    return resultPromise;
   }
 
   deployFunction() {
     const runtime = this.serverless.service.provider.runtime;
     const populatedFunctions = [];
-    return new BbPromise((resolve) => {
+    return new BbPromise((resolve, reject) => {
       _.each(this.serverless.service.functions, (description, name) => {
-        if (description.handler) {
-          const files = helpers.getRuntimeFilenames(runtime, description.handler);
-          this.getFunctionContent(files.handler)
-            .then(functionContent => {
-              this.getFunctionContent(files.deps)
+        const pkg = this.options.package ||
+          this.serverless.service.package.path ||
+          description.package.artifact ||
+          this.serverless.config.serverless.service.artifact;
+        this.checkSize(pkg);
+        fs.readFile(pkg, { encoding: 'base64' }, (err, functionContent) => {
+          if (err) {
+            reject(err);
+          } else if (description.handler) {
+            const files = helpers.getRuntimeFilenames(runtime, description.handler);
+            this.getFileContent(pkg, files.deps)
                 .catch(() => {
                   // No requirements found
                 })
@@ -97,7 +106,7 @@ class KubelessDeploy {
                   populatedFunctions.push(
                     _.assign({}, description, {
                       id: name,
-                      text: functionContent,
+                      content: functionContent,
                       deps: requirementsContent,
                       image: description.image || this.serverless.service.provider.image,
                       events: _.map(description.events, (event) => {
@@ -118,13 +127,13 @@ class KubelessDeploy {
                     resolve();
                   }
                 });
-            });
-        } else {
-          populatedFunctions.push(_.assign({}, description, { id: name }));
-          if (populatedFunctions.length === _.keys(this.serverless.service.functions).length) {
-            resolve();
+          } else {
+            populatedFunctions.push(_.assign({}, description, { id: name }));
+            if (populatedFunctions.length === _.keys(this.serverless.service.functions).length) {
+              resolve();
+            }
           }
-        }
+        });
       });
     }).then(() => deploy(
       populatedFunctions,
@@ -138,6 +147,7 @@ class KubelessDeploy {
         verbose: this.options.verbose,
         log: this.serverless.cli.log.bind(this.serverless.cli),
         timeout: this.serverless.service.provider.timeout,
+        contentType: 'base64+zip',
       }
     ));
   }

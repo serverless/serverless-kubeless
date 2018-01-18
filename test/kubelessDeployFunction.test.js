@@ -28,24 +28,24 @@ const path = require('path');
 const sinon = require('sinon');
 
 const KubelessDeployFunction = require('../deployFunction/kubelessDeployFunction');
-const serverless = require('./lib/serverless')();
+const serverlessFact = require('./lib/serverless');
+
+let serverless = serverlessFact();
 
 const functionName = 'myFunction';
 
 require('chai').use(chaiAsPromised);
 
-function instantiateKubelessDeploy(handlerFile, depsFile, serverlessWithFunction, options) {
+function instantiateKubelessDeploy(zipFile, depsFile, serverlessWithFunction, options) {
   const kubelessDeployFunction = new KubelessDeployFunction(
     serverlessWithFunction,
     _.defaults({ function: functionName, options })
   );
   // Mock call to getFunctionContent when retrieving the function code
-  sinon.stub(kubelessDeployFunction, 'getFunctionContent')
-    .withArgs(path.basename(handlerFile))
-    .callsFake(() => ({ then: (f) => f(fs.readFileSync(handlerFile).toString()) }));
+  sinon.stub(kubelessDeployFunction, 'getFileContent');
   // Mock call to getFunctionContent when retrieving the requirements text
-  kubelessDeployFunction.getFunctionContent
-    .withArgs(path.basename(depsFile))
+  kubelessDeployFunction.getFileContent
+    .withArgs(zipFile, path.basename(depsFile))
     .callsFake(() => ({ catch: () => ({ then: (f) => {
       if (fs.existsSync(depsFile)) {
         return f(fs.readFileSync(depsFile).toString());
@@ -61,18 +61,21 @@ describe('KubelessDeployFunction', () => {
     let cwd = null;
     let clock = null;
     let config = null;
-    let handlerFile = null;
+    let pkgFile = null;
     let depsFile = null;
     let serverlessWithFunction = null;
+    const functionRawText = 'function code';
+    const functionText = new Buffer(functionRawText).toString('base64');
 
     let kubelessDeployFunction = null;
 
     beforeEach(() => {
+      serverless = serverlessFact();
       cwd = path.join(os.tmpdir(), moment().valueOf().toString());
       fs.mkdirSync(cwd);
       config = mocks.kubeConfig(cwd);
-      handlerFile = path.join(cwd, 'function.py');
-      fs.writeFileSync(handlerFile, 'function code');
+      pkgFile = path.join(cwd, 'function.zip');
+      fs.writeFileSync(pkgFile, functionRawText);
       depsFile = path.join(cwd, 'requirements.txt');
       setInterval(() => {
         clock.tick(2001);
@@ -81,6 +84,11 @@ describe('KubelessDeployFunction', () => {
       serverlessWithFunction = _.defaultsDeep({}, serverless, {
         config: {
           servicePath: cwd,
+          serverless: {
+            service: {
+              artifact: pkgFile,
+            },
+          },
         },
         service: {
           functions: {},
@@ -88,12 +96,14 @@ describe('KubelessDeployFunction', () => {
       });
       serverlessWithFunction.service.functions[functionName] = {
         handler: 'function.hello',
+        package: {},
       };
       serverlessWithFunction.service.functions.otherFunction = {
         handler: 'function.hello',
+        package: {},
       };
       kubelessDeployFunction = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithFunction
       );
@@ -111,7 +121,7 @@ describe('KubelessDeployFunction', () => {
           },
           spec: {
             deps: 'request',
-            function: 'function code',
+            function: functionText,
             handler: serverlessWithFunction.service.functions[functionName].handler,
             runtime: serverlessWithFunction.service.provider.runtime,
             type: 'HTTP',
@@ -125,7 +135,7 @@ describe('KubelessDeployFunction', () => {
           metadata: { name: 'myFunction', namespace: 'default' },
           spec: {
             deps: '',
-            function: 'function code',
+            function: functionText,
             handler: 'function.hello',
             runtime: 'python2.7',
             type: 'HTTP',
@@ -144,7 +154,7 @@ describe('KubelessDeployFunction', () => {
     it('should redeploy only the chosen function', () => expect(
       kubelessDeployFunction.deployFunction().then(() => {
         expect(kubelessDeployFunction.serverless.service.functions).to.be.eql(
-          { myFunction: { handler: 'function.hello' } }
+          { myFunction: { handler: 'function.hello', package: {} } }
         );
       })
     ).to.be.fulfilled);
