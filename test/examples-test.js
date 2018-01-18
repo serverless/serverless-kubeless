@@ -66,6 +66,20 @@ function getURL(info, regexp) {
   return URL;
 }
 
+function waitForURL(url, callback, retries = 0) {
+  if (retries < 10) {
+    request.get(url, (gerr, res) => {
+      if (gerr || res.body.match('404')) {
+        console.error('Retrying: ', gerr || res.body);
+        const newRetries = retries + 1;
+        setTimeout(() => waitForURL(url, callback, newRetries), 5000);
+      } else {
+        callback(res);
+      }
+    });
+  }
+}
+
 function postWithRedirect(req, callback) {
   request.post(req, (err, res) => {
     if (err) throw err;
@@ -181,7 +195,7 @@ describe('Examples', () => {
     });
   });
   describe('http-custom-path', function () {
-    this.timeout(15000);
+    this.timeout(30000);
     const exampleName = 'http-custom-path';
     before(function (done) {
       this.timeout(300000);
@@ -195,8 +209,7 @@ describe('Examples', () => {
           if (ee) {
             throw ee;
           }
-          // We need some additional time for the ingress rule to work
-          setTimeout(done, 12000);
+          done();
         });
       });
     });
@@ -209,9 +222,7 @@ describe('Examples', () => {
       exec('serverless info', { cwd: examples['http-custom-path'].cwd }, (err, stdout) => {
         if (err) throw err;
         const URL = getURL(stdout);
-        expect(URL).to.match(/.*\/hello/);
-        request.get(URL, (gerr, res) => {
-          if (gerr) throw gerr;
+        waitForURL(URL, (res) => {
           expect(res.body).to.contain('hello world');
           done();
         });
