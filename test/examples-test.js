@@ -25,22 +25,28 @@ const moment = require('moment');
 const path = require('path');
 const request = require('request');
 
-function deployExample(cwd, callback) {
-  exec('serverless deploy', { cwd }, (deployErr, stdout) => {
-    if (deployErr) {
-      console.error(`ERROR: ${cwd} failed to be deployed:\n${stdout}\n${deployErr}`);
-    }
-    callback(deployErr);
-  });
-}
 function prepareExample(cwd, example, callback) {
   fs.copy(`${__dirname}/../examples/${example}`, `${cwd}/${example}`, (err) => {
-    if (err) throw err;
+    if (err) callback(err);
     fs.remove(`${cwd}/${example}/node_modules`, rmErr => {
-      if (rmErr) throw rmErr;
-      deployExample(`${cwd}/${example}`, callback);
+      if (rmErr) callback(rmErr);
+      callback();
     });
   });
+}
+function deployExample(cwd, callback, retries = 0) {
+  if (retries < 3) {
+    exec('serverless deploy', { cwd }, (deployErr, stdout) => {
+      if (deployErr) {
+        console.error(`ERROR: ${cwd} failed to be deployed:\n${stdout}\n${deployErr}`);
+        const newRetries = retries + 1;
+        deployExample(cwd, callback, newRetries);
+      }
+      callback();
+    });
+  } else {
+    callback(new Error('Falied to deploy after 3 retries'));
+  }
 }
 function removeExample(cwd, callback) {
   exec('serverless remove', { cwd }, (removeErr) => {
@@ -58,6 +64,20 @@ function getURL(info, regexp) {
   }
   URL = _.startsWith(URL, 'http://') ? URL : `http://${URL}`;
   return URL;
+}
+
+function waitForURL(url, callback, retries = 0) {
+  if (retries < 10) {
+    request.get(url, (gerr, res) => {
+      if (gerr || res.body.match('404')) {
+        console.error('Retrying: ', gerr || res.body);
+        const newRetries = retries + 1;
+        setTimeout(() => waitForURL(url, callback, newRetries), 5000);
+      } else {
+        callback(res);
+      }
+    });
+  }
 }
 
 function postWithRedirect(req, callback) {
@@ -90,11 +110,8 @@ describe('Examples', () => {
   };
   before(function (done) {
     this.timeout(300000 * _.keys(examples).length);
-    let count = 0;
-    let index = 0;
     cwd = path.join('/tmp', moment().valueOf().toString());
     fs.mkdirSync(cwd);
-    console.log('    Deploying examples');
     fs.mkdir(`${cwd}/node_modules`, mkdirErr => {
       if (mkdirErr) throw mkdirErr;
       fs.symlink(
@@ -102,55 +119,40 @@ describe('Examples', () => {
         `${cwd}/node_modules/serverless-kubeless`,
         (linkErr) => {
           if (linkErr) throw linkErr;
-          _.each(examples, (example) => {
-            /* eslint no-param-reassign: ["error", { "props": false }]*/
-            example.cwd = path.join(cwd, example.path);
-            // Delay batches of deployment to avoid high resources consumption
-            const timeoutMultiplier = parseInt(index / 2, 10);
-            setTimeout(() => {
-              console.log(`\tDeploying ${example.path}`);
-              prepareExample(cwd, example.path, (err) => {
-                const increaseCont = (e) => {
-                  if (e) {
-                    console.error(`\tERROR: Unable to deploy ${example.path}: \n${e}`);
-                  }
-                  console.log(`\t${example.path} deployed`);
-                  count++;
-                  if (count === _.keys(examples).length) {
-                    done();
-                  }
-                };
-                if (err) {
-                  // Retry the deployment
-                  console.log(`\t${example.path} deployment failed, retrying...`);
-                  deployExample(example.cwd, increaseCont);
-                } else {
-                  increaseCont();
-                }
-              });
-            }, 10000 * (process.env.TIMEOUT_MULTIPLIER || timeoutMultiplier));
-            index++;
-          });
+          done();
         });
     });
   });
-  after(function (done) {
-    this.timeout(10000 * _.keys(examples).length);
-    let count = 0;
-    _.each(examples, example => {
-      removeExample(example.cwd, () => {
-        count++;
-        if (count === _.keys(examples).length) {
-          fs.remove(cwd, (rmErr) => {
-            if (rmErr) throw rmErr;
-          });
-          done();
-        }
-      });
+  after((done) => {
+    fs.remove(cwd, (rmErr) => {
+      if (rmErr) throw rmErr;
+      done();
     });
   });
 
   describe('get-python', function () {
+    const exampleName = 'get-python';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(10000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
     this.timeout(10000);
     it('should return a "hello world"', (done) => {
       exec('serverless invoke -f hello -l', { cwd: examples['get-python'].cwd }, (err, stdout) => {
@@ -161,6 +163,28 @@ describe('Examples', () => {
     });
   });
   describe('get-ruby', function () {
+    const exampleName = 'get-ruby';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(10000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
     this.timeout(10000);
     it('should return the latest kubeless version', (done) => {
       exec('serverless invoke -f version -l', { cwd: examples['get-ruby'].cwd }, (err, stdout) => {
@@ -171,18 +195,34 @@ describe('Examples', () => {
     });
   });
   describe('http-custom-path', function () {
-    this.timeout(15000);
-    before((done) => {
-      // We need some additional time for the ingress rule to work
-      setTimeout(done, 12000);
+    this.timeout(30000);
+    const exampleName = 'http-custom-path';
+    before(function (done) {
+      this.timeout(300000);
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after((done) => {
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
     });
     it('should return a "hello world" in a subpath', (done) => {
       exec('serverless info', { cwd: examples['http-custom-path'].cwd }, (err, stdout) => {
         if (err) throw err;
         const URL = getURL(stdout);
-        expect(URL).to.match(/.*\/hello/);
-        request.get(URL, (gerr, res) => {
-          if (gerr) throw gerr;
+        waitForURL(URL, (res) => {
           expect(res.body).to.contain('hello world');
           done();
         });
@@ -190,6 +230,28 @@ describe('Examples', () => {
     });
   });
   describe('multi-python', function () {
+    const exampleName = 'multi-python';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(10000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
     this.timeout(10000);
     it('should return "foo"', (done) => {
       exec(
@@ -214,34 +276,29 @@ describe('Examples', () => {
       );
     });
   });
-  describe('event-trigger-python', function () {
-    this.timeout(15000);
-    it('should get a submmited message "hello world"', (done) => {
-      exec(
-        'kubeless topic publish --topic hello_topic --data "hello world"',
-        (err, stdout) => {
-          if (err) {
-            console.error(stdout);
-          }
-          exec(
-            'serverless logs -f events',
-            { cwd: examples['event-trigger-python'].cwd },
-            (eerr, logs) => {
-              if (eerr) console.error(eerr);
-              try {
-                expect(logs).to.contain('hello world');
-              } catch (e) {
-                // Kafka environment is flacky in the minikube environment
-                // We don't want to fail the process if this test fails
-                console.log(`Unable to test even-trigger example: ${e.message}`);
-              }
-              done();
-            }
-          );
-        });
-    });
-  });
   describe('post-nodejs', function () {
+    const exampleName = 'post-nodejs';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(10000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
     this.timeout(10000);
     it('should return "Hello world"', (done) => {
       exec(
@@ -256,6 +313,28 @@ describe('Examples', () => {
     });
   });
   describe('post-python', function () {
+    const exampleName = 'post-python';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(10000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
     this.timeout(10000);
     it('should return a the request', (done) => {
       exec(
@@ -270,6 +349,28 @@ describe('Examples', () => {
     });
   });
   describe('post-ruby', function () {
+    const exampleName = 'post-ruby';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(10000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
     this.timeout(10000);
     it('should play ping-pong"', (done) => {
       exec(
@@ -284,6 +385,28 @@ describe('Examples', () => {
     });
   });
   describe('scheduled-node', function () {
+    const exampleName = 'scheduled-node';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(10000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
     this.timeout(60000);
     it('should print the time in the logs', (done) => {
       const int = setInterval(() => {
@@ -302,6 +425,28 @@ describe('Examples', () => {
     });
   });
   describe('node-chaining-functions', function () {
+    const exampleName = 'node-chaining-functions';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(10000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
     this.timeout(10000);
     it('should return an inversed, capizalized and padded word', (done) => {
       exec(
@@ -319,45 +464,56 @@ describe('Examples', () => {
     this.timeout(10000);
     let info = '';
     let id = null;
-
+    const exampleName = 'todo-app';
     before(function (done) {
       this.timeout(300000);
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
       // We need to deploy a MongoDB for the todo-app example
-      exec(
-        'curl -sL https://raw.githubusercontent.com/bitnami/bitnami-docker-mongodb/3.4.7-r0/kubernetes.yml',
-        (err, manifest) => {
-          if (err) {
-            console.error('ERROR: Unable to download mongodb manifest');
-          } else {
-            fs.writeFile(`${examples['todo-app'].cwd}/mongodb.yaml`, manifest, (werr) => {
-              if (werr) throw werr;
-              exec(`kubectl create -f ${examples['todo-app'].cwd}/mongodb.yaml`, (kerr) => {
-                if (kerr) {
-                  console.error(`ERROR: Unable to deploy the mongoDB manifest: ${kerr.message}`);
-                }
-                const wait = setInterval(() => {
-                  exec('kubectl get pods', (gerr, stdout) => {
-                    if (gerr) throw gerr;
-                    if (stdout.match(/mongodb-.*Running/)) {
-                      clearInterval(wait);
-                      exec(
-                        'serverless info',
-                        { cwd: examples['todo-app'].cwd },
-                        (infoerr, output) => {
-                          if (infoerr) throw infoerr;
-                          info = output;
-                          // We need some additional time for the ingress rules to work
-                          setTimeout(done, 15000);
-                        }
-                      );
-                    }
-                  });
-                }, 2000);
-              });
-            });
-          }
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
         }
-      );
+        exec(
+          'curl -sL https://raw.githubusercontent.com/bitnami/bitnami-docker-mongodb/3.4.7-r0/kubernetes.yml',
+          (err, manifest) => {
+            if (err) {
+              console.error('ERROR: Unable to download mongodb manifest');
+            } else {
+              fs.writeFile(`${examples['todo-app'].cwd}/mongodb.yaml`, manifest, (werr) => {
+                if (werr) throw werr;
+                exec(`kubectl create -f ${examples['todo-app'].cwd}/mongodb.yaml`, (kerr) => {
+                  if (kerr) {
+                    console.error(`ERROR: Unable to deploy the mongoDB manifest: ${kerr.message}`);
+                  }
+                  deployExample(examples[exampleName].cwd, (ee) => {
+                    if (ee) {
+                      throw ee;
+                    }
+                    const wait = setInterval(() => {
+                      exec('kubectl get pods', (gerr, stdout) => {
+                        if (gerr) throw gerr;
+                        if (stdout.match(/mongodb-.*Running/)) {
+                          clearInterval(wait);
+                          exec(
+                            'serverless info',
+                            { cwd: examples['todo-app'].cwd },
+                            (infoerr, output) => {
+                              if (infoerr) throw infoerr;
+                              info = output;
+                              // We need some additional time for the ingress rules to work
+                              setTimeout(done, 15000);
+                            }
+                          );
+                        }
+                      });
+                    }, 2000);
+                  });
+                });
+              });
+            }
+          }
+        );
+      });
     });
 
     after(function (done) {
@@ -366,7 +522,9 @@ describe('Examples', () => {
         if (kerr) {
           console.error(`ERROR: Unable to remove the mongoDB manifest: ${kerr.message}`);
         }
-        done();
+        removeExample(examples[exampleName].cwd, () => {
+          done();
+        });
       });
     });
     it('should create a TODO', (done) => {
@@ -425,6 +583,55 @@ describe('Examples', () => {
         expect(response).to.contain.keys(['_id', 'id', 'updatedAt']);
         done();
       });
+    });
+  });
+  describe('event-trigger-python', function () {
+    const exampleName = 'event-trigger-python';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(10000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
+    this.timeout(15000);
+    it('should get a submmited message "hello world"', (done) => {
+      exec(
+        'kubeless topic publish --topic hello_topic --data "hello world"',
+        (err, stdout) => {
+          if (err) {
+            console.error(stdout);
+          }
+          exec(
+            'serverless logs -f events',
+            { cwd: examples['event-trigger-python'].cwd },
+            (eerr, logs) => {
+              if (eerr) console.error(eerr);
+              try {
+                expect(logs).to.contain('hello world');
+              } catch (e) {
+                // Kafka environment is flacky in the minikube environment
+                // We don't want to fail the process if this test fails
+                console.log(`Unable to test even-trigger example: ${e.message}`);
+              }
+              done();
+            }
+          );
+        });
     });
   });
 });

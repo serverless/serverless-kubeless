@@ -912,6 +912,34 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
+    it('should deploy a function in a specific path (with a different DNS resolution)', () => {
+      const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomPath.service.provider.defaultDNSResolution = 'xip.io';
+      serverlessWithCustomPath.service.functions[functionName].events = [{
+        http: { path: '/test' },
+      }];
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithCustomPath
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+        deps: '',
+        function: functionText,
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        type: 'HTTP',
+      });
+      mocks.createIngressNocks(
+        config.clusters[0].cluster.server,
+        functionName,
+        '1.2.3.4.xip.io',
+        '/test'
+      );
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
     it('should fail if a deployment returns an error code', () => {
       nock(config.clusters[0].cluster.server)
         .get('/apis/k8s.io/v1/namespaces/default/functions/')
