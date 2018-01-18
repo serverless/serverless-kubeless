@@ -919,7 +919,7 @@ describe('KubelessDeploy', () => {
         http: { path: '/test' },
       }];
       kubelessDeploy = instantiateKubelessDeploy(
-        handlerFile,
+        pkgFile,
         depsFile,
         serverlessWithCustomPath
       );
