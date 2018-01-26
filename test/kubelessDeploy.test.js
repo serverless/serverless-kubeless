@@ -323,6 +323,40 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
+    it('should deploy a function with Secrets', () => {
+      const serverlessWithSecrets = _.cloneDeep(serverlessWithFunction);
+      serverlessWithSecrets.service.functions.myFunction.secrets = ['secret1'];
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithSecrets
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+        deps: '',
+        function: functionText,
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        type: 'HTTP',
+      }, {
+          deps: '',
+          function: functionText,
+          handler: serverlessWithFunction.service.functions[functionName].handler,
+          runtime: serverlessWithFunction.service.provider.runtime,
+          type: 'HTTP',
+          template: {
+              spec: {
+                  containers: [{
+                      name: functionName,
+                      volumeMounts: [{ name: 'secret1-vol', mountPath: '/secret1'}]
+                  }],
+                  volumes: [ {name: 'secret1-vol', secret: {secretName: 'secret1'}}]
+              },
+          },
+      });
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
 
     it('should wait until a deployment is ready', () => {
       const funcSpec = {
