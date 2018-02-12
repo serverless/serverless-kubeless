@@ -100,7 +100,7 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
     postReply: { message: 'OK' },
   });
   const postBody = {
-    apiVersion: 'k8s.io/v1',
+    apiVersion: 'kubeless.io/v1beta1',
     kind: 'Function',
     metadata: { name: func, namespace: opts.namespace },
     spec: funcSpec,
@@ -115,10 +115,18 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
   }
   nock(endpoint)
     .persist()
-    .get(`/apis/k8s.io/v1/namespaces/${opts.namespace}/functions/`)
+    .get('/api/v1/namespaces/kubeless/configmaps/kubeless-config')
+    .reply(200, JSON.stringify({ data: { 'runtime-images': JSON.stringify([
+      { ID: 'python', depName: 'requirements.txt' },
+      { ID: 'nodejs', depName: 'package.json' },
+      { ID: 'ruby', depName: 'Gemfile' },
+    ]) } }));
+  nock(endpoint)
+    .persist()
+    .get(`/apis/kubeless.io/v1beta1/namespaces/${opts.namespace}/functions/`)
     .reply(200, JSON.stringify({ items: opts.existingFunctions }));
   nock(endpoint)
-    .post(`/apis/k8s.io/v1/namespaces/${opts.namespace}/functions/`, postBody)
+    .post(`/apis/kubeless.io/v1beta1/namespaces/${opts.namespace}/functions/`, postBody)
     .reply(200, opts.postReply);
   nock(endpoint)
     .persist()

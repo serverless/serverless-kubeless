@@ -120,28 +120,28 @@ describe('KubelessRemove', () => {
     });
     it('should remove a function', () => {
       nock(config.clusters[0].cluster.server)
-        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction')
+        .delete('/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction')
         .reply(200, {});
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessRemove.removeFunction(cwd).then(() => {
-          expect(nock.pendingMocks()).to.not.contain('DELETE http://1.2.3.4:4433/apis/k8s.io/v1/namespaces/default/functions/myFunction');
+          expect(nock.pendingMocks()).to.not.contain('DELETE http://1.2.3.4:4433/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction');
         })
       ).to.be.fulfilled;
       return result;
     });
     it('should skip a removal if an error 404 is returned', () => {
       nock(config.clusters[0].cluster.server)
-        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction')
+        .delete('/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction')
         .reply(404, { code: 404 });
       return expect( // eslint-disable-line no-unused-expressions
         kubelessRemove.removeFunction(cwd).then(() => {
-          expect(nock.pendingMocks()).to.not.contain('DELETE http://1.2.3.4:4433/apis/k8s.io/v1/namespaces/default/functions/myFunction');
+          expect(nock.pendingMocks()).to.not.contain('DELETE http://1.2.3.4:4433/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction');
         })
       ).to.be.fulfilled;
     });
     it('should fail if a removal returns an error code', () => {
       nock(config.clusters[0].cluster.server)
-        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction')
+        .delete('/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction')
         .reply(500, { code: 500, message: 'Internal server error' });
       return expect( // eslint-disable-line no-unused-expressions
         kubelessRemove.removeFunction(cwd)
@@ -169,13 +169,13 @@ describe('KubelessRemove', () => {
         },
       });
       nock(config.clusters[0].cluster.server)
-        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction1')
+        .delete('/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction1')
         .reply(200, {});
       nock(config.clusters[0].cluster.server)
-        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction2')
+        .delete('/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction2')
         .reply(500, { code: 500, message: 'Internal server error' });
       nock(config.clusters[0].cluster.server)
-        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction3')
+        .delete('/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction3')
         .reply(200, {});
       kubelessRemove = new KubelessRemove(serverlessWithFunctions);
       kubelessRemove.removeFunction(cwd).catch(e => {
@@ -194,7 +194,7 @@ describe('KubelessRemove', () => {
       const serverlessWithNS = _.cloneDeep(serverlessWithFunction);
       serverlessWithNS.service.provider.namespace = 'test';
       nock(config.clusters[0].cluster.server)
-        .delete('/apis/k8s.io/v1/namespaces/test/functions/myFunction')
+        .delete('/apis/kubeless.io/v1beta1/namespaces/test/functions/myFunction')
         .reply(200, {});
       kubelessRemove = new KubelessRemove(serverlessWithNS);
       return expect( // eslint-disable-line no-unused-expressions
@@ -207,7 +207,7 @@ describe('KubelessRemove', () => {
       const serverlessWithNS = _.cloneDeep(serverlessWithFunction);
       serverlessWithNS.service.functions.myFunction.namespace = 'test';
       nock(config.clusters[0].cluster.server)
-        .delete('/apis/k8s.io/v1/namespaces/test/functions/myFunction')
+        .delete('/apis/kubeless.io/v1beta1/namespaces/test/functions/myFunction')
         .reply(200, {});
       kubelessRemove = new KubelessRemove(serverlessWithNS);
       return expect( // eslint-disable-line no-unused-expressions
@@ -218,7 +218,7 @@ describe('KubelessRemove', () => {
     });
     it('should remove the ingress controller if exists', () => {
       nock(config.clusters[0].cluster.server)
-        .delete('/apis/k8s.io/v1/namespaces/default/functions/myFunction')
+        .delete('/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction')
         .reply(200, {});
       Api.Extensions.prototype.get.callsFake((data, ff) => {
         ff(null, {
@@ -247,7 +247,7 @@ describe('KubelessRemove', () => {
     });
     it('should remove the ingress controller if exists (with a different namespace)', () => {
       nock(config.clusters[0].cluster.server)
-        .delete('/apis/k8s.io/v1/namespaces/test/functions/myFunction')
+        .delete('/apis/kubeless.io/v1beta1/namespaces/test/functions/myFunction')
         .reply(200, {});
       Api.Extensions.prototype.get.callsFake((data, ff) => {
         ff(null, {

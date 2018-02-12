@@ -110,6 +110,8 @@ describe('KubelessDeploy', () => {
     let depsFile = null;
     const functionName = 'myFunction';
     const functionRawText = 'function code';
+    const functionChecksum =
+      'sha256:ce182d715b42b27f1babf8b4196cd4f8c900ca6593a4293d455d1e5e2296ebee';
     const functionText = new Buffer(functionRawText).toString('base64');
     let serverlessWithFunction = null;
 
@@ -156,6 +158,7 @@ describe('KubelessDeploy', () => {
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
         deps: '',
         function: functionText,
+        checksum: functionChecksum,
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
@@ -217,12 +220,16 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
-        template: {
+        deployment: {
           spec: {
-            containers: [{
-              name: functionName,
-              image: 'some-custom-image',
-            }],
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  image: 'some-custom-image',
+                }],
+              },
+            },
           },
         },
       });
@@ -244,12 +251,16 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
-        template: {
+        deployment: {
           spec: {
-            containers: [{
-              name: functionName,
-              image: 'some-custom-image',
-            }],
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  image: 'some-custom-image',
+                }],
+              },
+            },
           },
         },
       });
@@ -257,7 +268,7 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
-    it('should deploy a function with overriding runtime image', () => {
+    it('should deploy a function overriding runtime image', () => {
       const serverlessWithImage = _.cloneDeep(serverlessWithFunction);
       serverlessWithImage.service.provider.image = 'global-custom-image';
       serverlessWithImage.service.functions[functionName].image = 'local-custom-image';
@@ -272,12 +283,16 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
-        template: {
+        deployment: {
           spec: {
-            containers: [{
-              name: functionName,
-              image: 'local-custom-image',
-            }],
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  image: 'local-custom-image',
+                }],
+              },
+            },
           },
         },
       });
@@ -507,9 +522,10 @@ describe('KubelessDeploy', () => {
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
         timeout: '180',
+        checksum: functionChecksum,
         service: {
           ports: [{
-            name: 'function-port',
+            name: 'http-function-port',
             port: 8080,
             protocol: 'TCP',
             targetPort: 8080,
@@ -524,7 +540,7 @@ describe('KubelessDeploy', () => {
         existingFunctions: [{
           metadata: {
             name: functionName,
-            labels: { function: functionName },
+            labels: { function: functionName, 'created-by': 'kubeless' },
           },
           spec: funcSpec,
         }],
@@ -538,7 +554,9 @@ describe('KubelessDeploy', () => {
             ]
             );
           expect(nock.pendingMocks()).to.contain(
-            `POST ${config.clusters[0].cluster.server}/apis/k8s.io/v1/namespaces/default/functions/`
+            /* eslint-disable max-len*/
+            `POST ${config.clusters[0].cluster.server}/apis/kubeless.io/v1beta1/namespaces/default/functions/`
+            /* eslint-enable max-len */
           );
         })
       ).to.be.fulfilled;
@@ -546,10 +564,22 @@ describe('KubelessDeploy', () => {
     });
     it('should skip a deployment if an error 409 is returned', () => {
       nock(config.clusters[0].cluster.server)
-        .get('/apis/k8s.io/v1/namespaces/default/functions/')
+        .get('/apis/kubeless.io/v1beta1/namespaces/default/functions/')
         .reply(200, []);
       nock(config.clusters[0].cluster.server)
-        .post('/apis/k8s.io/v1/namespaces/default/functions/')
+        .persist()
+        .get('/api/v1/namespaces/kubeless/configmaps/kubeless-config')
+        .reply(200, JSON.stringify({
+          data: {
+            'runtime-images': JSON.stringify([
+              { ID: 'python', depName: 'requirements.txt' },
+              { ID: 'nodejs', depName: 'package.json' },
+              { ID: 'ruby', depName: 'Gemfile' },
+            ]),
+          },
+        }));
+      nock(config.clusters[0].cluster.server)
+        .post('/apis/kubeless.io/v1beta1/namespaces/default/functions/')
         .reply(409, '{"code": 409, "message": "Resource already exists"}');
       let result = null;
       kubelessDeploy.options.force = false;
@@ -668,12 +698,16 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
-        template: {
+        deployment: {
           spec: {
-            containers: [{
-              name: functionName,
-              env: [{ name: 'VAR', value: 'test' }, { name: 'OTHER_VAR', value: 'test2' }],
-            }],
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  env: [{ name: 'VAR', value: 'test' }, { name: 'OTHER_VAR', value: 'test2' }],
+                }],
+              },
+            },
           },
         },
       });
@@ -700,18 +734,22 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
-        template: {
+        deployment: {
           spec: {
-            containers: [{
-              name: functionName,
-              env: [
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  env: [
                 { name: 'VAR', value: 'test' },
-                {
-                  name: 'OTHER_VAR',
-                  valueFrom: { someRef: { name: 'REF_OBJECT', key: 'REF_KEY' } },
-                },
-              ],
-            }],
+                    {
+                      name: 'OTHER_VAR',
+                      valueFrom: { someRef: { name: 'REF_OBJECT', key: 'REF_KEY' } },
+                    },
+                  ],
+                }],
+              },
+            },
           },
         },
       });
@@ -734,15 +772,19 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
-        template: {
+        deployment: {
           spec: {
-            containers: [{
-              name: functionName,
-              resources: {
-                limits: { memory: '128Mi' },
-                requests: { memory: '128Mi' },
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  resources: {
+                    limits: { memory: '128Mi' },
+                    requests: { memory: '128Mi' },
+                  },
+                }],
               },
-            }],
+            },
           },
         },
       });
@@ -764,15 +806,19 @@ describe('KubelessDeploy', () => {
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
         type: 'HTTP',
-        template: {
+        deployment: {
           spec: {
-            containers: [{
-              name: functionName,
-              resources: {
-                limits: { memory: '128Gi' },
-                requests: { memory: '128Gi' },
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  resources: {
+                    limits: { memory: '128Gi' },
+                    requests: { memory: '128Gi' },
+                  },
+                }],
               },
-            }],
+            },
           },
         },
       });
@@ -976,10 +1022,22 @@ describe('KubelessDeploy', () => {
     });
     it('should fail if a deployment returns an error code', () => {
       nock(config.clusters[0].cluster.server)
-        .get('/apis/k8s.io/v1/namespaces/default/functions/')
+        .get('/apis/kubeless.io/v1beta1/namespaces/default/functions/')
         .reply(200, []);
       nock(config.clusters[0].cluster.server)
-        .post('/apis/k8s.io/v1/namespaces/default/functions/')
+        .persist()
+        .get('/api/v1/namespaces/kubeless/configmaps/kubeless-config')
+        .reply(200, JSON.stringify({
+          data: {
+            'runtime-images': JSON.stringify([
+              { ID: 'python', depName: 'requirements.txt' },
+              { ID: 'nodejs', depName: 'package.json' },
+              { ID: 'ruby', depName: 'Gemfile' },
+            ]),
+          },
+        }));
+      nock(config.clusters[0].cluster.server)
+        .post('/apis/kubeless.io/v1beta1/namespaces/default/functions/')
         .reply(500, JSON.stringify({ code: 500, message: 'Internal server error' }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
@@ -1059,8 +1117,8 @@ describe('KubelessDeploy', () => {
       });
       // Call for myFunction2
       nock(config.clusters[0].cluster.server)
-        .post('/apis/k8s.io/v1/namespaces/default/functions/', {
-          apiVersion: 'k8s.io/v1',
+        .post('/apis/kubeless.io/v1beta1/namespaces/default/functions/', {
+          apiVersion: 'kubeless.io/v1beta1',
           kind: 'Function',
           metadata: { name: 'myFunction2', namespace: 'default' },
           spec: funcSpec,
@@ -1068,8 +1126,8 @@ describe('KubelessDeploy', () => {
         .replyWithError({ message: 'Internal server error', code: 500 });
       // Call for myFunction3
       nock(config.clusters[0].cluster.server)
-        .post('/apis/k8s.io/v1/namespaces/default/functions/', {
-          apiVersion: 'k8s.io/v1',
+        .post('/apis/kubeless.io/v1beta1/namespaces/default/functions/', {
+          apiVersion: 'kubeless.io/v1beta1',
           kind: 'Function',
           metadata: { name: 'myFunction3', namespace: 'default' },
           spec: funcSpec,
@@ -1172,8 +1230,8 @@ describe('KubelessDeploy', () => {
         }],
       });
       nock(config.clusters[0].cluster.server)
-        .patch(`/apis/k8s.io/v1/namespaces/default/functions/${functionName}`, {
-          apiVersion: 'k8s.io/v1',
+        .patch(`/apis/kubeless.io/v1beta1/namespaces/default/functions/${functionName}`, {
+          apiVersion: 'kubeless.io/v1beta1',
           kind: 'Function',
           metadata: { name: 'myFunction', namespace: 'default' },
           spec: {
@@ -1191,10 +1249,12 @@ describe('KubelessDeploy', () => {
       result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction().then(() => {
           expect(nock.pendingMocks()).to.contain(
-            `POST ${config.clusters[0].cluster.server}/apis/k8s.io/v1/namespaces/default/functions/`
+            /* eslint-disable max-len*/
+            `POST ${config.clusters[0].cluster.server}/apis/kubeless.io/v1beta1/namespaces/default/functions/`
+            /* eslint-enable max-len*/
           );
           expect(nock.pendingMocks()).to.not.contain(
-            `PATCH ${config.clusters[0].cluster.server}/apis/k8s.io/v1/namespaces/default/functions/${functionName}` // eslint-disable-line max-len
+            `PATCH ${config.clusters[0].cluster.server}/apis/kubeless.io/v1beta1/namespaces/default/functions/${functionName}` // eslint-disable-line max-len
           );
         })
       ).to.be.fulfilled;
@@ -1224,8 +1284,8 @@ describe('KubelessDeploy', () => {
         }],
       });
       nock(config.clusters[0].cluster.server)
-        .patch(`/apis/k8s.io/v1/namespaces/default/functions/${functionName}`, {
-          apiVersion: 'k8s.io/v1',
+        .patch(`/apis/kubeless.io/v1beta1/namespaces/default/functions/${functionName}`, {
+          apiVersion: 'kubeless.io/v1beta1',
           kind: 'Function',
           metadata: { name: 'myFunction', namespace: 'default' },
           spec: {
@@ -1306,7 +1366,7 @@ describe('KubelessDeploy', () => {
         type: 'HTTP',
         service: {
           ports: [{
-            name: 'function-port',
+            name: 'http-function-port',
             port: 1234,
             protocol: 'TCP',
             targetPort: 1234,

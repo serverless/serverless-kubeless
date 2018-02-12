@@ -115,13 +115,13 @@ describe('KubelessInfo', () => {
 
     // Mock call to get.functions per namespace
     const allFunctions = _.map(functions, (f) => (_.defaultsDeep({}, functionModif, {
-      apiVersion: 'k8s.io/v1',
+      apiVersion: 'kubeless.io/v1beta1',
       kind: 'Function',
       metadata:
       {
         name: f.id,
         namespace: f.namespace,
-        selfLink: `/apis/k8s.io/v1/namespaces/${f.namespace}/functions/${f.id}`,
+        selfLink: `/apis/kubeless.io/v1beta1/namespaces/${f.namespace}/functions/${f.id}`,
         uid: '0105ba84-618c-11e7-9939-080027abf356',
         resourceVersion: '244',
         creationTimestamp: '2017-07-05T14:12:39Z',
@@ -137,7 +137,7 @@ describe('KubelessInfo', () => {
     })));
     _.each(namespaces, n => {
       nock(config.clusters[0].cluster.server)
-        .get(`/apis/k8s.io/v1/namespaces/${n}/functions/`)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/${n}/functions/`)
         .reply(200, {
           items: _.filter(allFunctions, f => f.metadata.namespace === n),
         });
@@ -259,12 +259,12 @@ describe('KubelessInfo', () => {
     it('should return an error message if no function is found', (done) => {
       mockGetCalls(config, []);
       nock(config.clusters[0].cluster.server)
-        .get('/apis/k8s.io/v1/namespaces/custom-1/functions/')
+        .get('/apis/kubeless.io/v1beta1/namespaces/custom-1/functions/')
         .reply(200, {
           items: [],
         });
       nock(config.clusters[0].cluster.server)
-        .get('/apis/k8s.io/v1/namespaces/custom-1/functions/')
+        .get('/apis/kubeless.io/v1beta1/namespaces/custom-1/functions/')
         .reply(200, { items: [] });
       nock(config.clusters[0].cluster.server)
         .get('/apis/extensions/v1beta1/namespaces/custom-1/ingresses')
