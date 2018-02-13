@@ -65,6 +65,8 @@ describe('KubelessDeployFunction', () => {
     let depsFile = null;
     let serverlessWithFunction = null;
     const functionRawText = 'function code';
+    const functionChecksum =
+      'sha256:ce182d715b42b27f1babf8b4196cd4f8c900ca6593a4293d455d1e5e2296ebee';
     const functionText = new Buffer(functionRawText).toString('base64');
 
     let kubelessDeployFunction = null;
@@ -117,11 +119,12 @@ describe('KubelessDeployFunction', () => {
         existingFunctions: [{
           metadata: {
             name: functionName,
-            labels: { function: functionName },
+            labels: { function: functionName, 'created-by': 'kubeless' },
           },
           spec: {
             deps: 'request',
             function: functionText,
+            checksum: functionChecksum,
             handler: serverlessWithFunction.service.functions[functionName].handler,
             runtime: serverlessWithFunction.service.provider.runtime,
             type: 'HTTP',
@@ -129,8 +132,8 @@ describe('KubelessDeployFunction', () => {
         }],
       });
       nock(config.clusters[0].cluster.server)
-        .patch(`/apis/k8s.io/v1/namespaces/default/functions/${functionName}`, {
-          apiVersion: 'k8s.io/v1',
+        .patch(`/apis/kubeless.io/v1beta1/namespaces/default/functions/${functionName}`, {
+          apiVersion: 'kubeless.io/v1beta1',
           kind: 'Function',
           metadata: { name: 'myFunction', namespace: 'default' },
           spec: {

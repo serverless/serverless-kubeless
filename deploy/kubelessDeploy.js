@@ -18,6 +18,8 @@
 
 const _ = require('lodash');
 const BbPromise = require('bluebird');
+const Config = require('../lib/config');
+const crypto = require('crypto');
 const deploy = require('../lib/deploy');
 const fs = require('fs');
 const helpers = require('../lib/helpers');
@@ -86,19 +88,27 @@ class KubelessDeploy {
   deployFunction() {
     const runtime = this.serverless.service.provider.runtime;
     const populatedFunctions = [];
+    const kubelessConfig = new Config();
     return new BbPromise((resolve, reject) => {
-      _.each(this.serverless.service.functions, (description, name) => {
-        const pkg = this.options.package ||
-          this.serverless.service.package.path ||
-          description.package.artifact ||
-          this.serverless.config.serverless.service.artifact;
-        this.checkSize(pkg);
-        fs.readFile(pkg, { encoding: 'base64' }, (err, functionContent) => {
-          if (err) {
-            reject(err);
-          } else if (description.handler) {
-            const files = helpers.getRuntimeFilenames(runtime, description.handler);
-            this.getFileContent(pkg, files.deps)
+      kubelessConfig.init().then(() => {
+        _.each(this.serverless.service.functions, (description, name) => {
+          const pkg = this.options.package ||
+            this.serverless.service.package.path ||
+            description.package.artifact ||
+            this.serverless.config.serverless.service.artifact;
+          this.checkSize(pkg);
+          const s = fs.createReadStream(pkg);
+          const shasum = crypto.createHash('sha256');
+          let functionContent = '';
+          s.on('error', (err) => reject(err));
+          s.on('data', (data) => {
+            shasum.update(data);
+            functionContent += data.toString('base64');
+          });
+          s.on('end', () => {
+            if (description.handler) {
+              const depFile = helpers.getRuntimeDepfile(runtime, kubelessConfig);
+              this.getFileContent(pkg, depFile)
                 .catch(() => {
                   // No requirements found
                 })
@@ -107,6 +117,7 @@ class KubelessDeploy {
                     _.assign({}, description, {
                       id: name,
                       content: functionContent,
+                      checksum: `sha256:${shasum.digest('hex')}`,
                       deps: requirementsContent,
                       image: description.image || this.serverless.service.provider.image,
                       events: _.map(description.events, (event) => {
@@ -127,12 +138,13 @@ class KubelessDeploy {
                     resolve();
                   }
                 });
-          } else {
-            populatedFunctions.push(_.assign({}, description, { id: name }));
-            if (populatedFunctions.length === _.keys(this.serverless.service.functions).length) {
-              resolve();
+            } else {
+              populatedFunctions.push(_.assign({}, description, { id: name }));
+              if (populatedFunctions.length === _.keys(this.serverless.service.functions).length) {
+                resolve();
+              }
             }
-          }
+          });
         });
       });
     }).then(() => deploy(
