@@ -1,5 +1,5 @@
 # Obtains the latest Kubeless release published
-def run(request)
+def run(event, context)
     require "net/https"
     require "uri"
     require "json"

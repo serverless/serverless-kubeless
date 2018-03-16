@@ -94,7 +94,7 @@ function restoreKubeConfig(cwd) {
 function createDeploymentNocks(endpoint, func, funcSpec, options) {
   const opts = _.defaults({}, options, {
     namespace: 'default',
-    existingFunctions: [],
+    functionExists: false,
     description: null,
     labels: null,
     postReply: { message: 'OK' },
@@ -102,7 +102,14 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
   const postBody = {
     apiVersion: 'kubeless.io/v1beta1',
     kind: 'Function',
-    metadata: { name: func, namespace: opts.namespace },
+    metadata: {
+      name: func,
+      namespace: opts.namespace,
+      labels: _.assign({
+        'created-by': 'kubeless',
+        function: func,
+      }, opts.labels),
+    },
     spec: funcSpec,
   };
   if (opts.description) {
@@ -111,7 +118,7 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
     };
   }
   if (opts.labels) {
-    postBody.metadata.labels = opts.labels;
+    postBody.spec.service.selector = _.assign(postBody.spec.service.selector, opts.labels);
   }
   nock(endpoint)
     .persist()
@@ -121,10 +128,15 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
       { ID: 'nodejs', depName: 'package.json' },
       { ID: 'ruby', depName: 'Gemfile' },
     ]) } }));
-  nock(endpoint)
-    .persist()
-    .get(`/apis/kubeless.io/v1beta1/namespaces/${opts.namespace}/functions/`)
-    .reply(200, JSON.stringify({ items: opts.existingFunctions }));
+  if (opts.functionExists) {
+    nock(endpoint)
+      .get(`/apis/kubeless.io/v1beta1/namespaces/${opts.namespace}/functions/${func}`)
+      .reply(200, JSON.stringify(postBody));
+  } else {
+    nock(endpoint)
+      .get(`/apis/kubeless.io/v1beta1/namespaces/${opts.namespace}/functions/${func}`)
+      .reply(404, JSON.stringify({ code: 404 }));
+  }
   nock(endpoint)
     .post(`/apis/kubeless.io/v1beta1/namespaces/${opts.namespace}/functions/`, postBody)
     .reply(200, opts.postReply);
@@ -150,13 +162,10 @@ function createIngressNocks(endpoint, func, hostname, p, options) {
   const opts = _.defaults({}, options, {
     namespace: 'default',
   });
-  const labels = {};
-  labels[func] = '1';
   nock(endpoint)
     .post(`/apis/extensions/v1beta1/namespaces/${opts.namespace}/ingresses`, {
       kind: 'Ingress',
       metadata: {
-        labels,
         annotations: {
           'kubernetes.io/ingress.class': 'nginx',
           'ingress.kubernetes.io/rewrite-target': '/',

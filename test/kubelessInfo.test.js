@@ -21,7 +21,6 @@ const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
 const fs = require('fs');
-const ingressHelper = require('../lib/ingress');
 const moment = require('moment');
 const mocks = require('./lib/mocks');
 const nock = require('nock');
@@ -33,7 +32,10 @@ const getServerlessObj = require('./lib/serverless');
 const KubelessInfo = require('../info/kubelessInfo');
 
 const func = 'my-function';
-const serverless = getServerlessObj({ service: { functions: { 'my-function': {} } } });
+const serviceName = 'test';
+const serverless = getServerlessObj(
+  { service: { service: serviceName, functions: { 'my-function': {} } } }
+);
 
 require('chai').use(chaiAsPromised);
 
@@ -82,10 +84,6 @@ describe('KubelessInfo', () => {
     });
   });
   function mockGetCalls(config, functions, functionModif) {
-    const namespaces = _.uniq(_.map(functions, (f) => (
-      _.get(functionModif, 'namespace', f.namespace)
-    )));
-
     nock(config.clusters[0].cluster.server)
       .get('/api/v1/services')
       .reply(200, {
@@ -131,51 +129,37 @@ describe('KubelessInfo', () => {
         function: '',
         handler: `${f.id}.hello`,
         runtime: 'python2.7',
-        topic: '',
-        type: 'HTTP',
       },
     })));
-    _.each(namespaces, n => {
+    _.each(functions, f => {
       nock(config.clusters[0].cluster.server)
-        .get(`/apis/kubeless.io/v1beta1/namespaces/${n}/functions/`)
-        .reply(200, {
-          items: _.filter(allFunctions, f => f.metadata.namespace === n),
-        });
+        .get(`/apis/kubeless.io/v1beta1/namespaces/${f.namespace}/functions/${f.id}`)
+        .reply(200, _.find(allFunctions, (ff) => ff.metadata.name === f.id));
     });
 
 
     // Mock call to get.ingress
-    _.each(namespaces, n => {
+    _.each(functions, f => {
       nock(config.clusters[0].cluster.server)
-        .get(`/apis/extensions/v1beta1/namespaces/${n}/ingresses`)
-        .reply(200, {
-          items: _.compact(_.map(functions, (f) => {
-            if (f.path && f.namespace === n) {
-              return {
-                metadata: {
-                  labels: ingressHelper.getIngressRuleLabels(functions),
-                },
-                spec: {
-                  rules: [{
-                    host: '1.2.3.4.nip.io',
-                    http: {
-                      paths: [{
-                        path: f.path,
-                        backend: { serviceName: f.id },
-                      }],
-                    },
-                  }],
-                },
-                status: {
-                  loadBalancer: {
-                    ingress: [{ ip: '1.2.3.4' }],
-                  },
-                },
-              };
-            }
-            return null;
-          })),
-        });
+        .get(`/apis/extensions/v1beta1/namespaces/${f.namespace}/ingresses/${serviceName}`)
+        .reply(200, f.path ? {
+          spec: {
+            rules: [{
+              host: '1.2.3.4.nip.io',
+              http: {
+                paths: [{
+                  path: f.path,
+                  backend: { serviceName: f.id },
+                }],
+              },
+            }],
+          },
+          status: {
+            loadBalancer: {
+              ingress: [{ ip: '1.2.3.4' }],
+            },
+          },
+        } : null);
     });
   }
   function infoMock(f) {
@@ -190,7 +174,6 @@ describe('KubelessInfo', () => {
         'Function Info\n' +
         `Handler:  ${f}.hello\n` +
         'Runtime:  python2.7\n' +
-        'Trigger:  HTTP\n' +
         'Dependencies:  \n';
   }
 
@@ -221,6 +204,7 @@ describe('KubelessInfo', () => {
         { id: 'my-function-2', namespace: 'custom-2' },
       ]);
       const serverlessWithNS = getServerlessObj({ service: {
+        service: serviceName,
         provider: {
           namespace: 'custom-1',
         },
@@ -242,6 +226,7 @@ describe('KubelessInfo', () => {
       ]);
       const serverlessWithNS = getServerlessObj({
         service: {
+          service: serviceName,
           provider: {
             namespace: 'custom-1',
           },
@@ -259,18 +244,14 @@ describe('KubelessInfo', () => {
     it('should return an error message if no function is found', (done) => {
       mockGetCalls(config, []);
       nock(config.clusters[0].cluster.server)
-        .get('/apis/kubeless.io/v1beta1/namespaces/custom-1/functions/')
-        .reply(200, {
-          items: [],
-        });
+        .get('/apis/kubeless.io/v1beta1/namespaces/custom-1/functions/my-function-1')
+        .reply(404, { code: 404 });
       nock(config.clusters[0].cluster.server)
-        .get('/apis/kubeless.io/v1beta1/namespaces/custom-1/functions/')
-        .reply(200, { items: [] });
-      nock(config.clusters[0].cluster.server)
-        .get('/apis/extensions/v1beta1/namespaces/custom-1/ingresses')
-        .reply(200, { items: [] });
+        .get(`/apis/extensions/v1beta1/namespaces/custom-1/ingresses/${serviceName}`)
+        .reply(404, 'not found');
       const serverlessWithNS = getServerlessObj({
         service: {
+          service: serviceName,
           provider: {
             namespace: 'custom-1',
           },
@@ -286,18 +267,6 @@ describe('KubelessInfo', () => {
         expect(serverlessWithNS.cli.consoleLog.firstCall.args[0]).to.be.eql(
           'Not found any information about the function "my-function-1"'
         );
-        done();
-      });
-    });
-    it('should return the trigger topic in case it exists', (done) => {
-      mockGetCalls(
-        config,
-        [{ id: func, namespace: 'default' }],
-        { spec: { type: 'PubSub', topic: 'test_topic' } }
-      );
-      const kubelessInfo = new KubelessInfo(serverless, { function: func });
-      kubelessInfo.infoFunction({ color: false }).then((message) => {
-        expect(message).to.match(/Topic Trigger: test_topic/);
         done();
       });
     });

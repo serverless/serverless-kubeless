@@ -1,0 +1,12 @@
+service: php-echo
+
+provider:
+  name: kubeless
+  runtime: php7.2
+
+plugins:
+  - serverless-kubeless
+
+functions:
+  php-echo:
+    handler: handler.foo

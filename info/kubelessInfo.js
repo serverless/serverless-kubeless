@@ -58,11 +58,15 @@ class KubelessInfo {
   }
 
   infoFunction(options) {
-    return getInfo(this.serverless.service.functions, _.defaults({}, options, {
-      namespace: this.serverless.service.provider.namespace,
-      verbose: this.options.verbose,
-      log: this.serverless.cli.consoleLog,
-    }));
+    return getInfo(
+      this.serverless.service.functions,
+      this.serverless.service.service,
+      _.defaults({}, options, {
+        namespace: this.serverless.service.provider.namespace,
+        verbose: this.options.verbose,
+        log: this.serverless.cli.consoleLog,
+      })
+    );
   }
 }
 

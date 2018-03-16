@@ -8,8 +8,8 @@ const MongoClient = mongodb.MongoClient;
 const url = 'mongodb://mongodb:27017/todo_app';
 
 module.exports = {
-  update: (req, res) => new Promise((resolve, reject) => {
-    const data = req.body;
+  update: (event, context) => new Promise((resolve, reject) => {
+    const data = event.data;
     MongoClient.connect(url, (err, db) => {
       if (err) {
         reject(err);
@@ -22,16 +22,15 @@ module.exports = {
               if (ferr) {
                 reject(ferr);
               } else {
-                const entry = _.find(docEntries, e => e.id === req.query.id);
+                const entry = _.find(docEntries, e => e.id === event.extensions.request.query.id);
                 const newEntry = _.cloneDeep(entry);
                 _.assign(newEntry, data, { id: uuid.v1(), updatedAt: new Date().getTime() });
                 doc.updateOne(entry, { $set: newEntry }, (uerr) => {
                   if (uerr) {
                     reject(uerr);
                   } else {
-                    res.end(JSON.stringify(newEntry));
                     db.close();
-                    resolve();
+                    resolve(JSON.stringify(newEntry));
                   }
                 });
               }

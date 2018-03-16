@@ -1,3 +1,3 @@
-def echo(request):
-    print request.json
-    return request.json
+def echo(event, context):
+    print event
+    return event['data']

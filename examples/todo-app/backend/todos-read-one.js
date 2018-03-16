@@ -7,7 +7,7 @@ const MongoClient = mongodb.MongoClient;
 const url = 'mongodb://mongodb:27017/todo_app';
 
 module.exports = {
-  readOne: (req, res) => new Promise((resolve, reject) => {
+  readOne: (event, context) => new Promise((resolve, reject) => {
     MongoClient.connect(url, (err, db) => {
       if (err) {
         reject(err);
@@ -16,10 +16,9 @@ module.exports = {
           if (ferr) {
             reject(ferr);
           } else {
-            const entry = _.find(docEntries, e => e.id === req.query.id);
-            res.end(JSON.stringify(entry));
+            const entry = _.find(docEntries, e => e.id === event.extensions.request.query.id);
             db.close();
-            resolve();
+            resolve(JSON.stringify(entry));
           }
         });
       }

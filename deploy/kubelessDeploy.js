@@ -55,13 +55,6 @@ class KubelessDeploy {
       this.options,
       this.serverless.cli.log.bind(this.serverless.cli)
     );
-    // Check that functions don't have more than one event source
-    // since it is not supported yet
-    _.each(this.serverless.service.functions, f => {
-      if (f.events && f.events.length > 1) {
-        throw new Error('It is not supported to have more than one event source yet');
-      }
-    });
     return BbPromise.resolve();
   }
 
@@ -150,6 +143,7 @@ class KubelessDeploy {
     }).then(() => deploy(
       populatedFunctions,
       runtime,
+      this.serverless.service.service,
       {
         namespace: this.serverless.service.provider.namespace,
         hostname: this.serverless.service.provider.hostname,

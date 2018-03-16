@@ -1,2 +1,2 @@
-def events(context):
-    return context
+def events(event, context):
+    print event['data']

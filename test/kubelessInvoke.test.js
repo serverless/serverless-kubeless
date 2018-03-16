@@ -207,7 +207,7 @@ describe('KubelessInvoke', () => {
         `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function:8080/`
       );
         expect(request.post.firstCall.args[0].json).to.be.eql(true);
-        expect(request.post.firstCall.args[0].body).to.be.eql({ test: 1 });
+        expect(request.post.firstCall.args[0].body).to.be.eql('{"test": 1}');
       });
     });
     it('reject when an exit code different than 200 is returned', () => {

@@ -24,11 +24,10 @@ install_kubecfg() {
 
 install_kubeless() {
     kubectl create ns kubeless
-    curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/v$KUBELESS_VERSION/kubeless.jsonnet
-    mv kubeless.jsonnet ./test
-    local release_yaml=`curl -L https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless-v$KUBELESS_VERSION.yaml`
-    local controller_image=`expr match "$release_yaml" '.*\(bitnami\/kubeless-controller@sha256:[a-z..0-9]*\).*'`
-    kubecfg -V controller_image=$controller_image update ./test/kubeless-novols.jsonnet
+    kubectl create -f https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless-v$KUBELESS_VERSION.yaml
+    curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/v$KUBELESS_VERSION/kafka-zookeeper.jsonnet
+    mv kafka-zookeeper.jsonnet ./test
+    kubecfg -V controller_image=bitnami/kafka-trigger-controller:v$KUBELESS_VERSION update ./test/kafka-novols.jsonnet
     curl -sL https://raw.githubusercontent.com/kubeless/kubeless/master/manifests/ingress/ingress-controller-http-only.yaml | kubectl create -f -
     curl -LO https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless_linux-amd64.zip
     unzip kubeless_linux-amd64.zip

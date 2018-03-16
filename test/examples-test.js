@@ -104,6 +104,7 @@ describe('Examples', () => {
     'node-chaining-functions': { cwd: null, path: 'node-chaining-functions' },
     'post-nodejs': { cwd: null, path: 'post-nodejs' },
     'post-python': { cwd: null, path: 'post-python' },
+    'post-php': { cwd: null, path: 'post-php' },
     'post-ruby': { cwd: null, path: 'post-ruby' },
     'scheduled-node': { cwd: null, path: 'scheduled-node' },
     'todo-app': { cwd: null, path: 'todo-app/backend' },
@@ -123,7 +124,8 @@ describe('Examples', () => {
         });
     });
   });
-  after((done) => {
+  after(function (done) {
+    this.timeout(10000);
     fs.remove(cwd, (rmErr) => {
       if (rmErr) throw rmErr;
       done();
@@ -384,6 +386,39 @@ describe('Examples', () => {
       );
     });
   });
+  describe('post-php', function () {
+    const exampleName = 'post-php';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(100000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
+    this.timeout(10000);
+    it('should return a "hello"', (done) => {
+      exec('serverless invoke -f php-echo -l --data \'hello!\'',
+        { cwd: examples['post-php'].cwd }, (err, stdout) => {
+          if (err) throw err;
+          expect(stdout).to.contain('hello!');
+          done();
+        });
+    });
+  });
   describe('scheduled-node', function () {
     const exampleName = 'scheduled-node';
     before(function (done) {
@@ -466,7 +501,7 @@ describe('Examples', () => {
     let id = null;
     const exampleName = 'todo-app';
     before(function (done) {
-      this.timeout(300000);
+      this.timeout(600000);
       examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
       // We need to deploy a MongoDB for the todo-app example
       prepareExample(cwd, exampleName, (e) => {
@@ -477,7 +512,7 @@ describe('Examples', () => {
           'curl -sL https://raw.githubusercontent.com/bitnami/bitnami-docker-mongodb/3.4.7-r0/kubernetes.yml',
           (err, manifest) => {
             if (err) {
-              console.error('ERROR: Unable to download mongodb manifest');
+              throw new Error(`ERROR: Unable to download mongodb manifest: ${err.message}`);
             } else {
               fs.writeFile(`${examples['todo-app'].cwd}/mongodb.yaml`, manifest, (werr) => {
                 if (werr) throw werr;
@@ -489,21 +524,30 @@ describe('Examples', () => {
                     if (ee) {
                       throw ee;
                     }
+                    let calledDone = false;
                     const wait = setInterval(() => {
                       exec('kubectl get pods', (gerr, stdout) => {
                         if (gerr) throw gerr;
                         if (stdout.match(/mongodb-.*Running/)) {
-                          clearInterval(wait);
-                          exec(
-                            'serverless info',
-                            { cwd: examples['todo-app'].cwd },
-                            (infoerr, output) => {
-                              if (infoerr) throw infoerr;
-                              info = output;
-                              // We need some additional time for the ingress rules to work
-                              setTimeout(done, 15000);
+                          exec('kubectl logs -l io.kompose.service=mongodb', (lerr, logs) => {
+                            if (lerr) throw lerr;
+                            if (logs.match(/waiting for connections on port 27017/)) {
+                              clearInterval(wait);
+                              exec(
+                                'serverless info',
+                                { cwd: examples['todo-app'].cwd },
+                                (infoerr, output) => {
+                                  if (infoerr) throw infoerr;
+                                  info = output;
+                                  // We need some additional time for the ingress rules to work
+                                  if (!calledDone) {
+                                    setTimeout(done, 15000);
+                                    calledDone = true;
+                                  }
+                                }
+                              );
                             }
-                          );
+                          });
                         }
                       });
                     }, 2000);
@@ -608,29 +652,39 @@ describe('Examples', () => {
         done();
       });
     });
-    this.timeout(15000);
-    it('should get a submmited message "hello world"', (done) => {
+    this.timeout(30000);
+    // TODO: Fix kafka deployment to reenable this test
+    xit('should get a submmited message "hello world"', (done) => {
       exec(
         'kubeless topic publish --topic hello_topic --data "hello world"',
         (err, stdout) => {
           if (err) {
-            console.error(stdout);
+            throw new Error(stdout);
           }
-          exec(
-            'serverless logs -f events',
-            { cwd: examples['event-trigger-python'].cwd },
-            (eerr, logs) => {
-              if (eerr) console.error(eerr);
-              try {
-                expect(logs).to.contain('hello world');
-              } catch (e) {
-                // Kafka environment is flacky in the minikube environment
-                // We don't want to fail the process if this test fails
-                console.log(`Unable to test even-trigger example: ${e.message}`);
+          let calledDone = false;
+          const t = setInterval(() => {
+            exec(
+              'serverless logs -f events',
+              { cwd: examples['event-trigger-python'].cwd },
+              (eerr, logs) => {
+                if (eerr) throw (eerr);
+                try {
+                  expect(logs).to.contain('hello world');
+                  clearInterval(t);
+                  if (!calledDone) {
+                    calledDone = true;
+                    done();
+                  }
+                } catch (e) {
+                  // Retry
+                }
               }
-              done();
-            }
-          );
+            );
+          }, 2000);
+          setTimeout(() => {
+            clearInterval(t);
+            throw new Error('Failed to obtain the expected logs');
+          }, 20000);
         });
     });
   });
