@@ -70,6 +70,7 @@ describe('KubelessDeployFunction', () => {
     const functionText = new Buffer(functionRawText).toString('base64');
 
     let kubelessDeployFunction = null;
+    let defaultFuncSpec = null;
 
     beforeEach(() => {
       serverless = serverlessFact();
@@ -109,40 +110,34 @@ describe('KubelessDeployFunction', () => {
         depsFile,
         serverlessWithFunction
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: 'request',
-        function: 'function code modified',
+      defaultFuncSpec = (modif) => _.assign({
+        deps: '',
+        function: functionText,
+        checksum: functionChecksum,
+        'function-content-type': 'base64+zip',
         handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      }, {
-        existingFunctions: [{
-          metadata: {
-            name: functionName,
-            labels: { function: functionName, 'created-by': 'kubeless' },
-          },
-          spec: {
-            deps: 'request',
-            function: functionText,
-            checksum: functionChecksum,
-            handler: serverlessWithFunction.service.functions[functionName].handler,
-            runtime: serverlessWithFunction.service.provider.runtime,
-            type: 'HTTP',
-          },
-        }],
-      });
+        timeout: '180',
+        service: {
+          ports: [{ name: 'http-function-port', port: 8080, protocol: 'TCP', targetPort: 8080 }],
+          selector: { function: functionName },
+          type: 'ClusterIP',
+        },
+      }, modif);
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec(), {
+          functionExists: true,
+        });
       nock(config.clusters[0].cluster.server)
         .patch(`/apis/kubeless.io/v1beta1/namespaces/default/functions/${functionName}`, {
           apiVersion: 'kubeless.io/v1beta1',
           kind: 'Function',
-          metadata: { name: 'myFunction', namespace: 'default' },
-          spec: {
-            deps: '',
-            function: functionText,
-            handler: 'function.hello',
-            runtime: 'python2.7',
-            type: 'HTTP',
+          metadata: {
+            name: functionName,
+            namespace: 'default',
+            labels: { 'created-by': 'kubeless', function: functionName },
           },
+          spec: defaultFuncSpec(),
         })
         .reply(200, '{"message": "OK"}');
     });

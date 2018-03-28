@@ -1,7 +1,8 @@
-def foo(request):
-    print str(request.json)
+def foo(event, context):
+    print event['data']
     return 'foo'
 
-def bar(request):
-    print str(request.json)
+
+def bar(event, context):
+    print event['data']
     return'bar'

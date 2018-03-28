@@ -7,7 +7,7 @@ const MongoClient = mongodb.MongoClient;
 const url = 'mongodb://mongodb:27017/todo_app';
 
 module.exports = {
-  delete: (req, res) => new Promise((resolve, reject) => {
+  delete: (event, context) => new Promise((resolve, reject) => {
     MongoClient.connect(url, (err, db) => {
       if (err) {
         reject(err);
@@ -20,14 +20,13 @@ module.exports = {
               if (ferr) {
                 reject(ferr);
               } else {
-                const entry = _.find(docEntries, e => e.id === req.query.id);
+                const entry = _.find(docEntries, e => e.id === event.extensions.request.query.id);
                 doc.deleteOne(entry, (derr) => {
                   if (derr) {
                     reject(derr);
                   } else {
-                    res.end(JSON.stringify(entry));
-                    resolve();
                     db.close();
+                    resolve(JSON.stringify(entry));
                   }
                 });
               }

@@ -1,5 +1,5 @@
-def run(request)
-  if request.body.read == 'ping'
+def run(event, context)
+  if event[:data] == 'ping'
     return 'pong'
   else
     return 'not ping pong!'

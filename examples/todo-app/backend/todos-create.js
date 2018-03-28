@@ -7,8 +7,8 @@ const MongoClient = mongodb.MongoClient;
 const url = 'mongodb://mongodb:27017/todo_app';
 
 module.exports = {
-  create: (req, res) => new Promise((resolve, reject) => {
-      const data = req.body;
+  create: (event, context) => new Promise((resolve, reject) => {
+      const data = event.data;
       data.id = uuid.v1();
       data.updatedAt = new Date().getTime();
       MongoClient.connect(url, (cerr, db) => {
@@ -19,8 +19,7 @@ module.exports = {
             if (errInsert) {
               reject(errInsert);
             } else {
-              res.end(JSON.stringify(data));
-              resolve();
+              resolve(JSON.stringify(data));
               db.close();
             }
           });

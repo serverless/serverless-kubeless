@@ -22,6 +22,7 @@ const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
 const fs = require('fs');
+const helpers = require('../lib/helpers');
 const mocks = require('./lib/mocks');
 const moment = require('moment');
 const nock = require('nock');
@@ -31,6 +32,7 @@ const sinon = require('sinon');
 const rm = require('./lib/rm');
 
 const KubelessRemove = require('../remove/kubelessRemove');
+const remove = require('../lib/remove');
 const serverless = require('./lib/serverless')();
 
 require('chai').use(chaiAsPromised);
@@ -145,12 +147,7 @@ describe('KubelessRemove', () => {
         .reply(500, { code: 500, message: 'Internal server error' });
       return expect( // eslint-disable-line no-unused-expressions
         kubelessRemove.removeFunction(cwd)
-      ).to.be.eventually.rejectedWith(
-        'Found errors while removing the given functions:\n' +
-        'Unable to remove the function myFunction. Received:\n' +
-        '  Code: 500\n' +
-        '  Message: Internal server error'
-      );
+      ).to.be.eventually.rejectedWith('Internal server error');
     });
     it('should remove the possible functions even if one of them fails', (done) => {
       const serverlessWithFunctions = _.defaultsDeep({}, serverless, {
@@ -179,13 +176,7 @@ describe('KubelessRemove', () => {
         .reply(200, {});
       kubelessRemove = new KubelessRemove(serverlessWithFunctions);
       kubelessRemove.removeFunction(cwd).catch(e => {
-        expect(e).to.be.eql(
-          'Found errors while removing the given functions:\n' +
-          'Unable to remove the function myFunction2. Received:\n' +
-          '  Code: 500\n' +
-          '  Message: Internal server error'
-
-        );
+        expect(e.message).to.contain('Message: Internal server error');
         expect(nock.pendingMocks()).to.be.eql([]);
         done();
       });
@@ -220,24 +211,19 @@ describe('KubelessRemove', () => {
       nock(config.clusters[0].cluster.server)
         .delete('/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction')
         .reply(200, {});
-      Api.Extensions.prototype.get.callsFake((data, ff) => {
-        ff(null, {
-          statusCode: 200,
-          body: {
-            items: [
-              { metadata: { labels: { myFunction: '1' } } },
-            ],
-          },
-        });
-      });
-      const serverlessWithIngress = _.cloneDeep(serverlessWithFunction);
-      serverlessWithIngress.service.functions.myFunction.events = [{
-        http: null,
-        path: '/test',
+      const apiExtensions = new Api.Extensions(
+        helpers.getConnectionOptions(helpers.loadKubeConfig(), { namespace: 'default' })
+      );
+      const functions = [{
+        id: 'myFunction',
+        handler: 'function.hello',
+        events: [{ http: { path: '/test' } }],
       }];
-      kubelessRemove = new KubelessRemove(serverlessWithIngress, { verbose: false });
+      const serviceName = 'test';
       return expect( // eslint-disable-line no-unused-expressions
-        kubelessRemove.removeFunction(cwd).then(() => {
+        remove(functions, serviceName, {
+          apiExtensions, log: () => {},
+        }).then(() => {
           expect(Api.Extensions.prototype.delete.calledOnce).to.be.eql(true);
           expect(
             Api.Extensions.prototype.delete.firstCall.args[0].path[0]
@@ -249,25 +235,19 @@ describe('KubelessRemove', () => {
       nock(config.clusters[0].cluster.server)
         .delete('/apis/kubeless.io/v1beta1/namespaces/test/functions/myFunction')
         .reply(200, {});
-      Api.Extensions.prototype.get.callsFake((data, ff) => {
-        ff(null, {
-          statusCode: 200,
-          body: {
-            items: [
-              { metadata: { labels: { myFunction: '1' } } },
-            ],
-          },
-        });
-      });
-      const serverlessWithIngress = _.cloneDeep(serverlessWithFunction);
-      serverlessWithIngress.service.functions.myFunction.events = [{
-        http: null,
-        path: '/test',
+      const apiExtensions = new Api.Extensions(
+        helpers.getConnectionOptions(helpers.loadKubeConfig(), { namespace: 'test' })
+      );
+      const functions = [{
+        id: 'myFunction',
+        handler: 'function.hello',
+        events: [{ http: { path: '/test' } }],
       }];
-      serverlessWithIngress.service.functions.myFunction.namespace = 'test';
-      kubelessRemove = new KubelessRemove(serverlessWithIngress, { verbose: false });
+      const serviceName = 'test';
       return expect( // eslint-disable-line no-unused-expressions
-        kubelessRemove.removeFunction(cwd).then(() => {
+        remove(functions, serviceName, {
+          apiExtensions, namespace: 'test', log: () => { },
+        }).then(() => {
           expect(Api.Extensions.prototype.delete.calledOnce).to.be.eql(true);
           expect(
             Api.Extensions.prototype.delete.firstCall.args[0].path[0]

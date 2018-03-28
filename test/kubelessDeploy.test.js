@@ -116,7 +116,7 @@ describe('KubelessDeploy', () => {
     let serverlessWithFunction = null;
 
     let kubelessDeploy = null;
-
+    let defaultFuncSpec = null;
     beforeEach(() => {
       serverless = serverlessFact();
       cwd = path.join(os.tmpdir(), moment().valueOf().toString());
@@ -146,24 +146,32 @@ describe('KubelessDeploy', () => {
         package: {},
       };
       serverlessWithFunction.config.servicePath = cwd;
+      defaultFuncSpec = (modif) => _.assign({
+        deps: '',
+        function: functionText,
+        checksum: functionChecksum,
+        'function-content-type': 'base64+zip',
+        handler: serverlessWithFunction.service.functions[functionName].handler,
+        runtime: serverlessWithFunction.service.provider.runtime,
+        timeout: '180',
+        service: {
+          ports: [{ name: 'http-function-port', port: 8080, protocol: 'TCP', targetPort: 8080 }],
+          selector: { function: functionName },
+          type: 'ClusterIP',
+        },
+      }, modif);
       depsFile = path.join(cwd, 'requirements.txt');
       kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, serverlessWithFunction);
     });
+
     afterEach(() => {
       clock.restore();
       nock.cleanAll();
       rm(cwd);
     });
     it('should deploy a function (python)', () => {
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        checksum: functionChecksum,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-        'function-content-type': 'base64+zip',
-      });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -175,14 +183,10 @@ describe('KubelessDeploy', () => {
         { service: { provider: { runtime: 'nodejs6' } } },
         serverlessWithFunction
       ));
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deps: 'nodejs function deps',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: 'nodejs6',
-        type: 'HTTP',
-        'function-content-type': 'base64+zip',
-      });
+      }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -194,14 +198,10 @@ describe('KubelessDeploy', () => {
         { service: { provider: { runtime: 'ruby2.4' } } },
         serverlessWithFunction
       ));
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deps: 'ruby function deps',
-        function: functionText,
-        'function-content-type': 'base64+zip',
-        handler: serverlessWithFunction.service.functions[functionName].handler,
         runtime: 'ruby2.4',
-        type: 'HTTP',
-      });
+      }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -214,12 +214,7 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithImage
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deployment: {
           spec: {
             template: {
@@ -232,7 +227,7 @@ describe('KubelessDeploy', () => {
             },
           },
         },
-      });
+      }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -245,12 +240,7 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithImage
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deployment: {
           spec: {
             template: {
@@ -263,7 +253,7 @@ describe('KubelessDeploy', () => {
             },
           },
         },
-      });
+      }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -277,12 +267,7 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithImage
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deployment: {
           spec: {
             template: {
@@ -295,7 +280,7 @@ describe('KubelessDeploy', () => {
             },
           },
         },
-      });
+      }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -308,13 +293,9 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomNamespace
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      }, { namespace: 'custom' });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server,
+        functionName, defaultFuncSpec(), { namespace: 'custom' });
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -327,13 +308,9 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomNamespace
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      }, { namespace: 'custom' });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server,
+        functionName, defaultFuncSpec(), { namespace: 'custom' });
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -346,41 +323,28 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithSecrets
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      }, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-        template: {
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
           spec: {
-            containers: [{
-              name: functionName,
-              volumeMounts: [{ name: 'secret1-vol', mountPath: '/secret1' }],
-            }],
-            volumes: [{ name: 'secret1-vol', secret: { secretName: 'secret1' } }],
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  volumeMounts: [{ name: 'secret1-vol', mountPath: '/secret1' }],
+                }],
+                volumes: [{ name: 'secret1-vol', secret: { secretName: 'secret1' } }],
+              },
+            },
           },
         },
-      });
+      }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
 
     it('should wait until a deployment is ready', () => {
-      const funcSpec = {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      };
+      const funcSpec = defaultFuncSpec();
       // First call, still deploying:
       nock(config.clusters[0].cluster.server)
         .get('/api/v1/pods')
@@ -406,13 +370,7 @@ describe('KubelessDeploy', () => {
       ).to.be.fulfilled;
     });
     it('should wait until a deployment is ready (with no containerStatuses info)', () => {
-      const funcSpec = {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      };
+      const funcSpec = defaultFuncSpec();
       // First call, still deploying:
       nock(config.clusters[0].cluster.server)
         .get('/api/v1/pods')
@@ -436,13 +394,7 @@ describe('KubelessDeploy', () => {
       ).to.be.fulfilled;
     });
     it('should throw an error if the pod failed to start', () => {
-      const funcSpec = {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      };
+      const funcSpec = defaultFuncSpec();
       nock(config.clusters[0].cluster.server)
         .get('/api/v1/pods')
         .times(10)
@@ -470,14 +422,7 @@ describe('KubelessDeploy', () => {
       ).to.be.fulfilled;
     });
     it('should retry if it fails to retrieve pods info', () => {
-      const funcSpec = {
-        deps: '',
-        function: functionText,
-        'function-content-type': 'base64+zip',
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      };
+      const funcSpec = defaultFuncSpec();
       // First call, fails to retrieve status
       nock(config.clusters[0].cluster.server)
         .get('/api/v1/pods')
@@ -491,13 +436,7 @@ describe('KubelessDeploy', () => {
       ).to.be.fulfilled;
     });
     it('fail if the pod never appears', () => {
-      const funcSpec = {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      };
+      const funcSpec = defaultFuncSpec();
       // First call, fails to retrieve status
       nock(config.clusters[0].cluster.server)
         .persist()
@@ -514,43 +453,16 @@ describe('KubelessDeploy', () => {
     });
 
     it('should skip a deployment if the same specification is already deployed', () => {
-      const funcSpec = {
-        deps: '',
-        function: functionText,
-        'function-content-type': 'base64+zip',
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-        timeout: '180',
-        checksum: functionChecksum,
-        service: {
-          ports: [{
-            name: 'http-function-port',
-            port: 8080,
-            protocol: 'TCP',
-            targetPort: 8080,
-          }],
-          selector: {
-            function: functionName,
-          },
-          type: 'ClusterIP',
-        },
-      };
+      const funcSpec = defaultFuncSpec();
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, funcSpec, {
-        existingFunctions: [{
-          metadata: {
-            name: functionName,
-            labels: { function: functionName, 'created-by': 'kubeless' },
-          },
-          spec: funcSpec,
-        }],
+        functionExists: true,
       });
       let result = null;
       result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction().then(() => {
           expect(serverlessWithFunction.cli.log.lastCall.args).to.be.eql(
             [
-              `Function ${functionName} has not changed. Skipping deployment`,
+              `Function ${functionName} already exists. Skipping deployment`,
             ]
             );
           expect(nock.pendingMocks()).to.contain(
@@ -564,23 +476,10 @@ describe('KubelessDeploy', () => {
     });
     it('should skip a deployment if an error 409 is returned', () => {
       nock(config.clusters[0].cluster.server)
-        .get('/apis/kubeless.io/v1beta1/namespaces/default/functions/')
-        .reply(200, []);
-      nock(config.clusters[0].cluster.server)
-        .persist()
-        .get('/api/v1/namespaces/kubeless/configmaps/kubeless-config')
-        .reply(200, JSON.stringify({
-          data: {
-            'runtime-images': JSON.stringify([
-              { ID: 'python', depName: 'requirements.txt' },
-              { ID: 'nodejs', depName: 'package.json' },
-              { ID: 'ruby', depName: 'Gemfile' },
-            ]),
-          },
-        }));
-      nock(config.clusters[0].cluster.server)
         .post('/apis/kubeless.io/v1beta1/namespaces/default/functions/')
         .reply(409, '{"code": 409, "message": "Resource already exists"}');
+      const funcSpec = defaultFuncSpec();
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, funcSpec);
       let result = null;
       kubelessDeploy.options.force = false;
       result = expect( // eslint-disable-line no-unused-expressions
@@ -605,14 +504,34 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomNamespace
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'PubSub',
-        topic: 'topic',
-      });
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/kafkatriggers/${functionName}-topic`)
+        .reply(404, JSON.stringify({ code: 404 }));
+      nock(config.clusters[0].cluster.server)
+        .post('/apis/kubeless.io/v1beta1/namespaces/default/kafkatriggers/', {
+          apiVersion: 'kubeless.io/v1beta1',
+          kind: 'KafkaTrigger',
+          metadata: {
+            name: `${functionName}-topic`,
+            namespace: 'default',
+            labels: {
+              'created-by': 'kubeless',
+            },
+          },
+          spec: {
+            functionSelector: {
+              matchLabels: {
+                'created-by': 'kubeless',
+                function: functionName,
+              },
+            },
+            topic: 'topic',
+          },
+        })
+        .reply(200, { message: 'OK' });
+
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -628,14 +547,28 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithScheduler
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'Scheduled',
-        schedule: '* * * * *',
-      });
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/cronjobtriggers/${functionName}`)
+        .reply(404, JSON.stringify({ code: 404 }));
+      nock(config.clusters[0].cluster.server)
+        .post('/apis/kubeless.io/v1beta1/namespaces/default/cronjobtriggers/', {
+          apiVersion: 'kubeless.io/v1beta1',
+          kind: 'CronJobTrigger',
+          metadata: {
+            name: functionName,
+            namespace: 'default',
+            labels: {
+              'created-by': 'kubeless',
+            },
+          },
+          spec: {
+            'function-name': functionName,
+            schedule: '* * * * *',
+          },
+        })
+        .reply(200, { message: 'OK' });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -650,13 +583,8 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomNamespace
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      }, { description: desc });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec(), { description: desc });
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -671,13 +599,8 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomNamespace
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      }, { labels });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec(), { labels });
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -692,12 +615,7 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithEnvVars
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deployment: {
           spec: {
             template: {
@@ -710,7 +628,7 @@ describe('KubelessDeploy', () => {
             },
           },
         },
-      });
+      }));
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -728,12 +646,7 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithEnvVars
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deployment: {
           spec: {
             template: {
@@ -752,7 +665,7 @@ describe('KubelessDeploy', () => {
             },
           },
         },
-      });
+      }));
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -766,12 +679,7 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithEnvVars
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deployment: {
           spec: {
             template: {
@@ -787,7 +695,7 @@ describe('KubelessDeploy', () => {
             },
           },
         },
-      });
+      }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -800,12 +708,7 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithEnvVars
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deployment: {
           spec: {
             template: {
@@ -821,7 +724,7 @@ describe('KubelessDeploy', () => {
             },
           },
         },
-      });
+      }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -836,13 +739,8 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       mocks.createIngressNocks(
         config.clusters[0].cluster.server,
         functionName,
@@ -864,13 +762,8 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       mocks.createIngressNocks(
         config.clusters[0].cluster.server,
         functionName,
@@ -892,13 +785,8 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       mocks.createIngressNocks(
         config.clusters[0].cluster.server,
         functionName,
@@ -919,13 +807,8 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       mocks.createIngressNocks(
         config.clusters[0].cluster.server,
         functionName,
@@ -941,25 +824,21 @@ describe('KubelessDeploy', () => {
       serverlessWithCustomPath.service.functions[functionName].events = [{
         http: { path: '/test' },
       }];
-      serverlessWithCustomPath.service.functions[functionName].namespace = 'custom';
+      serverlessWithCustomPath.service.functions[functionName].namespace = 'myns';
       kubelessDeploy = instantiateKubelessDeploy(
         pkgFile,
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      }, { namespace: 'custom' });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server,
+        functionName, defaultFuncSpec(), { namespace: 'myns' });
       mocks.createIngressNocks(
         config.clusters[0].cluster.server,
         functionName,
         '1.2.3.4.nip.io',
         '/test',
-        { namespace: 'custom' }
+        { namespace: 'myns' }
       );
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
@@ -975,13 +854,8 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       mocks.createIngressNocks(
         config.clusters[0].cluster.server,
         functionName,
@@ -1003,13 +877,8 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       mocks.createIngressNocks(
         config.clusters[0].cluster.server,
         functionName,
@@ -1022,8 +891,8 @@ describe('KubelessDeploy', () => {
     });
     it('should fail if a deployment returns an error code', () => {
       nock(config.clusters[0].cluster.server)
-        .get('/apis/kubeless.io/v1beta1/namespaces/default/functions/')
-        .reply(200, []);
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/functions/${functionName}`)
+        .reply(404, JSON.stringify({ code: 404 }));
       nock(config.clusters[0].cluster.server)
         .persist()
         .get('/api/v1/namespaces/kubeless/configmaps/kubeless-config')
@@ -1041,18 +910,13 @@ describe('KubelessDeploy', () => {
         .reply(500, JSON.stringify({ code: 500, message: 'Internal server error' }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
-      ).to.be.eventually.rejectedWith(
-        'Found errors while deploying the given functions:\n' +
-        'Error: Unable to deploy the function myFunction. Received:\n' +
-        '  Code: 500\n' +
-        '  Message: Internal server error'
-      );
+      ).to.be.eventually.rejectedWith('Code: 500\n  Message: Internal server error');
     });
     it('should deploy the possible functions even if one of them fails', () => {
       const serverlessWithFunctions = _.defaultsDeep({}, serverless, {
         service: {
           functions: {
-            myFunction1: {
+            myFunction: {
               handler: 'function.hello',
               package: {},
             },
@@ -1069,15 +933,7 @@ describe('KubelessDeploy', () => {
       });
       const functionsDeployed = [];
       kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, serverlessWithFunctions);
-      const funcSpec = {
-        deps: '',
-        function: functionText,
-        'function-content-type': 'base64+zip',
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-        timeout: '180',
-      };
+      const funcSpec = defaultFuncSpec();
       const postReply = (uri, req) => {
         functionsDeployed.push(req.metadata.name);
         return JSON.stringify(req);
@@ -1100,8 +956,8 @@ describe('KubelessDeploy', () => {
             },
             {
               metadata: {
-                name: 'myFunction1',
-                labels: { function: 'myFunction1' },
+                name: functionName,
+                labels: { function: functionName },
                 creationTimestamp: moment().add('60', 's'),
               },
               spec: funcSpec,
@@ -1112,36 +968,54 @@ describe('KubelessDeploy', () => {
         }));
 
       // Call for myFunction1
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, 'myFunction1', funcSpec, {
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, funcSpec, {
         postReply,
       });
       // Call for myFunction2
+      const func2Spec = defaultFuncSpec();
+      func2Spec.service.selector = { function: 'myFunction2' };
+      nock(config.clusters[0].cluster.server)
+        .get('/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction2')
+        .reply(404, JSON.stringify({ code: 404 }));
       nock(config.clusters[0].cluster.server)
         .post('/apis/kubeless.io/v1beta1/namespaces/default/functions/', {
           apiVersion: 'kubeless.io/v1beta1',
           kind: 'Function',
-          metadata: { name: 'myFunction2', namespace: 'default' },
-          spec: funcSpec,
+          metadata: {
+            name: 'myFunction2',
+            namespace: 'default',
+            labels: { 'created-by': 'kubeless', function: 'myFunction2' },
+          },
+          spec: func2Spec,
         })
         .replyWithError({ message: 'Internal server error', code: 500 });
       // Call for myFunction3
+      const func3Spec = defaultFuncSpec();
+      func3Spec.service.selector = { function: 'myFunction3' };
+      nock(config.clusters[0].cluster.server)
+        .get('/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction3')
+        .reply(404, JSON.stringify({ code: 404 }));
       nock(config.clusters[0].cluster.server)
         .post('/apis/kubeless.io/v1beta1/namespaces/default/functions/', {
           apiVersion: 'kubeless.io/v1beta1',
           kind: 'Function',
-          metadata: { name: 'myFunction3', namespace: 'default' },
-          spec: funcSpec,
+          metadata: {
+            name: 'myFunction3',
+            namespace: 'default',
+            labels: { 'created-by': 'kubeless', function: 'myFunction3' },
+          },
+          spec: func3Spec,
         })
         .reply(200, postReply);
       return kubelessDeploy.deployFunction().catch(e => {
         expect(e.message).to.be.eql(
-          'Found errors while deploying the given functions:\n' +
+          'Found errors while processing the given functions:\n' +
           'Error: Unable to deploy the function myFunction2. Received:\n' +
           '  Code: 500\n' +
           '  Message: Internal server error'
         );
       }).then(() => {
-        expect(functionsDeployed).to.be.eql(['myFunction1', 'myFunction3']);
+        expect(functionsDeployed).to.be.eql([functionName, 'myFunction3']);
       });
     });
     it('should deploy a function using the given package', () => {
@@ -1150,14 +1024,12 @@ describe('KubelessDeploy', () => {
       });
       const content = 'different function content';
       const contentBase64 = new Buffer(content).toString('base64');
+      const newChecksum = 'sha256:ec8a289c00b7789bc86115947f453bac88a40796b35e79ed5d5ef437b6579605';
       fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), content);
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         function: contentBase64,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      });
+        checksum: newChecksum,
+      }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -1165,14 +1037,9 @@ describe('KubelessDeploy', () => {
     it('should deploy a function with requirements', () => {
       fs.writeFileSync(depsFile, 'request');
       kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, serverlessWithFunction);
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deps: 'request',
-        function: functionText,
-        'function-content-type': 'base64+zip',
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      });
+      }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction().then(() => {
           fs.unlinkSync(path.join(cwd, 'requirements.txt'), 'request');
@@ -1185,6 +1052,7 @@ describe('KubelessDeploy', () => {
       });
       const content = 'different function content';
       const contentBase64 = new Buffer(content).toString('base64');
+      const newChecksum = 'sha256:ec8a289c00b7789bc86115947f453bac88a40796b35e79ed5d5ef437b6579605';
       fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), content);
       sinon.stub(kubelessDeploy, 'loadZip').returns({
         then: (f) => f({
@@ -1195,53 +1063,31 @@ describe('KubelessDeploy', () => {
           }),
         }),
       });
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deps: 'request',
         function: contentBase64,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      });
+        checksum: newChecksum,
+      }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
     it('should redeploy a function', () => {
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        'function-content-type': 'base64+zip',
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      }, {
-        existingFunctions: [{
-          metadata: {
-            name: functionName,
-            labels: { function: functionName },
-          },
-          spec: {
-            deps: '',
-            function: 'function code',
-            handler: serverlessWithFunction.service.functions[functionName].handler,
-            runtime: serverlessWithFunction.service.provider.runtime,
-            type: 'HTTP',
-          },
-        }],
-      });
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec(), {
+          functionExists: true,
+        }
+      );
       nock(config.clusters[0].cluster.server)
         .patch(`/apis/kubeless.io/v1beta1/namespaces/default/functions/${functionName}`, {
           apiVersion: 'kubeless.io/v1beta1',
           kind: 'Function',
-          metadata: { name: 'myFunction', namespace: 'default' },
-          spec: {
-            deps: '',
-            function: functionText,
-            'function-content-type': 'base64+zip',
-            handler: 'function.hello',
-            runtime: 'python2.7',
-            type: 'HTTP',
+          metadata: {
+            name: 'myFunction',
+            namespace: 'default',
+            labels: { 'created-by': 'kubeless', function: functionName },
           },
+          spec: defaultFuncSpec(),
         })
         .reply(200, '{"message": "OK"}');
       kubelessDeploy.options.force = true;
@@ -1261,48 +1107,28 @@ describe('KubelessDeploy', () => {
       return result;
     });
     it('should fail if a redeployment returns an error code', () => {
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deps: 'request',
-        function: functionText,
-        'function-content-type': 'base64+zip',
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
-      }, {
-        existingFunctions: [{
-          metadata: {
-            name: functionName,
-            labels: { function: functionName },
-          },
-          spec: {
-            deps: 'request',
-            function: 'function code',
-            handler: serverlessWithFunction.service.functions[functionName].handler,
-            runtime: serverlessWithFunction.service.provider.runtime,
-            type: 'HTTP',
-          },
-        }],
+      }), {
+        functionExists: true,
       });
       nock(config.clusters[0].cluster.server)
         .patch(`/apis/kubeless.io/v1beta1/namespaces/default/functions/${functionName}`, {
           apiVersion: 'kubeless.io/v1beta1',
           kind: 'Function',
-          metadata: { name: 'myFunction', namespace: 'default' },
-          spec: {
-            deps: '',
-            function: functionText,
-            'function-content-type': 'base64+zip',
-            handler: 'function.hello',
-            runtime: 'python2.7',
-            type: 'HTTP',
+          metadata: {
+            name: 'myFunction',
+            namespace: 'default',
+            labels: { 'created-by': 'kubeless', function: functionName },
           },
+          spec: defaultFuncSpec(),
         })
         .reply(500, '{"code": 500, "message": "Internal server error"}');
       kubelessDeploy.options.force = true;
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.eventually.rejectedWith(
-        'Found errors while deploying the given functions:\n' +
+        'Found errors while processing the given functions:\n' +
         'Error: Unable to update the function myFunction. Received:\n' +
         '  Code: 500\n' +
         '  Message: Internal server error'
@@ -1316,14 +1142,9 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomProperties
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         timeout: '10',
-      });
+      }));
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -1337,14 +1158,9 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomProperties
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         timeout: '10',
-      });
+      }));
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -1358,12 +1174,7 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomProperties
       );
-      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, {
-        deps: '',
-        function: functionText,
-        handler: serverlessWithFunction.service.functions[functionName].handler,
-        runtime: serverlessWithFunction.service.provider.runtime,
-        type: 'HTTP',
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         service: {
           ports: [{
             name: 'http-function-port',
@@ -1376,7 +1187,7 @@ describe('KubelessDeploy', () => {
           },
           type: 'ClusterIP',
         },
-      });
+      }));
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;

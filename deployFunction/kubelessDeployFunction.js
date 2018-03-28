@@ -26,6 +26,10 @@ class KubelessDeployFunction extends KubelessDeploy {
     if (this.options.v) this.options.verbose = true;
     this.options.force = true;
     this.hooks = {
+      'deploy:function:initialize': () => BbPromise.bind(this)
+        .then(this.excludes),
+      'deploy:function:packageFunction': () => this.serverless.pluginManager
+        .spawn('package:function'),
       'deploy:function:deploy': () => BbPromise.bind(this)
       .then(this.validate)
       .then(this.deployFunction),

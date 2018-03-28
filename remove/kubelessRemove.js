@@ -49,7 +49,7 @@ class KubelessRemove {
       this.serverless.service.functions,
       (f, id) => _.assign({ id }, f)
     );
-    return remove(parsedFunctions, {
+    return remove(parsedFunctions, this.serverless.service.service, {
       namespace: this.serverless.service.provider.namespace,
       verbose: this.options.verbose,
       log: this.serverless.cli.log.bind(this.serverless.cli),

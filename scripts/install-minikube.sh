@@ -65,5 +65,7 @@ until kubectl --context=minikube get pods >& /dev/null; do
     ((cnt=cnt-1)) || exit 1
     sleep 1
 done
+
+kubectl create clusterrolebinding cluster-admin:kube-system --clusterrole=cluster-admin --serviceaccount=kube-system:default
 exit 0
 # vim: sw=4 ts=4 et si
