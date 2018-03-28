@@ -24,22 +24,23 @@ install_kubecfg() {
 
 install_kubeless() {
     kubectl create ns kubeless
-    kubectl create -f https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless-v$KUBELESS_VERSION.yaml
-    curl -sLO https://raw.githubusercontent.com/kubeless/kubeless/v$KUBELESS_VERSION/kafka-zookeeper.jsonnet
-    mv kafka-zookeeper.jsonnet ./test
-    kubecfg -V controller_image=bitnami/kafka-trigger-controller:v$KUBELESS_VERSION update ./test/kafka-novols.jsonnet
-    curl -sL https://raw.githubusercontent.com/kubeless/kubeless/master/manifests/ingress/ingress-controller-http-only.yaml | kubectl create -f -
-    curl -LO https://github.com/kubeless/kubeless/releases/download/v$KUBELESS_VERSION/kubeless_linux-amd64.zip
+    kubectl create -f https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless-rbac-$KUBELESS_VERSION.yaml
+    kubectl create -f https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kafka-zookeeper-$KUBELESS_VERSION.yaml
+    curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
     unzip kubeless_linux-amd64.zip
     sudo mv ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/kubeless
     # Wait for Kafka pod to be running
-    until kubectl get all --all-namespaces | sed -n 's/po\/kafka//p' | grep Running; do kubectl -n kubeless describe pod kafka-0; sleep 10; done
+    until kubectl get all --all-namespaces | sed -n 's/po\/kafka-0//p' | grep Running; do kubectl -n kubeless describe pod kafka-0; sleep 10; done
 }
 
 # Install dependencies
+echo "Installing kubectl"
 install_kubectl
+echo "Installing Minikube"
 install_minikube
+echo "Installing kubecfg"
 install_kubecfg
+echo "Installing Kubeless"
 install_kubeless
 kubectl get all --all-namespaces
 
