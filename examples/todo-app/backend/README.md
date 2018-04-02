@@ -3,9 +3,9 @@
 Do the following to deploy and use the backend:
 
 1. Install kubeless following the instruction from the main [README.md](../../../README.md)
-2. Install an Ingress Controller in case you still don't have one:
+2. Install an Ingress Controller. If you don't have it yet and you are working with minikube you can enable the addon executing:
 ```
-$ curl -sL https://raw.githubusercontent.com/kubeless/kubeless/master/manifests/ingress/ingress-controller-http-only.yaml | kubectl create -f - 
+minikube addons enable ingress
 ```
 3. Deploy a MongoDB service. It will be used to store the state of our application:
 ```console

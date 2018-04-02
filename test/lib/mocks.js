@@ -168,7 +168,7 @@ function createIngressNocks(endpoint, func, hostname, p, options) {
       metadata: {
         annotations: {
           'kubernetes.io/ingress.class': 'nginx',
-          'ingress.kubernetes.io/rewrite-target': '/',
+          'nginx.ingress.kubernetes.io/rewrite-target': '/',
         },
       },
       spec: {

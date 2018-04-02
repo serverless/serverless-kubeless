@@ -98,7 +98,6 @@ describe('Examples', () => {
   const examples = {
     'event-trigger-python': { cwd: null, path: 'event-trigger-python' },
     'get-python': { cwd: null, path: 'get-python' },
-    'get-ruby': { cwd: null, path: 'get-ruby' },
     'http-custom-path': { cwd: null, path: 'http-custom-path' },
     'multi-python': { cwd: null, path: 'multi-python' },
     'node-chaining-functions': { cwd: null, path: 'node-chaining-functions' },
@@ -160,38 +159,6 @@ describe('Examples', () => {
       exec('serverless invoke -f hello -l', { cwd: examples['get-python'].cwd }, (err, stdout) => {
         if (err) throw err;
         expect(stdout).to.contain('hello world');
-        done();
-      });
-    });
-  });
-  describe('get-ruby', function () {
-    const exampleName = 'get-ruby';
-    before(function (done) {
-      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
-      this.timeout(300000);
-      prepareExample(cwd, exampleName, (e) => {
-        if (e) {
-          throw e;
-        }
-        deployExample(examples[exampleName].cwd, (ee) => {
-          if (ee) {
-            throw ee;
-          }
-          done();
-        });
-      });
-    });
-    after(function (done) {
-      this.timeout(10000);
-      removeExample(examples[exampleName].cwd, () => {
-        done();
-      });
-    });
-    this.timeout(10000);
-    it('should return the latest kubeless version', (done) => {
-      exec('serverless invoke -f version -l', { cwd: examples['get-ruby'].cwd }, (err, stdout) => {
-        if (err) throw err;
-        expect(stdout).to.match(/[0-9]+\.[0-9]+\.[0-9]+/);
         done();
       });
     });
@@ -653,8 +620,7 @@ describe('Examples', () => {
       });
     });
     this.timeout(30000);
-    // TODO: Fix kafka deployment to reenable this test
-    xit('should get a submmited message "hello world"', (done) => {
+    it('should get a submmited message "hello world"', (done) => {
       exec(
         'kubeless topic publish --topic hello_topic --data "hello world"',
         (err, stdout) => {
