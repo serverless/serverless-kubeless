@@ -1,0 +1,12 @@
+service: go-echo
+
+provider:
+  name: kubeless
+  runtime: go1.10
+
+plugins:
+  - serverless-kubeless
+
+functions:
+  go-echo:
+    handler: handler.Handler
