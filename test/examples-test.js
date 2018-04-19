@@ -104,6 +104,7 @@ describe('Examples', () => {
     'post-nodejs': { cwd: null, path: 'post-nodejs' },
     'post-python': { cwd: null, path: 'post-python' },
     'post-php': { cwd: null, path: 'post-php' },
+    'post-go': { cwd: null, path: 'post-go' },
     'post-ruby': { cwd: null, path: 'post-ruby' },
     'scheduled-node': { cwd: null, path: 'scheduled-node' },
     'todo-app': { cwd: null, path: 'todo-app/backend' },
@@ -380,6 +381,39 @@ describe('Examples', () => {
     it('should return a "hello"', (done) => {
       exec('serverless invoke -f php-echo -l --data \'hello!\'',
         { cwd: examples['post-php'].cwd }, (err, stdout) => {
+          if (err) throw err;
+          expect(stdout).to.contain('hello!');
+          done();
+        });
+    });
+  });
+  describe('post-go', function () {
+    const exampleName = 'post-go';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(100000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
+    this.timeout(10000);
+    it('should return a "hello"', (done) => {
+      exec('serverless invoke -f go-echo -l --data \'hello!\'',
+        { cwd: examples['post-go'].cwd }, (err, stdout) => {
           if (err) throw err;
           expect(stdout).to.contain('hello!');
           done();
