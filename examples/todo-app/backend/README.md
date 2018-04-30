@@ -30,31 +30,31 @@ Serverless: Function read-one successfully deployed
 
 # Running the Backend in GKE
 
-In case your cluster is running on GCE you need to perform an additional step. If you check the Ingress rules that has been created:
+In case your cluster is running on GCE you need to perform some additional steps. First you need to follow the [guide for deploying an Ingress Controller](https://github.com/kubernetes/ingress-nginx/blob/master/docs/deploy/index.md). Make sure you execute the "Mandatory commands", the ones for "Install without RBAC roles" and also "GCE - GKE" (using RBAC). If you successfully follow the guide you should be able to see the Ingress Controller running in the `ingress-nginx` namespace:
+
+```
+$ kubectl get pods -n ingress-nginx
+NAME                                        READY     STATUS    RESTARTS   AGE
+default-http-backend-66b447d9cf-zs2zn       1/1       Running   0          13m
+nginx-ingress-controller-6fb4c56b69-cpd5b   1/1       Running   3          12m
+```
+
+After a couple of minutes you will see that the Ingress rule has an `address` associated:
+
 ```
 $ kubectl get ingress
-NAME                    HOSTS                  ADDRESS         PORTS     AGE
-ingress-1505835652059   35.185.47.240.nip.io   35.196.212.24   80        18s
+NAME      HOSTS                   ADDRESS          PORTS     AGE
+todos     35.196.179.155.xip.io   35.229.122.182   80        7m
 ```
 
-There are two different possibilities, using `35.185.47.240.nip.io` or `35.196.212.24`. We will use the IP address (`35.196.212.24`) since it is accessible through HTTP. The hostname points to the Kubernetes API and it is only accessible through HTTPS and using the cluster certificate so it is not suitable for our application.
+Note that the `HOST` is not correct since the IP that the Ingress provided us is different. To modify it execute `kubectl edit ingress todos`. That will open an editor in which you can change the key `host: 35.196.179.155.xip.io` for `host: 35.229.122.182.xip.io` or simply remove the key and the value to make it compatible with any host. Once you do that you should be able to access the functions:
 
-In any case we need to go to the [google console](https://console.cloud.google.com/) to enable HTTP traffic for the IP that we want to use.
-
-On the left menu go to: `NETWORKING` -> `VPC Network` -> `Firewall rules` and select the Firewall rule that applies to all the Targets:
-
-<img src="./img/gce_firewall_rules.png" width="700">
-
-Then click on EDIT and modify the `Source IP ranges` to make it accessible from outside of the cluster and click on `Save`:
-
-<img src="./img/gce_firewall_rule_edit.png" width="700">
-
- | Note: This will make the cluster accessible from anywhere to any port. You can create a more specific rule to only allow TCP traffic to the port 80
-
-You should now be able to access the functions:
-```console
-$ curl 35.196.212.24/read-all
+```
+$ kubectl get ingress
+NAME      HOSTS                   ADDRESS          PORTS     AGE
+todos     35.229.122.182.xip.io   35.229.122.182   80        7m
+$ curl  35.229.122.182.xip.io/read-all
 []
 ```
 
-This IP is the one that should be used as `API_URL` in the frontend.
+This host is the one that should be used as `API_URL` in the frontend.
