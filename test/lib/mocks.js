@@ -118,7 +118,7 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
     };
   }
   if (opts.labels) {
-    postBody.spec.service.selector = _.assign(postBody.spec.service.selector, opts.labels);
+    postBody.spec.service.selector = _.assign(postBody.spec.service.selector);
   }
   nock(endpoint)
     .persist()

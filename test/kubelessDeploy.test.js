@@ -592,7 +592,22 @@ describe('KubelessDeploy', () => {
     });
     it('should deploy a function with labels', () => {
       const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
-      const labels = { label1: 'Test Label' };
+      const labels = {
+        label1: 'Test Label',
+        label2: false,
+        label3: null,
+        label4: undefined,
+        label5: 1,
+        label6: { a: 1 },
+      };
+      const sLabels = {
+        label1: 'Test Label',
+        label2: 'false',
+        label3: 'null',
+        label4: 'undefined',
+        label5: '1',
+        label6: '{"a":1}',
+      };
       serverlessWithCustomNamespace.service.functions[functionName].labels = labels;
       kubelessDeploy = instantiateKubelessDeploy(
         pkgFile,
@@ -600,7 +615,7 @@ describe('KubelessDeploy', () => {
         serverlessWithCustomNamespace
       );
       mocks.createDeploymentNocks(
-        config.clusters[0].cluster.server, functionName, defaultFuncSpec(), { labels });
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec(), { labels: sLabels });
       const result = expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
