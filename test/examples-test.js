@@ -532,7 +532,7 @@ describe('Examples', () => {
                         if (stdout.match(/mongodb-.*Running/)) {
                           exec('kubectl logs -l io.kompose.service=mongodb', (lerr, logs) => {
                             if (lerr) throw lerr;
-                            if (logs.match(/waiting for connections on port 27017/)) {
+                            if (logs.match(/Starting mongod/)) {
                               clearInterval(wait);
                               exec(
                                 'serverless info',
