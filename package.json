@@ -1,6 +1,6 @@
 {
   "name": "serverless-kubeless",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "This plugin enables support for Kubeless within the [Serverless Framework](https://github.com/serverless).",
   "main": "index.js",
   "directories": {
@@ -43,6 +43,6 @@
     "mocha": "^3.4.2",
     "nock": "^9.2.3",
     "request": "^2.85.0",
-    "sinon": "^3.3.0"
+    "sinon": "^4.0.0"
   }
 }
