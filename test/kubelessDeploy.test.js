@@ -50,7 +50,6 @@ function instantiateKubelessDeploy(zipFile, depsFile, serverlessWithFunction, op
       return f(null);
     } }) })
   );
-  sinon.stub(kubelessDeploy, 'waitForDeployment');
   return kubelessDeploy;
 }
 
