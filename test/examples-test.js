@@ -496,7 +496,7 @@ describe('Examples', () => {
       );
     });
   });
-  describe('todo-app', function () {
+  xdescribe('todo-app', function () {
     this.timeout(10000);
     let info = '';
     let id = null;
