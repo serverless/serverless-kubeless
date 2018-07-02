@@ -153,7 +153,7 @@ describe('KubelessInvoke', () => {
             request.get.firstCall.args[0]
           ).to.contain.keys(['ca', 'auth', 'url']);
         expect(request.get.firstCall.args[0].url).to.be.eql(
-            `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function:8080/`
+          `${kubeApiURL}/api/v1/namespaces/default/services/my-function:8080/proxy/`
           );
       });
     });
@@ -178,7 +178,7 @@ describe('KubelessInvoke', () => {
         request.post.firstCall.args[0]
       ).to.contain.keys(['url', 'body']);
         expect(request.post.firstCall.args[0].url).to.be.eql(
-        `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function:8080/`
+          `${kubeApiURL}/api/v1/namespaces/default/services/my-function:8080/proxy/`
       );
         expect(request.post.firstCall.args[0].body).to.be.eql('hello');
       });
@@ -204,7 +204,7 @@ describe('KubelessInvoke', () => {
         request.post.firstCall.args[0]
       ).to.contain.keys(['url', 'json', 'body']);
         expect(request.post.firstCall.args[0].url).to.be.eql(
-        `${kubeApiURL}/api/v1/proxy/namespaces/default/services/my-function:8080/`
+          `${kubeApiURL}/api/v1/namespaces/default/services/my-function:8080/proxy/`
       );
         expect(request.post.firstCall.args[0].json).to.be.eql(true);
         expect(request.post.firstCall.args[0].body).to.be.eql('{"test": 1}');
@@ -241,7 +241,7 @@ describe('KubelessInvoke', () => {
           statusMessage: 'OK',
         });
         expect(request.get.firstCall.args[0].url).to.be.eql(
-        `${kubeApiURL}/api/v1/proxy/namespaces/test/services/my-function:8080/`
+          `${kubeApiURL}/api/v1/namespaces/test/services/my-function:8080/proxy/`
       );
       });
     });
@@ -264,7 +264,7 @@ describe('KubelessInvoke', () => {
           statusMessage: 'OK',
         });
         expect(request.get.firstCall.args[0].url).to.be.eql(
-        `${kubeApiURL}/api/v1/proxy/namespaces/test/services/my-function:8080/`
+          `${kubeApiURL}/api/v1/namespaces/test/services/my-function:8080/proxy/`
       );
       });
     });
@@ -312,15 +312,15 @@ describe('KubelessInvoke', () => {
         });
         expect(request.post.callCount).to.be.eql(3);
         expect(request.post.firstCall.args[0].url).to.be.eql(
-          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func1:8080/`
+          `${kubeApiURL}/api/v1/namespaces/default/services/func1:8080/proxy/`
         );
         expect(request.post.firstCall.args[0].body).to.be.eql('hello');
         expect(request.post.secondCall.args[0].url).to.be.eql(
-          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func2:8080/`
+          `${kubeApiURL}/api/v1/namespaces/default/services/func2:8080/proxy/`
         );
         expect(request.post.secondCall.args[0].body).to.be.eql('a');
         expect(request.post.thirdCall.args[0].url).to.be.eql(
-          `${kubeApiURL}/api/v1/proxy/namespaces/default/services/func3:8080/`
+          `${kubeApiURL}/api/v1/namespaces/default/services/func3:8080/proxy/`
         );
         expect(request.post.thirdCall.args[0].body).to.be.eql('b');
       });
