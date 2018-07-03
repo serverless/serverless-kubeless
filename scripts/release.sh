@@ -7,7 +7,7 @@ function get_version {
 
 function check_tag {
   local tag=$1
-  published_tags=`curl -s https://api.github.com/repos/$REPO_DOMAIN/$REPO_NAME/tags`
+  published_tags=`curl -H "Authorization: token $ACCESS_TOKEN" -s https://api.github.com/repos/$REPO_DOMAIN/$REPO_NAME/tags`
   already_published=`echo $published_tags | jq ".[] | select(.name == \"$tag\")"`
   echo $already_published
 }
@@ -15,7 +15,7 @@ function check_tag {
 function release_tag {
   local tag=$1
   git fetch --tags
-  local last_tag=`curl -s https://api.github.com/repos/$REPO_DOMAIN/$REPO_NAME/tags | jq --raw-output '.[0].name'`
+  local last_tag=`curl -H "Authorization: token $ACCESS_TOKEN" -s https://api.github.com/repos/$REPO_DOMAIN/$REPO_NAME/tags | jq --raw-output '.[0].name'`
   local release_notes=`git log $last_tag..HEAD --oneline`
   local parsed_release_notes=$(echo "$release_notes" | sed -n -e 'H;${x;s/\n/\\n   - /g;s/^\\n//;p;}')
   parsed_release_notes=`echo "$parsed_release_notes" | sed -e '${s/  \( - [^ ]* Merge pull request\)/\1/g;}'`
@@ -42,7 +42,7 @@ if [[ -z "$ACCESS_TOKEN" ]]; then
   exit 1
 fi
 
-repo_check=`curl -s https://api.github.com/repos/$REPO_DOMAIN/$REPO_NAME`
+repo_check=`curl -H "Authorization: token $ACCESS_TOKEN" -s https://api.github.com/repos/$REPO_DOMAIN/$REPO_NAME`
 if [[ $repo_check == *"Not Found"* ]]; then
   echo "Not found a Github repository for $REPO_DOMAIN/$REPO_NAME, it is not possible to publish it" > /dev/stderr
   exit 1
@@ -52,7 +52,7 @@ else
   if [[ -z $already_published ]]; then
     echo "Releasing $tag in Github"
     release_id=`release_tag $tag`
-    if [ "$release_id" == "null" ]; then
+    if [ "$release_id" == "null" ]; then 
       echo "There was an error trying to release $tag" > /dev/stderr
       exit 1
     else
