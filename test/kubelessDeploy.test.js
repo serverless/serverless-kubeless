@@ -961,6 +961,7 @@ describe('KubelessDeploy', () => {
               metadata: {
                 name: 'myFunction3',
                 labels: { function: 'myFunction3' },
+                annotations: {},
                 creationTimestamp: moment().add('60', 's'),
               },
               spec: funcSpec,
@@ -972,6 +973,7 @@ describe('KubelessDeploy', () => {
               metadata: {
                 name: functionName,
                 labels: { function: functionName },
+                annotations: {},
                 creationTimestamp: moment().add('60', 's'),
               },
               spec: funcSpec,
@@ -999,6 +1001,7 @@ describe('KubelessDeploy', () => {
             name: 'myFunction2',
             namespace: 'default',
             labels: { 'created-by': 'kubeless', function: 'myFunction2' },
+            annotations: {},
           },
           spec: func2Spec,
         })
@@ -1017,6 +1020,7 @@ describe('KubelessDeploy', () => {
             name: 'myFunction3',
             namespace: 'default',
             labels: { 'created-by': 'kubeless', function: 'myFunction3' },
+            annotations: {},
           },
           spec: func3Spec,
         })
@@ -1100,6 +1104,7 @@ describe('KubelessDeploy', () => {
             name: 'myFunction',
             namespace: 'default',
             labels: { 'created-by': 'kubeless', function: functionName },
+            annotations: {},
           },
           spec: defaultFuncSpec(),
         })
@@ -1134,6 +1139,7 @@ describe('KubelessDeploy', () => {
             name: 'myFunction',
             namespace: 'default',
             labels: { 'created-by': 'kubeless', function: functionName },
+            annotations: {},
           },
           spec: defaultFuncSpec(),
         })

@@ -136,6 +136,7 @@ describe('KubelessDeployFunction', () => {
             name: functionName,
             namespace: 'default',
             labels: { 'created-by': 'kubeless', function: functionName },
+            annotations: {},
           },
           spec: defaultFuncSpec(),
         })

@@ -109,13 +109,12 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
         'created-by': 'kubeless',
         function: func,
       }, opts.labels),
+      annotations: {},
     },
     spec: funcSpec,
   };
   if (opts.description) {
-    postBody.metadata.annotations = {
-      'kubeless.serverless.com/description': opts.description,
-    };
+    postBody.metadata.annotations['kubeless.serverless.com/description'] = opts.description;
   }
   if (opts.labels) {
     postBody.spec.service.selector = _.assign(postBody.spec.service.selector);
@@ -148,6 +147,7 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
         metadata: {
           name: func,
           labels: { function: func },
+          annotations: {},
           creationTimestamp: moment().add('60', 's'),
         },
         spec: funcSpec,
