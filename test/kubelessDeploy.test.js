@@ -743,6 +743,124 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
+    it('should deploy a function with a cpu limit', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+      serverlessWithEnvVars.service.functions[functionName].cpu = '500m';
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  resources: {
+                    limits: { cpu: '500m' },
+                    requests: { cpu: '500m' },
+                  },
+                }],
+              },
+            },
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+    it('should deploy a function with a cpu limit (in the provider definition)', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+      serverlessWithEnvVars.service.provider.cpu = '500m';
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  resources: {
+                    limits: { cpu: '500m' },
+                    requests: { cpu: '500m' },
+                  },
+                }],
+              },
+            },
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+    it('should deploy a function with a memory and cpu limit', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+      serverlessWithEnvVars.service.functions[functionName].memorySize = '128Gi';
+      serverlessWithEnvVars.service.functions[functionName].cpu = '500m';
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  resources: {
+                    limits: { cpu: '500m', memory: '128Gi' },
+                    requests: { cpu: '500m', memory: '128Gi' },
+                  },
+                }],
+              },
+            },
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+    it('should deploy a function with a memory and cpu limit (in the provider definition)', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+      serverlessWithEnvVars.service.provider.cpu = '500m';
+      serverlessWithEnvVars.service.provider.memorySize = '128Gi';
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  resources: {
+                    limits: { cpu: '500m', memory: '128Gi' },
+                    requests: { cpu: '500m', memory: '128Gi' },
+                  },
+                }],
+              },
+            },
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
     it('should deploy a function in a specific path', () => {
       const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomPath.service.functions[functionName].events = [{
