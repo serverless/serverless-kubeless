@@ -149,6 +149,7 @@ class KubelessDeploy {
         hostname: this.serverless.service.provider.hostname,
         defaultDNSResolution: this.serverless.service.provider.defaultDNSResolution,
         ingress: this.serverless.service.provider.ingress,
+        cpu: this.serverless.service.provider.cpu,
         memorySize: this.serverless.service.provider.memorySize,
         force: this.options.force,
         verbose: this.options.verbose,
