@@ -542,7 +542,7 @@ describe('KubelessDeploy', () => {
         trigger: {
           queue: 'nats',
           topic: 'topic',
-        }
+        },
       }];
       kubelessDeploy = instantiateKubelessDeploy(
         pkgFile,
