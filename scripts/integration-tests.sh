@@ -8,6 +8,7 @@ install_kubectl() {
 }
 
 install_minikube() {
+    chmod +x `dirname $0`/install-minikube.sh
     `dirname $0`/install-minikube.sh
 }
 

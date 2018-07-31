@@ -16,3 +16,5 @@ spec:
 
 # Install the NATS controllers
 kubectl create -f https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/nats-$KUBELESS_VERSION.yaml
+
+exit 0
