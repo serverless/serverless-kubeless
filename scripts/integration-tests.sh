@@ -8,7 +8,6 @@ install_kubectl() {
 }
 
 install_minikube() {
-    chmod +x `dirname $0`/install-minikube.sh
     `dirname $0`/install-minikube.sh
 }
 
@@ -35,6 +34,7 @@ install_kubeless() {
 }
 
 install_nats() {
+    chmod +x `dirname $0`/install-nats.sh
     `dirname $0`/install-nats.sh
 }
 
