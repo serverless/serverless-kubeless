@@ -33,11 +33,6 @@ install_kubeless() {
     until kubectl get all --all-namespaces | sed -n 's/po\/kafka-0//p' | grep Running; do kubectl -n kubeless describe pod kafka-0; sleep 10; done
 }
 
-install_nats() {
-    chmod +x `dirname $0`/install-nats.sh
-    `dirname $0`/install-nats.sh
-}
-
 # Install dependencies
 echo "Installing kubectl"
 install_kubectl
@@ -47,8 +42,6 @@ echo "Installing kubecfg"
 install_kubecfg
 echo "Installing Kubeless"
 install_kubeless
-echo "Installing Nats"
-install_nats
 kubectl get all --all-namespaces
 
 # Run tests
