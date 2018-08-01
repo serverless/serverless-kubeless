@@ -493,7 +493,7 @@ describe('KubelessDeploy', () => {
         ).to.be.fulfilled;
       return result;
     });
-    it('should deploy a function triggered by a topic', () => {
+    it('should deploy a function triggered by a topic on kafka', () => {
       const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomNamespace.service.functions[functionName].events = [{
         trigger: 'topic',
@@ -510,6 +510,52 @@ describe('KubelessDeploy', () => {
         .post('/apis/kubeless.io/v1beta1/namespaces/default/kafkatriggers/', {
           apiVersion: 'kubeless.io/v1beta1',
           kind: 'KafkaTrigger',
+          metadata: {
+            name: `${functionName}-topic`,
+            namespace: 'default',
+            labels: {
+              'created-by': 'kubeless',
+            },
+          },
+          spec: {
+            functionSelector: {
+              matchLabels: {
+                'created-by': 'kubeless',
+                function: functionName,
+              },
+            },
+            topic: 'topic',
+          },
+        })
+        .reply(200, { message: 'OK' });
+
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      return result;
+    });
+    it('should deploy a function triggered by a topic on nats', () => {
+      const serverlessWithCustomNamespace = _.cloneDeep(serverlessWithFunction);
+      serverlessWithCustomNamespace.service.functions[functionName].events = [{
+        trigger: {
+          queue: 'nats',
+          topic: 'topic',
+        },
+      }];
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithCustomNamespace
+      );
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/natstriggers/${functionName}-topic`)
+        .reply(404, JSON.stringify({ code: 404 }));
+      nock(config.clusters[0].cluster.server)
+        .post('/apis/kubeless.io/v1beta1/namespaces/default/natstriggers/', {
+          apiVersion: 'kubeless.io/v1beta1',
+          kind: 'NATSTrigger',
           metadata: {
             name: `${functionName}-topic`,
             namespace: 'default',
