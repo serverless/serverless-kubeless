@@ -151,6 +151,7 @@ class KubelessDeploy {
         ingress: this.serverless.service.provider.ingress,
         cpu: this.serverless.service.provider.cpu,
         memorySize: this.serverless.service.provider.memorySize,
+        affinity: this.serverless.service.provider.affinity,
         force: this.options.force,
         verbose: this.options.verbose,
         log: this.serverless.cli.log.bind(this.serverless.cli),

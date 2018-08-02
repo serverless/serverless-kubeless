@@ -877,7 +877,91 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
-    it('should deploy a function with a memory and cpu limit (in the provider definition)', () => {
+    it('should deploy a function with an affinity defined', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+
+      const affinityDefintion = {
+        nodeAffinity: {
+          requiredDuringSchedulingIgnoredDuringExecution: {
+            nodeSelectorTerms: [{
+              matchExpressions: [{
+                key: 'kubernetes.io/e2e-az-name',
+                operator: 'In',
+                values: ['e2e-az1', 'e2e-az2'],
+              }],
+            }],
+          },
+        },
+      };
+
+      serverlessWithEnvVars.service.functions[functionName].affinity = affinityDefintion;
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                }],
+              },
+            },
+            affinity: affinityDefintion,
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+
+    it('should deploy a function with an affinity defined (in the provider definition)', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+
+      const affinityDefintion = {
+        nodeAffinity: {
+          requiredDuringSchedulingIgnoredDuringExecution: {
+            nodeSelectorTerms: [{
+              matchExpressions: [{
+                key: 'kubernetes.io/e2e-az-name',
+                operator: 'In',
+                values: ['e2e-az1', 'e2e-az2'],
+              }],
+            }],
+          },
+        },
+      };
+
+      serverlessWithEnvVars.service.provider.affinity = affinityDefintion;
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                }],
+              },
+            },
+            affinity: affinityDefintion,
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+
+    it('should deploy a function with an affinity defined (in the provider definition)', () => {
       const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
       serverlessWithEnvVars.service.provider.cpu = '500m';
       serverlessWithEnvVars.service.provider.memorySize = '128Gi';
