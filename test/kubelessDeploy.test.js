@@ -877,6 +877,36 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
+    it('should deploy a function with a memory and cpu limit (in the provider definition)', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+      serverlessWithEnvVars.service.provider.cpu = '500m';
+      serverlessWithEnvVars.service.provider.memorySize = '128Gi';
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  resources: {
+                    limits: { cpu: '500m', memory: '128Gi' },
+                    requests: { cpu: '500m', memory: '128Gi' },
+                  },
+                }],
+              },
+            },
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
     it('should deploy a function with an affinity defined', () => {
       const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
 
@@ -960,11 +990,17 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
-
-    it('should deploy a function with an affinity defined (in the provider definition)', () => {
+    it('should deploy a function with an tolerations defined', () => {
       const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
-      serverlessWithEnvVars.service.provider.cpu = '500m';
-      serverlessWithEnvVars.service.provider.memorySize = '128Gi';
+
+      const tolerations = [{
+        key: 'key1',
+        operator: 'Equal',
+        value: 'value1',
+        effect: 'NoSchedule',
+      }];
+
+      serverlessWithEnvVars.service.functions[functionName].tolerations = tolerations;
       kubelessDeploy = instantiateKubelessDeploy(
         pkgFile,
         depsFile,
@@ -977,13 +1013,45 @@ describe('KubelessDeploy', () => {
               spec: {
                 containers: [{
                   name: functionName,
-                  resources: {
-                    limits: { cpu: '500m', memory: '128Gi' },
-                    requests: { cpu: '500m', memory: '128Gi' },
-                  },
                 }],
               },
             },
+            tolerations,
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+
+    it('should deploy a function with tolerations defined (in the provider definition)', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+
+      const tolerations = [{
+        key: 'key1',
+        operator: 'Equal',
+        value: 'value1',
+        effect: 'NoSchedule',
+      }];
+
+      serverlessWithEnvVars.service.provider.tolerations = tolerations;
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                }],
+              },
+            },
+            tolerations,
           },
         },
       }));
