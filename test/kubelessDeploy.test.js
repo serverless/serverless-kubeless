@@ -907,6 +907,158 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
+    it('should deploy a function with an affinity defined', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+
+      const affinityDefintion = {
+        nodeAffinity: {
+          requiredDuringSchedulingIgnoredDuringExecution: {
+            nodeSelectorTerms: [{
+              matchExpressions: [{
+                key: 'kubernetes.io/e2e-az-name',
+                operator: 'In',
+                values: ['e2e-az1', 'e2e-az2'],
+              }],
+            }],
+          },
+        },
+      };
+
+      serverlessWithEnvVars.service.functions[functionName].affinity = affinityDefintion;
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                }],
+              },
+            },
+            affinity: affinityDefintion,
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+
+    it('should deploy a function with an affinity defined (in the provider definition)', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+
+      const affinityDefintion = {
+        nodeAffinity: {
+          requiredDuringSchedulingIgnoredDuringExecution: {
+            nodeSelectorTerms: [{
+              matchExpressions: [{
+                key: 'kubernetes.io/e2e-az-name',
+                operator: 'In',
+                values: ['e2e-az1', 'e2e-az2'],
+              }],
+            }],
+          },
+        },
+      };
+
+      serverlessWithEnvVars.service.provider.affinity = affinityDefintion;
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                }],
+              },
+            },
+            affinity: affinityDefintion,
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+    it('should deploy a function with an tolerations defined', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+
+      const tolerations = [{
+        key: 'key1',
+        operator: 'Equal',
+        value: 'value1',
+        effect: 'NoSchedule',
+      }];
+
+      serverlessWithEnvVars.service.functions[functionName].tolerations = tolerations;
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                }],
+              },
+            },
+            tolerations,
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+
+    it('should deploy a function with tolerations defined (in the provider definition)', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+
+      const tolerations = [{
+        key: 'key1',
+        operator: 'Equal',
+        value: 'value1',
+        effect: 'NoSchedule',
+      }];
+
+      serverlessWithEnvVars.service.provider.tolerations = tolerations;
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                }],
+              },
+            },
+            tolerations,
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
     it('should deploy a function in a specific path', () => {
       const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomPath.service.functions[functionName].events = [{
