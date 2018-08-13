@@ -731,6 +731,47 @@ describe('KubelessDeploy', () => {
       ).to.be.fulfilled;
       return result;
     });
+    it('should deploy a function with environment variables in provider section', () => {
+      const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
+      serverlessWithEnvVars.service.provider.environment = {
+        FOO: 'bar',
+      };
+      const env = [
+        { name: 'VAR', value: 'test' },
+        { name: 'OTHER_VAR', valueFrom: { someRef: { name: 'REF_OBJECT', key: 'REF_KEY' } } },
+      ];
+      serverlessWithEnvVars.service.functions[functionName].environment = env;
+      kubelessDeploy = instantiateKubelessDeploy(
+        pkgFile,
+        depsFile,
+        serverlessWithEnvVars
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  env: [
+                    { name: 'FOO', value: 'bar' },
+                    { name: 'VAR', value: 'test' },
+                    {
+                      name: 'OTHER_VAR',
+                      valueFrom: { someRef: { name: 'REF_OBJECT', key: 'REF_KEY' } },
+                    },
+                  ],
+                }],
+              },
+            },
+          },
+        },
+      }));
+      const result = expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+      return result;
+    });
     it('should deploy a function with a memory limit', () => {
       const serverlessWithEnvVars = _.cloneDeep(serverlessWithFunction);
       serverlessWithEnvVars.service.functions[functionName].memorySize = 128;

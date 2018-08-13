@@ -158,6 +158,7 @@ class KubelessDeploy {
         log: this.serverless.cli.log.bind(this.serverless.cli),
         timeout: this.serverless.service.provider.timeout,
         contentType: 'base64+zip',
+        environment: this.serverless.service.provider.environment,
       }
     ));
   }
