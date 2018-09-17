@@ -82,24 +82,18 @@ Or you can obtain the function information:
 $ serverless info
 Service Information "hello"
 Cluster IP:  10.0.0.51
-Type:  NodePort
+Type:  ClusterIP
 Ports:
+  Name:  http-function-port
   Protocol:  TCP
   Port:  8080
   Target Port:  8080
-  Node Port:  30018
 Function Info
 Description: Hello function
 Handler:  handler.hello
 Runtime:  python2.7
 Trigger: HTTP
 Dependencies:
-```
-
-If you are using minikube you can call directly the function through HTTP and the Node Port in which the function is running:
-```bash
-$ curl  http://192.168.99.100:30018
-hello world
 ```
 
 You can access the function through its HTTP interface as well using `kubectl proxy` and accessing:
