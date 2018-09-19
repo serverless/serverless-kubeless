@@ -87,6 +87,7 @@ class KubelessDeploy {
         _.each(this.serverless.service.functions, (description, name) => {
           const pkg = this.options.package ||
             this.serverless.service.package.path ||
+            this.serverless.service.package.artifact ||
             description.package.artifact ||
             this.serverless.config.serverless.service.artifact;
           this.checkSize(pkg);
