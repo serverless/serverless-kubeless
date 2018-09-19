@@ -10,7 +10,7 @@ services:
   - docker
 env:
   global:
-    - KUBELESS_VERSION: v0.6.0
+    - KUBELESS_VERSION: v1.0.0-alpha.8
     - MINIKUBE_VERSION: v0.25.2
     - REPO_DOMAIN: serverless
     - REPO_NAME: serverless-kubeless
