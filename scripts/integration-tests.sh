@@ -25,7 +25,7 @@ install_kubecfg() {
 install_kubeless() {
     kubectl create ns kubeless
     kubectl create -f https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless-$KUBELESS_VERSION.yaml
-    kubectl create -f https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kafka-zookeeper-$KUBELESS_VERSION.yaml
+    kubectl create -f https://github.com/kubeless/kafka-trigger/releases/download/$KUBELESS_KAFKA_VERSION/kafka-zookeeper-$KUBELESS_KAFKA_VERSION.yaml
     curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
     unzip kubeless_linux-amd64.zip
     sudo mv ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/kubeless
