@@ -1,0 +1,25 @@
+service:
+  name: cert-manager-https
+
+plugins:
+  - serverless-kubeless
+
+provider:
+  name: kubeless
+  hostname: example.com
+  runtime: nodejs8
+  ingress:
+    additionalAnnotations:
+      kubernetes.io/tls-acme: "true"
+    tlsConfig:
+      - hosts:
+          - "example.com"
+        secretName: ingress-example-com-certs
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+      - http:
+          method: get
+          path: hello
