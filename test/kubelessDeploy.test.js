@@ -346,7 +346,7 @@ describe('KubelessDeploy', () => {
       const funcSpec = defaultFuncSpec();
       // First call, still deploying:
       nock(config.clusters[0].cluster.server)
-        .get('/api/v1/pods')
+        .get('/api/v1/namespaces/default/pods')
         .reply(200, {
           items: [{
             metadata: {
@@ -372,7 +372,7 @@ describe('KubelessDeploy', () => {
       const funcSpec = defaultFuncSpec();
       // First call, still deploying:
       nock(config.clusters[0].cluster.server)
-        .get('/api/v1/pods')
+        .get('/api/v1/namespaces/default/pods')
         .reply(200, {
           items: [{
             metadata: {
@@ -395,7 +395,7 @@ describe('KubelessDeploy', () => {
     it('should throw an error if the pod failed to start', () => {
       const funcSpec = defaultFuncSpec();
       nock(config.clusters[0].cluster.server)
-        .get('/api/v1/pods')
+        .get('/api/v1/namespaces/default/pods')
         .times(10)
         .reply(200, {
           items: [{
@@ -424,7 +424,7 @@ describe('KubelessDeploy', () => {
       const funcSpec = defaultFuncSpec();
       // First call, fails to retrieve status
       nock(config.clusters[0].cluster.server)
-        .get('/api/v1/pods')
+        .get('/api/v1/namespaces/default/pods')
         .replyWithError('etcdserver: request timed out');
       // Second call, ready:
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, funcSpec);
@@ -439,7 +439,7 @@ describe('KubelessDeploy', () => {
       // First call, fails to retrieve status
       nock(config.clusters[0].cluster.server)
         .persist()
-        .get('/api/v1/pods')
+        .get('/api/v1/namespaces/default/pods')
         .reply(200, { items: [] });
       // Second call, ready:
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, funcSpec);
@@ -1311,7 +1311,7 @@ describe('KubelessDeploy', () => {
       };
       nock(config.clusters[0].cluster.server)
         .persist()
-        .get('/api/v1/pods')
+        .get('/api/v1/namespaces/default/pods')
         .reply(200, () => ({
           items: [
             {

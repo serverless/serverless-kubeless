@@ -141,7 +141,7 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
     .reply(200, opts.postReply);
   nock(endpoint)
     .persist()
-    .get('/api/v1/pods')
+    .get(`/api/v1/namespaces/${opts.namespace}/pods`)
     .reply(200, JSON.stringify({
       items: [{
         metadata: {

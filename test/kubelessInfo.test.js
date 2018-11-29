@@ -84,32 +84,36 @@ describe('KubelessInfo', () => {
     });
   });
   function mockGetCalls(config, functions, functionModif) {
-    nock(config.clusters[0].cluster.server)
-      .get('/api/v1/services')
-      .reply(200, {
-        items: _.map(functions, (f) => ({
-          metadata:
-          {
-            name: f.id,
-            namespace: f.namespace,
-            selfLink: `/api/v1/namespaces/${f.namespace}/services/${f.id}`,
-            uid: '010a169d-618c-11e7-9939-080027abf356',
-            resourceVersion: '248',
-            creationTimestamp: '2017-07-05T14:12:39Z',
-            labels: { function: f.id },
-          },
-          spec:
-          {
-            ports: [{ protocol: 'TCP', port: 8080, targetPort: 8080, nodePort: 30817 }],
-            selector: { function: f.id },
-            clusterIP: '10.0.0.177',
-            type: 'NodePort',
-            sessionAffinity: 'None',
-          },
-          status: { loadBalancer: {} },
-        })),
-      })
-      .persist();
+    const namespaces = _.map(functions, f => f.namespace);
+    _.each(namespaces, ns => {
+      console.log(`Setup /api/v1/namespaces/${ns}/services`);
+      nock(config.clusters[0].cluster.server)
+        .get(`/api/v1/namespaces/${ns}/services`)
+        .reply(200, {
+          items: _.map(_.filter(functions, (f) => f.namespace === ns), (f) => ({
+            metadata:
+            {
+              name: f.id,
+              namespace: f.namespace,
+              selfLink: `/api/v1/namespaces/${f.namespace}/services/${f.id}`,
+              uid: '010a169d-618c-11e7-9939-080027abf356',
+              resourceVersion: '248',
+              creationTimestamp: '2017-07-05T14:12:39Z',
+              labels: { function: f.id },
+            },
+            spec:
+            {
+              ports: [{ protocol: 'TCP', port: 8080, targetPort: 8080, nodePort: 30817 }],
+              selector: { function: f.id },
+              clusterIP: '10.0.0.177',
+              type: 'NodePort',
+              sessionAffinity: 'None',
+            },
+            status: { loadBalancer: {} },
+          })),
+        })
+        .persist();
+    });
 
     // Mock call to get.functions per namespace
     const allFunctions = _.map(functions, (f) => (_.defaultsDeep({}, functionModif, {
@@ -192,7 +196,10 @@ describe('KubelessInfo', () => {
       nock.cleanAll();
     });
     it('should return logs with the correct formating', () => {
-      mockGetCalls(config, [{ id: func, namespace: 'default' }]);
+      mockGetCalls(config, [
+        { id: func, namespace: 'default' }, 
+        { id: 'my-function-1', namespace: 'custom-1' }
+      ]);
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       return expect(kubelessInfo.infoFunction({ color: false })).to.become(
         infoMock(func)
@@ -242,7 +249,7 @@ describe('KubelessInfo', () => {
       });
     });
     it('should return an error message if no function is found', (done) => {
-      mockGetCalls(config, []);
+      mockGetCalls(config, [{ id: 'other-function', namespace: 'custom-1' }]);
       nock(config.clusters[0].cluster.server)
         .get('/apis/kubeless.io/v1beta1/namespaces/custom-1/functions/my-function-1')
         .reply(404, { code: 404 });
