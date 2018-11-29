@@ -196,8 +196,8 @@ describe('KubelessInfo', () => {
     });
     it('should return logs with the correct formating', () => {
       mockGetCalls(config, [
-        { id: func, namespace: 'default' }, 
-        { id: 'my-function-1', namespace: 'custom-1' }
+        { id: func, namespace: 'default' },
+        { id: 'my-function-1', namespace: 'custom-1' },
       ]);
       const kubelessInfo = new KubelessInfo(serverless, { function: func });
       return expect(kubelessInfo.infoFunction({ color: false })).to.become(
