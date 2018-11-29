@@ -86,7 +86,6 @@ describe('KubelessInfo', () => {
   function mockGetCalls(config, functions, functionModif) {
     const namespaces = _.map(functions, f => f.namespace);
     _.each(namespaces, ns => {
-      console.log(`Setup /api/v1/namespaces/${ns}/services`);
       nock(config.clusters[0].cluster.server)
         .get(`/api/v1/namespaces/${ns}/services`)
         .reply(200, {
