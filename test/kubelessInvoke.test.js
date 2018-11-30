@@ -35,7 +35,7 @@ require('chai').use(chaiAsPromised);
 
 function nocksvc(url, funcs) {
   nock(url)
-    .get('/api/v1/services')
+    .get('/api/v1/namespaces/default/services')
     .reply(200, {
       items: _.map(_.flatten([funcs]), f => ({
         metadata:
