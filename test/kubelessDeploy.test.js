@@ -978,12 +978,12 @@ describe('KubelessDeploy', () => {
               spec: {
                 containers: [{
                   name: functionName,
-                  }],
-                  affinity: affinityDefintion,
-                },
+                }],
+                affinity: affinityDefintion,
               },
             },
           },
+        },
       }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
@@ -1020,12 +1020,12 @@ describe('KubelessDeploy', () => {
               spec: {
                 containers: [{
                   name: functionName,
-                  }],
-                  affinity: affinityDefintion,
-                },
+                }],
+                affinity: affinityDefintion,
               },
             },
           },
+        },
       }));
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
