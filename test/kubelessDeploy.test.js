@@ -979,9 +979,9 @@ describe('KubelessDeploy', () => {
                 containers: [{
                   name: functionName,
                 }],
+                affinity: affinityDefintion,
               },
             },
-            affinity: affinityDefintion,
           },
         },
       }));
@@ -1021,9 +1021,9 @@ describe('KubelessDeploy', () => {
                 containers: [{
                   name: functionName,
                 }],
+                affinity: affinityDefintion,
               },
             },
-            affinity: affinityDefintion,
           },
         },
       }));
