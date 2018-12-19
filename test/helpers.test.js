@@ -315,8 +315,8 @@ describe('Helper functions', () => {
   });
   describe('#escapeName', () => {
     it('should remove non alphanumeric characters besides dash and period ', () => {
-      const triggerName = 'non.-alpha#-num!eric-ch=ars32';
-      const escapedTriggerName = 'non.-alpha-numeric-chars32';
+      const name = 'non.-alpha#-num!eric-ch=ars32';
+      const escapedName = 'non.-alpha-numeric-chars32';
       expect(helpers.normalizeName(name)).to.be.eql(escapedName);
     });
   });
