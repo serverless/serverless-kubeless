@@ -301,21 +301,23 @@ describe('Helper functions', () => {
       expect(result.key.toString()).to.be.eql('abcdef1234');
     });
   });
-  describe('#escapeName', () => {
+  describe('#normalizeName', () => {
     it('should turn camel case name to dash seperated lower case name', () => {
-      const triggerName = 'camelCaseTriggerName';
-      const dashSeparatedTriggerName = 'camel-case-trigger-name';
-      expect(helpers.escapeName(triggerName)).to.be.eql(dashSeparatedTriggerName);
+      const name = 'camelCaseName';
+      const dashSeparatedName = 'camel-case-name';
+      expect(helpers.normalizeName(name)).to.be.eql(dashSeparatedName);
     });
     it('should turn captialized camel case name to dash seperated lower case name', () => {
-      const triggerName = 'CamelCaseTriggerName';
-      const dashSeparatedTriggerName = 'camel-case-trigger-name';
-      expect(helpers.escapeName(triggerName)).to.be.eql(dashSeparatedTriggerName);
+      const name = 'CamelCaseName';
+      const dashSeparatedName = 'camel-case-name';
+      expect(helpers.normalizeName(name)).to.be.eql(dashSeparatedName);
     });
+  });
+  describe('#escapeName', () => {
     it('should remove non alphanumeric characters besides dash and period ', () => {
       const triggerName = 'non.-alpha#-num!eric-ch=ars32';
       const escapedTriggerName = 'non.-alpha-numeric-chars32';
-      expect(helpers.escapeName(triggerName)).to.be.eql(escapedTriggerName);
+      expect(helpers.normalizeName(name)).to.be.eql(escapedName);
     });
   });
 });
