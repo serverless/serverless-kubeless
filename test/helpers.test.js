@@ -303,19 +303,19 @@ describe('Helper functions', () => {
   });
   describe('#escapeName', () => {
     it('should turn camel case name to dash seperated lower case name', () => {
-      const triggerName = 'camelCaseTriggerName'
-      const dashSeparatedTriggerName = 'camel-case-trigger-name'
+      const triggerName = 'camelCaseTriggerName';
+      const dashSeparatedTriggerName = 'camel-case-trigger-name';
       expect(helpers.escapeName(triggerName)).to.be.eql(dashSeparatedTriggerName);
     });
     it('should turn captialized camel case name to dash seperated lower case name', () => {
-      const triggerName = 'CamelCaseTriggerName'
-      const dashSeparatedTriggerName = 'camel-case-trigger-name'
+      const triggerName = 'CamelCaseTriggerName';
+      const dashSeparatedTriggerName = 'camel-case-trigger-name';
       expect(helpers.escapeName(triggerName)).to.be.eql(dashSeparatedTriggerName);
     });
     it('should remove non alphanumeric characters besides dash and period ', () => {
-      const triggerName = 'non.-alpha#-num!eric-ch=ars32'
-      const escapedTriggerName = 'non.-alpha-numeric-chars32'
-      expect(helpers.loadKubeConfig()).to.be.eql(configSample);
+      const triggerName = 'non.-alpha#-num!eric-ch=ars32';
+      const escapedTriggerName = 'non.-alpha-numeric-chars32';
+      expect(helpers.escapeName(triggerName)).to.be.eql(escapedTriggerName);
     });
   });
 });
