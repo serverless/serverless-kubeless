@@ -107,7 +107,7 @@ describe('KubelessDeploy', () => {
     let config = null;
     let pkgFile = null;
     let depsFile = null;
-    const functionName = 'myFunction';
+    const functionName = 'my-function';
     const functionRawText = 'function code';
     const functionChecksum =
       'sha256:ce182d715b42b27f1babf8b4196cd4f8c900ca6593a4293d455d1e5e2296ebee';
