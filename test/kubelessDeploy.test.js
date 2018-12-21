@@ -503,15 +503,16 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomNamespace
       );
+      let triggerName = _.kebabCase(`${functionName}-topic`)
       nock(config.clusters[0].cluster.server)
-        .get(`/apis/kubeless.io/v1beta1/namespaces/default/kafkatriggers/${functionName}-topic`)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/kafkatriggers/${triggerName}`)
         .reply(404, JSON.stringify({ code: 404 }));
       nock(config.clusters[0].cluster.server)
         .post('/apis/kubeless.io/v1beta1/namespaces/default/kafkatriggers/', {
           apiVersion: 'kubeless.io/v1beta1',
           kind: 'KafkaTrigger',
           metadata: {
-            name: `${functionName}-topic`,
+            name: triggerName,
             namespace: 'default',
             labels: {
               'created-by': 'kubeless',
@@ -549,15 +550,16 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomNamespace
       );
+      let triggerName = _.kebabCase(`${functionName}-topic`)
       nock(config.clusters[0].cluster.server)
-        .get(`/apis/kubeless.io/v1beta1/namespaces/default/natstriggers/${functionName}-topic`)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/natstriggers/${triggerName}`)
         .reply(404, JSON.stringify({ code: 404 }));
       nock(config.clusters[0].cluster.server)
         .post('/apis/kubeless.io/v1beta1/namespaces/default/natstriggers/', {
           apiVersion: 'kubeless.io/v1beta1',
           kind: 'NATSTrigger',
           metadata: {
-            name: `${functionName}-topic`,
+            name: triggerName,
             namespace: 'default',
             labels: {
               'created-by': 'kubeless',
