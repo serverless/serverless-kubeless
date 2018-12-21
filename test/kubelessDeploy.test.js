@@ -503,7 +503,7 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomNamespace
       );
-      let triggerName = _.kebabCase(`${functionName}-topic`)
+      const triggerName = _.kebabCase(`${functionName}-topic`);
       nock(config.clusters[0].cluster.server)
         .get(`/apis/kubeless.io/v1beta1/namespaces/default/kafkatriggers/${triggerName}`)
         .reply(404, JSON.stringify({ code: 404 }));
@@ -550,7 +550,7 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomNamespace
       );
-      let triggerName = _.kebabCase(`${functionName}-topic`)
+      const triggerName = _.kebabCase(`${functionName}-topic`);
       nock(config.clusters[0].cluster.server)
         .get(`/apis/kubeless.io/v1beta1/namespaces/default/natstriggers/${triggerName}`)
         .reply(404, JSON.stringify({ code: 404 }));
