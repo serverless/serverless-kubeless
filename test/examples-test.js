@@ -684,7 +684,7 @@ describe('Examples', () => {
           setTimeout(() => {
             clearInterval(t);
             throw new Error('Failed to obtain the expected logs');
-          }, 20000);
+          }, 30000);
         });
     });
   });
