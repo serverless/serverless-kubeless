@@ -33,14 +33,14 @@ describe('Config', () => {
       helpers.loadKubeConfig.restore();
       process.env = _.cloneDeep(previousEnv);
     });
-    it('should use a given namespace', () => {
+    it('should set the given namespace', () => {
       const config = new Config({ namespace: 'figjam' });
       expect(config.namespace).to.be.eql('figjam');
       expect(config.connectionOptions.url).to.be.eql(
         'http://1.2.3.4:4433/api/v1/namespaces/figjam/configmaps/kubeless-config'
       );
     });
-    it('should use a given namespace even if env var is set', () => {
+    it('should set the given namespace even if env var is set', () => {
       process.env.KUBELESS_NAMESPACE = 'foobar';
       const config = new Config({ namespace: 'figjam' });
       expect(config.namespace).to.be.eql('figjam');
@@ -48,7 +48,7 @@ describe('Config', () => {
         'http://1.2.3.4:4433/api/v1/namespaces/figjam/configmaps/kubeless-config'
       );
     });
-    it('should use the namespace given via an env var if none is given in options', () => {
+    it('should set the namespace given via an env var if none is given in options', () => {
       process.env.KUBELESS_NAMESPACE = 'foobar';
       const config = new Config();
       expect(config.namespace).to.be.eql('foobar');
