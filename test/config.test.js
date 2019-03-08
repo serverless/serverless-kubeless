@@ -21,25 +21,23 @@ const expect = require('chai').expect;
 const Config = require('../lib/config');
 const helpers = require('../lib/helpers');
 const sinon = require('sinon');
+const loadKubeConfig = require('./lib/load-kube-config');
 
 describe('Config', () => {
   describe('#constructor', () => {
     const previousEnv = _.cloneDeep(process.env);
-    let urlStub;
     beforeEach(() => {
-      urlStub = sinon
-        .stub(helpers, 'getKubernetesAPIURL')
-        .callsFake(() => 'API_URL');
+      sinon.stub(helpers, 'loadKubeConfig').callsFake(loadKubeConfig);
     });
     afterEach(() => {
-      urlStub.restore();
+      helpers.loadKubeConfig.restore();
       process.env = _.cloneDeep(previousEnv);
     });
     it('should use a given namespace', () => {
       const config = new Config({ namespace: 'figjam' });
       expect(config.namespace).to.be.eql('figjam');
       expect(config.connectionOptions.url).to.be.eql(
-        'API_URL/api/v1/namespaces/figjam/configmaps/kubeless-config'
+        'http://1.2.3.4:4433/api/v1/namespaces/figjam/configmaps/kubeless-config'
       );
     });
     it('should use a given namespace even if env var is set', () => {
@@ -47,7 +45,7 @@ describe('Config', () => {
       const config = new Config({ namespace: 'figjam' });
       expect(config.namespace).to.be.eql('figjam');
       expect(config.connectionOptions.url).to.be.eql(
-        'API_URL/api/v1/namespaces/figjam/configmaps/kubeless-config'
+        'http://1.2.3.4:4433/api/v1/namespaces/figjam/configmaps/kubeless-config'
       );
     });
     it('should use the namespace given via an env var if none is given in options', () => {
@@ -55,7 +53,7 @@ describe('Config', () => {
       const config = new Config();
       expect(config.namespace).to.be.eql('foobar');
       expect(config.connectionOptions.url).to.be.eql(
-        'API_URL/api/v1/namespaces/foobar/configmaps/kubeless-config'
+        'http://1.2.3.4:4433/api/v1/namespaces/foobar/configmaps/kubeless-config'
       );
     });
   });
