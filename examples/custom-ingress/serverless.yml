@@ -1,0 +1,23 @@
+service: hello
+
+provider:
+  name: kubeless
+  runtime: python2.7
+  defaultDNSResolution: 'xip.io'
+  ingress:
+    class: "foo/bar-ingress" # Becomes: `kubernetes.io/ingress.class: foo/bar-ingress`
+    name: "ingressName"      # Becomes: `ingressName.ingress.kubernetes.io/rewrite-target: /`
+    additionalAnnotations: 
+      "ingressName.ingress.kubernetes.io/example-rule-1": true
+      "ingressName.ingress.kubernetes.io/example-rule-2": false
+    
+
+plugins:
+  - serverless-kubeless
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+      - http:
+          path: /hello
