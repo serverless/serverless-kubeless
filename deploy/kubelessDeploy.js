@@ -101,7 +101,8 @@ class KubelessDeploy {
           });
           s.on('end', () => {
             if (description.handler) {
-              const depFile = helpers.getRuntimeDepfile(runtime, kubelessConfig);
+              const depFile = helpers.getRuntimeDepfile(description.runtime || runtime,
+                 kubelessConfig);
               this.getFileContent(pkg, depFile)
                 .catch(() => {
                   // No requirements found
