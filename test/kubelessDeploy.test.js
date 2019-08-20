@@ -190,11 +190,43 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
+    it('should deploy a function (nodejs) with function level runtime override', () => {
+      depsFile = path.join(cwd, 'package.json');
+      fs.writeFileSync(depsFile, 'nodejs function deps');
+      serverlessWithFunction.service.functions[functionName].runtime = 'nodejs6';
+      kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, _.defaultsDeep(
+        { service: { provider: { runtime: 'ruby2.4' } } },
+        serverlessWithFunction
+      ));
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deps: 'nodejs function deps',
+        runtime: 'nodejs6',
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
     it('should deploy a function (ruby)', () => {
       depsFile = path.join(cwd, 'Gemfile');
       fs.writeFileSync(depsFile, 'ruby function deps');
       kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, _.defaultsDeep(
         { service: { provider: { runtime: 'ruby2.4' } } },
+        serverlessWithFunction
+      ));
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deps: 'ruby function deps',
+        runtime: 'ruby2.4',
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+        kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+    it('should deploy a function (ruby) with function level runtime override', () => {
+      depsFile = path.join(cwd, 'Gemfile');
+      fs.writeFileSync(depsFile, 'ruby function deps');
+      serverlessWithFunction.service.functions[functionName].runtime = 'ruby2.4';
+      kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, _.defaultsDeep(
+        { service: { provider: { runtime: 'golang1.11' } } },
         serverlessWithFunction
       ));
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
