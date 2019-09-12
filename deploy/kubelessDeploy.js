@@ -19,8 +19,8 @@
 const _ = require('lodash');
 const BbPromise = require('bluebird');
 const Config = require('../lib/config');
-const crypto = require('crypto');
 const deploy = require('../lib/deploy');
+const Strategy = require('../lib/strategy');
 const fs = require('fs');
 const helpers = require('../lib/helpers');
 const JSZip = require('jszip');
@@ -90,56 +90,54 @@ class KubelessDeploy {
             this.serverless.service.package.artifact ||
             description.package.artifact ||
             this.serverless.config.serverless.service.artifact;
+
           this.checkSize(pkg);
-          const s = fs.createReadStream(pkg);
-          const shasum = crypto.createHash('sha256');
-          let functionContent = '';
-          s.on('error', (err) => reject(err));
-          s.on('data', (data) => {
-            shasum.update(data);
-            functionContent += data.toString('base64');
-          });
-          s.on('end', () => {
-            if (description.handler) {
-              const depFile = helpers.getRuntimeDepfile(description.runtime || runtime,
-                 kubelessConfig);
-              this.getFileContent(pkg, depFile)
-                .catch(() => {
-                  // No requirements found
-                })
-                .then((requirementsContent) => {
-                  populatedFunctions.push(
-                    _.assign({}, description, {
-                      id: name,
-                      content: functionContent,
-                      checksum: `sha256:${shasum.digest('hex')}`,
-                      deps: requirementsContent,
-                      image: description.image || this.serverless.service.provider.image,
-                      events: _.map(description.events, (event) => {
-                        const type = _.keys(event)[0];
-                        if (type === 'trigger') {
-                          return _.assign({ type }, { trigger: event[type] });
-                        } else if (type === 'schedule') {
-                          return _.assign({ type }, { schedule: event[type] });
-                        }
-                        return _.assign({ type }, event[type]);
-                      }),
-                    })
-                  );
-                  if (
-                    populatedFunctions.length ===
-                    _.keys(this.serverless.service.functions).length
-                  ) {
-                    resolve();
-                  }
-                });
-            } else {
-              populatedFunctions.push(_.assign({}, description, { id: name }));
-              if (populatedFunctions.length === _.keys(this.serverless.service.functions).length) {
-                resolve();
+
+          if (description.handler) {
+            const depFile = helpers.getRuntimeDepfile(description.runtime || runtime,
+               kubelessConfig);
+
+            const deployOptions = (() => {
+              let options;
+              try {
+                options = (new Strategy(this.serverless)).factory().deploy(description, pkg);
+              } catch (e) {
+                reject(e);
               }
+              return options;
+            })();
+
+            this.getFileContent(pkg, depFile)
+              .catch(() => {
+                // No requirements found
+              })
+              .then((requirementsContent) => {
+                populatedFunctions.push(_.assign({}, description, deployOptions, {
+                  id: name,
+                  deps: requirementsContent,
+                  image: description.image || this.serverless.service.provider.image,
+                  events: _.map(description.events, (event) => {
+                    const type = _.keys(event)[0];
+                    if (type === 'trigger') {
+                      return _.assign({ type }, { trigger: event[type] });
+                    } else if (type === 'schedule') {
+                      return _.assign({ type }, { schedule: event[type] });
+                    }
+                    return _.assign({ type }, event[type]);
+                  }),
+                }));
+                if (
+                    populatedFunctions.length ===
+                    _.keys(this.serverless.service.functions).length) {
+                  resolve();
+                }
+              });
+          } else {
+            populatedFunctions.push(_.assign({}, description, { id: name }));
+            if (populatedFunctions.length === _.keys(this.serverless.service.functions).length) {
+              resolve();
             }
-          });
+          }
         });
       });
     }).then(() => deploy(
@@ -159,7 +157,6 @@ class KubelessDeploy {
         verbose: this.options.verbose,
         log: this.serverless.cli.log.bind(this.serverless.cli),
         timeout: this.serverless.service.provider.timeout,
-        contentType: 'base64+zip',
         environment: this.serverless.service.provider.environment,
       }
     ));
