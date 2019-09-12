@@ -97,40 +97,33 @@ class KubelessDeploy {
             const depFile = helpers.getRuntimeDepfile(description.runtime || runtime,
                kubelessConfig);
 
-            const deployOptions = (() => {
-              let options;
-              try {
-                options = (new Strategy(this.serverless)).factory().deploy(description, pkg);
-              } catch (e) {
-                reject(e);
-              }
-              return options;
-            })();
-
-            this.getFileContent(pkg, depFile)
-              .catch(() => {
-                // No requirements found
-              })
-              .then((requirementsContent) => {
-                populatedFunctions.push(_.assign({}, description, deployOptions, {
-                  id: name,
-                  deps: requirementsContent,
-                  image: description.image || this.serverless.service.provider.image,
-                  events: _.map(description.events, (event) => {
-                    const type = _.keys(event)[0];
-                    if (type === 'trigger') {
-                      return _.assign({ type }, { trigger: event[type] });
-                    } else if (type === 'schedule') {
-                      return _.assign({ type }, { schedule: event[type] });
+            (new Strategy(this.serverless)).factory().deploy(description, pkg)
+              .catch(reject)
+              .then(deployOptions => {
+                this.getFileContent(pkg, depFile)
+                  .catch(() => {
+                    // No requirements found
+                  })
+                  .then((requirementsContent) => {
+                    populatedFunctions.push(_.assign({}, description, deployOptions, {
+                      id: name,
+                      deps: requirementsContent,
+                      image: description.image || this.serverless.service.provider.image,
+                      events: _.map(description.events, (event) => {
+                        const type = _.keys(event)[0];
+                        if (type === 'trigger') {
+                          return _.assign({ type }, { trigger: event[type] });
+                        } else if (type === 'schedule') {
+                          return _.assign({ type }, { schedule: event[type] });
+                        }
+                        return _.assign({ type }, event[type]);
+                      }),
+                    }));
+                    if (populatedFunctions.length ===
+                      _.keys(this.serverless.service.functions).length) {
+                      resolve();
                     }
-                    return _.assign({ type }, event[type]);
-                  }),
-                }));
-                if (
-                    populatedFunctions.length ===
-                    _.keys(this.serverless.service.functions).length) {
-                  resolve();
-                }
+                  });
               });
           } else {
             populatedFunctions.push(_.assign({}, description, { id: name }));

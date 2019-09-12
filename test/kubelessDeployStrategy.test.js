@@ -56,11 +56,11 @@ describe('KubelessDeployStrategy', () => {
         const strategy = new Strategy(serverless);
         const fixture = new Base64ZipContent(strategy);
 
-        const result = fixture.deploy({}, pkgPath);
-
-        expect(result.contentType).to.equal('base64+zip');
-        expect(result.content).to.equal(Buffer.from(functionRawText).toString('base64'));
-        expect(result.checksum).to.equal(functionChecksum);
+        return fixture.deploy({}, pkgPath).then(result => {
+          expect(result.contentType).to.equal('base64+zip');
+          expect(result.content).to.equal(Buffer.from(functionRawText).toString('base64'));
+          expect(result.checksum).to.equal(functionChecksum);
+        });
       });
     });
   });
