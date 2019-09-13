@@ -33,6 +33,11 @@ install_kubeless() {
     until kubectl get all --all-namespaces | sed -n 's/po\/kafka-0//p' | grep Running; do kubectl -n kubeless describe pod kafka-0; sleep 10; done
 }
 
+install_minio() {
+  kubectl create -f `dirname $0`/../test/minio.yml
+  until kubectl get -n kubeless deployment minio -o jsonpath="{.status.readyReplicas}" | grep 1; do sleep 5; done
+}
+
 # Install dependencies
 echo "Installing kubectl"
 install_kubectl
@@ -42,6 +47,8 @@ echo "Installing kubecfg"
 install_kubecfg
 echo "Installing Kubeless"
 install_kubeless
+echo "Installing Minio"
+install_minio
 kubectl get all --all-namespaces
 
 # Run tests

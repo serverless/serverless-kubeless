@@ -24,6 +24,7 @@ const helpers = require('../lib/helpers');
 const moment = require('moment');
 const path = require('path');
 const request = require('request');
+const crypto = require('crypto');
 
 function prepareExample(cwd, example, callback) {
   fs.copy(`${__dirname}/../examples/${example}`, `${cwd}/${example}`, (err) => {
@@ -104,6 +105,7 @@ describe('Examples', () => {
     'post-nodejs': { cwd: null, path: 'post-nodejs' },
     'post-python': { cwd: null, path: 'post-python' },
     'post-php': { cwd: null, path: 'post-php' },
+    'post-php-s3': { cwd: null, path: 'post-php-s3' },
     'post-go': { cwd: null, path: 'post-go' },
     'post-ruby': { cwd: null, path: 'post-ruby' },
     'scheduled-node': { cwd: null, path: 'scheduled-node' },
@@ -381,6 +383,44 @@ describe('Examples', () => {
     it('should return a "hello"', (done) => {
       exec('serverless invoke -f php-echo -l --data \'hello!\'',
         { cwd: examples['post-php'].cwd }, (err, stdout) => {
+          if (err) throw err;
+          expect(stdout).to.contain('hello!');
+          done();
+        });
+    });
+  });
+  describe('post-php-s3', function () {
+    const exampleName = 'post-php-s3';
+    before(function (done) {
+      examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
+      this.timeout(300000);
+      prepareExample(cwd, exampleName, (e) => {
+        if (e) {
+          throw e;
+        }
+        // 4Mb of junk to be sure .zip size will exceed etcd limit
+        fs.writeFileSync(
+            path.join(examples[exampleName].cwd, 'payload.bin'),
+            crypto.pseudoRandomBytes(4 * 1024 * 1024)
+        );
+        deployExample(examples[exampleName].cwd, (ee) => {
+          if (ee) {
+            throw ee;
+          }
+          done();
+        });
+      });
+    });
+    after(function (done) {
+      this.timeout(100000);
+      removeExample(examples[exampleName].cwd, () => {
+        done();
+      });
+    });
+    this.timeout(300000);
+    it('should return a "hello"', (done) => {
+      exec('serverless invoke -f php-echo-s3 -l --data \'hello!\'',
+        { cwd: examples['post-php-s3'].cwd }, (err, stdout) => {
           if (err) throw err;
           expect(stdout).to.contain('hello!');
           done();

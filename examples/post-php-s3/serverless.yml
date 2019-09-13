@@ -1,0 +1,21 @@
+service: php-echo-s3
+
+provider:
+  name: kubeless
+  runtime: php7.2
+  deploy:
+    strategy: S3ZipContent
+    options:
+      accessKeyId: minio
+      secretAccessKey: minio123
+      endpoint: http://10.98.211.80:9000
+      bucket: kubeless
+      region: eu-central-1
+      s3ForcePathStyle: True
+
+plugins:
+  - serverless-kubeless
+
+functions:
+  php-echo-s3:
+    handler: handler.foo

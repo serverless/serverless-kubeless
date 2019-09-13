@@ -1,0 +1,65 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: kubeless
+spec:
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      initContainers:
+      - name: kubeless-bucket-init
+        image: minio/minio:RELEASE.2019-09-05T23-24-38Z
+        volumeMounts:
+        - name: data
+          mountPath: "/data"
+        command: ['/bin/sh', '-c', 'mkdir -p /data/kubeless']
+      containers:
+      - name: minio
+        volumeMounts:
+        - name: data
+          mountPath: "/data"
+        image: minio/minio:RELEASE.2019-09-05T23-24-38Z
+        args:
+        - server
+        - /data
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: "minio"
+        - name: MINIO_SECRET_KEY
+          value: "minio123"
+        ports:
+        - containerPort: 9000
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: kubeless
+spec:
+  type: ClusterIP
+  clusterIP: 10.98.211.80
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+  selector:
+    app: minio
