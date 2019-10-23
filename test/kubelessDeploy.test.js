@@ -190,6 +190,23 @@ describe('KubelessDeploy', () => {
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
+    it('should deploy a function (nodejs) individually pre-packaged', () => {
+      depsFile = path.join(cwd, 'package.json');
+      fs.writeFileSync(depsFile, 'nodejs function deps');
+      serverlessWithFunction.service.package.individually = true;
+      kubelessDeploy = instantiateKubelessDeploy(pkgFile, depsFile, _.defaultsDeep(
+          { service: { provider: { runtime: 'nodejs6' } } },
+          serverlessWithFunction
+      ));
+      kubelessDeploy.options.package = path.join(cwd, '.serverless/');
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deps: 'nodejs function deps',
+        runtime: 'nodejs6',
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+          kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
     it('should deploy a function (nodejs) with function level runtime override', () => {
       depsFile = path.join(cwd, 'package.json');
       fs.writeFileSync(depsFile, 'nodejs function deps');
