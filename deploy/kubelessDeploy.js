@@ -78,6 +78,29 @@ class KubelessDeploy {
     }
   }
 
+  getPkg(description, funcName) {
+    const pkg = this.options.package ||
+                this.serverless.service.package.path ||
+                this.serverless.service.package.artifact ||
+                description.package.artifact ||
+                this.serverless.config.serverless.service.artifact;
+
+
+    // if using the package option and packaging inidividually
+    // then we're expecting a directory where artifacts for all the finctions live
+    if (this.options.package && this.serverless.service.package.individually) {
+      if (fs.lstatSync(pkg).isDirectory()) {
+        return `${pkg + funcName}.zip`;
+      }
+      const errMsg = 'Expecting the Paramater to be a directory ' +
+          'for individualy packaged functions';
+      this.serverless.cli.log(errMsg);
+      throw new Error(errMsg);
+    }
+    return pkg;
+  }
+
+
   deployFunction() {
     const runtime = this.serverless.service.provider.runtime;
     const populatedFunctions = [];
@@ -85,11 +108,7 @@ class KubelessDeploy {
     return new BbPromise((resolve, reject) => {
       kubelessConfig.init().then(() => {
         _.each(this.serverless.service.functions, (description, name) => {
-          const pkg = this.options.package ||
-            this.serverless.service.package.path ||
-            this.serverless.service.package.artifact ||
-            description.package.artifact ||
-            this.serverless.config.serverless.service.artifact;
+          const pkg = this.getPkg(description, name);
 
           this.checkSize(pkg);
 
