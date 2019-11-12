@@ -367,9 +367,9 @@ describe('KubelessDeploy', () => {
       const serverlessWithSecrets = _.cloneDeep(serverlessWithFunction);
       serverlessWithSecrets.service.functions.myFunction.secrets = ['secret1'];
       kubelessDeploy = instantiateKubelessDeploy(
-        pkgFile,
-        depsFile,
-        serverlessWithSecrets
+          pkgFile,
+          depsFile,
+          serverlessWithSecrets
       );
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
         deployment: {
@@ -387,9 +387,45 @@ describe('KubelessDeploy', () => {
         },
       }));
       return expect( // eslint-disable-line no-unused-expressions
-        kubelessDeploy.deployFunction()
+          kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
     });
+    it('should deploy a function with volumes', () => {
+      const serverlessWithVolumes = _.cloneDeep(serverlessWithFunction);
+      serverlessWithVolumes.service.functions.myFunction.volumes = [{
+        name: 'vol1',
+        mountPath: '/foo/bar',
+        type: {
+          persistentVolumeClaim: {
+            claimName: 'vol-claim',
+          },
+        },
+      }];
+      kubelessDeploy = instantiateKubelessDeploy(
+          pkgFile,
+          depsFile,
+          serverlessWithVolumes
+      );
+      mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
+        deployment: {
+          spec: {
+            template: {
+              spec: {
+                containers: [{
+                  name: functionName,
+                  volumeMounts: [{ name: 'vol1', mountPath: '/foo/bar' }],
+                }],
+                volumes: [{ name: 'vol1', persistentVolumeClaim: { claimName: 'vol-claim' } }],
+              },
+            },
+          },
+        },
+      }));
+      return expect( // eslint-disable-line no-unused-expressions
+          kubelessDeploy.deployFunction()
+      ).to.be.fulfilled;
+    });
+
 
     it('should wait until a deployment is ready', () => {
       const funcSpec = defaultFuncSpec();
