@@ -394,12 +394,13 @@ describe('KubelessDeploy', () => {
       const serverlessWithVolumes = _.cloneDeep(serverlessWithFunction);
       serverlessWithVolumes.service.functions.myFunction.volumes = [{
         name: 'vol1',
-        mountPath: '/foo/bar',
-        type: {
-          persistentVolumeClaim: {
-            claimName: 'vol-claim',
-          },
+        persistentVolumeClaim: {
+          claimName: 'vol-claim',
         },
+      }];
+      serverlessWithVolumes.service.functions.myFunction.volumeMounts = [{
+        name: 'vol1',
+        mountPath: '/foo/bar',
       }];
       kubelessDeploy = instantiateKubelessDeploy(
           pkgFile,

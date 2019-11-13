@@ -7,8 +7,7 @@ module.exports = {
     "prefer-rest-params": "off",
     "react/require-extension" : "off",
     "import/no-extraneous-dependencies" : "off",
-    "no-console": "off",
-    "no-param-reassign": "off",
+    "no-console": "off"
   },
   "env": {
        "mocha": true,
