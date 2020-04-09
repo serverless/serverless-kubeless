@@ -60,7 +60,7 @@ $ kubectl get function
 NAME      KIND
 hello     Function.v1.k8s.io
 
-$ kubectl get po
+$ kubectl get pod
 NAME                     READY     STATUS    RESTARTS   AGE
 hello-1815473417-1ttt7   1/1       Running   0          1m
 ```
