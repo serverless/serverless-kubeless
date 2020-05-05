@@ -207,53 +207,5 @@ describe('KubelessRemove', () => {
         })
       ).to.be.fulfilled;
     });
-    it('should remove the ingress controller if exists', () => {
-      nock(config.clusters[0].cluster.server)
-        .delete('/apis/kubeless.io/v1beta1/namespaces/default/functions/myFunction')
-        .reply(200, {});
-      const apiExtensions = new Api.Extensions(
-        helpers.getConnectionOptions(helpers.loadKubeConfig(), { namespace: 'default' })
-      );
-      const functions = [{
-        id: 'myFunction',
-        handler: 'function.hello',
-        events: [{ http: { path: '/test' } }],
-      }];
-      const serviceName = 'test';
-      return expect( // eslint-disable-line no-unused-expressions
-        remove(functions, serviceName, {
-          apiExtensions, log: () => {},
-        }).then(() => {
-          expect(Api.Extensions.prototype.delete.calledOnce).to.be.eql(true);
-          expect(
-            Api.Extensions.prototype.delete.firstCall.args[0].path[0]
-          ).to.be.eql('/apis/extensions/v1beta1/namespaces/default/ingresses');
-        })
-      ).to.be.fulfilled;
-    });
-    it('should remove the ingress controller if exists (with a different namespace)', () => {
-      nock(config.clusters[0].cluster.server)
-        .delete('/apis/kubeless.io/v1beta1/namespaces/test/functions/myFunction')
-        .reply(200, {});
-      const apiExtensions = new Api.Extensions(
-        helpers.getConnectionOptions(helpers.loadKubeConfig(), { namespace: 'test' })
-      );
-      const functions = [{
-        id: 'myFunction',
-        handler: 'function.hello',
-        events: [{ http: { path: '/test' } }],
-      }];
-      const serviceName = 'test';
-      return expect( // eslint-disable-line no-unused-expressions
-        remove(functions, serviceName, {
-          apiExtensions, namespace: 'test', log: () => { },
-        }).then(() => {
-          expect(Api.Extensions.prototype.delete.calledOnce).to.be.eql(true);
-          expect(
-            Api.Extensions.prototype.delete.firstCall.args[0].path[0]
-          ).to.be.eql('/apis/extensions/v1beta1/namespaces/test/ingresses');
-        })
-      ).to.be.fulfilled;
-    });
   });
 });

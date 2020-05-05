@@ -158,26 +158,31 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
     }));
 }
 
-function createIngressNocks(endpoint, func, hostname, p, options) {
+function createTriggerNocks(endpoint, func, hostname, p, options) {
   const opts = _.defaults({}, options, {
     namespace: 'default',
   });
   nock(endpoint)
-    .post(`/apis/extensions/v1beta1/namespaces/${opts.namespace}/ingresses`, {
-      kind: 'Ingress',
+    .post(`/apis/kubeless.io/v1beta1/namespaces/${opts.namespace}/httptriggers/`, {
+      apiVersion: 'kubeless.io/v1beta1',
+      kind: 'HTTPTrigger',
       metadata: {
-        annotations: {
-          'kubernetes.io/ingress.class': 'nginx',
-          'nginx.ingress.kubernetes.io/rewrite-target': '/',
+        name: func,
+        namespace: opts.namespace,
+        annotations: {},
+        labels: {
+          'created-by': 'kubeless',
         },
       },
       spec: {
-        rules: [{
-          host: hostname,
-          http: {
-            paths: [{ path: p, backend: { serviceName: func, servicePort: 8080 } }],
-          },
-        }],
+        'host-name': hostname,
+        'basic-auth-secret': '',
+        'cors-enable': false,
+        'function-name': func,
+        gateway: 'nginx',
+        path: p.replace(/^\//, ''),
+        tls: false,
+        'tls-secret': '',
       },
     })
     .reply(200, { message: 'OK' });
@@ -189,5 +194,5 @@ module.exports = {
   kubeConfig,
   restoreKubeConfig,
   createDeploymentNocks,
-  createIngressNocks,
+  createTriggerNocks,
 };
