@@ -22,7 +22,6 @@ const BbPromise = require('bluebird');
 const chaiAsPromised = require('chai-as-promised');
 const expect = require('chai').expect;
 const fs = require('fs');
-const helpers = require('../lib/helpers');
 const mocks = require('./lib/mocks');
 const moment = require('moment');
 const nock = require('nock');
@@ -32,7 +31,6 @@ const sinon = require('sinon');
 const rm = require('./lib/rm');
 
 const KubelessRemove = require('../remove/kubelessRemove');
-const remove = require('../lib/remove');
 const serverless = require('./lib/serverless')();
 
 require('chai').use(chaiAsPromised);
