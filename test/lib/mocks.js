@@ -38,24 +38,6 @@ function thirdPartyResources(kubelessDeploy, namespace) {
   return result;
 }
 
-function extensions(kubelessDeploy, namespace) {
-  const result = {
-    namespaces: {
-      namespace: namespace || 'default',
-    },
-    ns: {
-      ingress: {
-        post: sinon.stub().callsFake((body, callback) => {
-          callback(null, { statusCode: 200 });
-        }),
-      },
-    },
-    addResource: sinon.stub(),
-  };
-  sinon.stub(kubelessDeploy, 'getExtensions').returns(result);
-  return result;
-}
-
 function kubeConfig(cwd) {
   fs.mkdirSync(path.join(cwd, '.kube'));
   fs.writeFileSync(
@@ -169,7 +151,9 @@ function createTriggerNocks(endpoint, func, hostname, p, options) {
       metadata: {
         name: func,
         namespace: opts.namespace,
-        annotations: {},
+        annotations: {
+          'kubernetes.io/ingress.class': 'nginx',
+        },
         labels: {
           'created-by': 'kubeless',
         },
@@ -190,7 +174,6 @@ function createTriggerNocks(endpoint, func, hostname, p, options) {
 
 module.exports = {
   thirdPartyResources,
-  extensions,
   kubeConfig,
   restoreKubeConfig,
   createDeploymentNocks,

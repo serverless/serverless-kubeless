@@ -139,31 +139,6 @@ describe('KubelessInfo', () => {
         .get(`/apis/kubeless.io/v1beta1/namespaces/${f.namespace}/functions/${f.id}`)
         .reply(200, _.find(allFunctions, (ff) => ff.metadata.name === f.id));
     });
-
-
-    // Mock call to get.ingress
-    _.each(functions, f => {
-      nock(config.clusters[0].cluster.server)
-        .get(`/apis/extensions/v1beta1/namespaces/${f.namespace}/ingresses/${serviceName}`)
-        .reply(200, f.path ? {
-          spec: {
-            rules: [{
-              host: '1.2.3.4.nip.io',
-              http: {
-                paths: [{
-                  path: f.path,
-                  backend: { serviceName: f.id },
-                }],
-              },
-            }],
-          },
-          status: {
-            loadBalancer: {
-              ingress: [{ ip: '1.2.3.4' }],
-            },
-          },
-        } : null);
-    });
   }
   function infoMock(f) {
     return `\nService Information "${f}"\n` +
@@ -252,9 +227,6 @@ describe('KubelessInfo', () => {
       nock(config.clusters[0].cluster.server)
         .get('/apis/kubeless.io/v1beta1/namespaces/custom-1/functions/my-function-1')
         .reply(404, { code: 404 });
-      nock(config.clusters[0].cluster.server)
-        .get(`/apis/extensions/v1beta1/namespaces/custom-1/ingresses/${serviceName}`)
-        .reply(404, 'not found');
       const serverlessWithNS = getServerlessObj({
         service: {
           service: serviceName,
