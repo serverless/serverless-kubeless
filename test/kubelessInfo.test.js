@@ -139,6 +139,19 @@ describe('KubelessInfo', () => {
         .get(`/apis/kubeless.io/v1beta1/namespaces/${f.namespace}/functions/${f.id}`)
         .reply(200, _.find(allFunctions, (ff) => ff.metadata.name === f.id));
     });
+
+    // Mock call to get.httptrigger per namespace
+    _.each(functions, f => {
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/${f.namespace}/httptriggers/${f.id}`)
+        .reply(200, f.path ? {
+          spec: {
+            'host-name': '1.2.3.4.nip.io',
+            tls: false,
+            path: f.path.replace(/^\//, ''),
+          },
+        } : null);
+    });
   }
   function infoMock(f) {
     return `\nService Information "${f}"\n` +
