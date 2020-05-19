@@ -1198,14 +1198,17 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(
-        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
-      mocks.createIngressNocks(
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/httptriggers/${functionName}`)
+        .reply(404, JSON.stringify({ code: 404 }));
+      mocks.createTriggerNocks(
         config.clusters[0].cluster.server,
         functionName,
         '1.2.3.4.nip.io',
         '/test'
       );
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -1213,7 +1216,7 @@ describe('KubelessDeploy', () => {
     it('should deploy a function with a specific hostname', () => {
       const serverlessWithCustomPath = _.cloneDeep(serverlessWithFunction);
       serverlessWithCustomPath.service.functions[functionName].events = [{
-        http: { },
+        http: { path: '/' },
       }];
       serverlessWithCustomPath.service.provider.hostname = 'test.com';
       kubelessDeploy = instantiateKubelessDeploy(
@@ -1221,14 +1224,17 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(
-        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
-      mocks.createIngressNocks(
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/httptriggers/${functionName}`)
+        .reply(404, JSON.stringify({ code: 404 }));
+      mocks.createTriggerNocks(
         config.clusters[0].cluster.server,
         functionName,
         'test.com',
         '/'
       );
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -1244,14 +1250,17 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(
-        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
-      mocks.createIngressNocks(
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/httptriggers/${functionName}`)
+        .reply(404, JSON.stringify({ code: 404 }));
+      mocks.createTriggerNocks(
         config.clusters[0].cluster.server,
         functionName,
         'test.com',
         '/test'
       );
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -1266,14 +1275,17 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(
-        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
-      mocks.createIngressNocks(
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/httptriggers/${functionName}`)
+        .reply(404, JSON.stringify({ code: 404 }));
+      mocks.createTriggerNocks(
         config.clusters[0].cluster.server,
         functionName,
         'test.com',
         '/test'
       );
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -1289,16 +1301,19 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(
-        config.clusters[0].cluster.server,
-        functionName, defaultFuncSpec(), { namespace: 'myns' });
-      mocks.createIngressNocks(
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/myns/httptriggers/${functionName}`)
+        .reply(404, JSON.stringify({ code: 404 }));
+      mocks.createTriggerNocks(
         config.clusters[0].cluster.server,
         functionName,
         '1.2.3.4.nip.io',
         '/test',
         { namespace: 'myns' }
       );
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server,
+        functionName, defaultFuncSpec(), { namespace: 'myns' });
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -1313,14 +1328,17 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(
-        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
-      mocks.createIngressNocks(
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/httptriggers/${functionName}`)
+        .reply(404, JSON.stringify({ code: 404 }));
+      mocks.createTriggerNocks(
         config.clusters[0].cluster.server,
         functionName,
         '1.2.3.4.nip.io',
         '/test'
       );
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
@@ -1336,14 +1354,17 @@ describe('KubelessDeploy', () => {
         depsFile,
         serverlessWithCustomPath
       );
-      mocks.createDeploymentNocks(
-        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
-      mocks.createIngressNocks(
+      nock(config.clusters[0].cluster.server)
+        .get(`/apis/kubeless.io/v1beta1/namespaces/default/httptriggers/${functionName}`)
+        .reply(404, JSON.stringify({ code: 404 }));
+      mocks.createTriggerNocks(
         config.clusters[0].cluster.server,
         functionName,
         '1.2.3.4.xip.io',
         '/test'
       );
+      mocks.createDeploymentNocks(
+        config.clusters[0].cluster.server, functionName, defaultFuncSpec());
       return expect( // eslint-disable-line no-unused-expressions
         kubelessDeploy.deployFunction()
       ).to.be.fulfilled;
