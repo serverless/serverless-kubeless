@@ -670,7 +670,7 @@ describe('Examples', () => {
       });
     });
   });
-  describe('event-trigger-python', function () {
+  xdescribe('event-trigger-python', function () {
     const exampleName = 'event-trigger-python';
     before(function (done) {
       examples[exampleName].cwd = path.join(cwd, examples[exampleName].path);
