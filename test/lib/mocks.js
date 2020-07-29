@@ -138,6 +138,19 @@ function createDeploymentNocks(endpoint, func, funcSpec, options) {
         },
       }],
     }));
+  nock(endpoint)
+    .persist()
+    .get(`/api/v1/namespaces/${opts.namespace}/services`)
+    .reply(200, JSON.stringify({
+      items: [{
+        metadata: {
+          name: func,
+          labels: { function: func },
+          annotations: {},
+          creationTimestamp: moment().add('60', 's'),
+        },
+      }],
+    }));
 }
 
 function createTriggerNocks(endpoint, func, hostname, p, options) {

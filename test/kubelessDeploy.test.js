@@ -1448,6 +1448,28 @@ describe('KubelessDeploy', () => {
               },
             }],
         }));
+      nock(config.clusters[0].cluster.server)
+        .persist()
+        .get('/api/v1/namespaces/default/services')
+        .reply(200, () => ({
+          items: [
+            {
+              metadata: {
+                name: 'myFunction3',
+                labels: { function: 'myFunction3' },
+                annotations: {},
+                creationTimestamp: moment().add('60', 's'),
+              },
+            },
+            {
+              metadata: {
+                name: functionName,
+                labels: { function: functionName },
+                annotations: {},
+                creationTimestamp: moment().add('60', 's'),
+              },
+            }],
+        }));
 
       // Call for myFunction1
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, funcSpec, {
