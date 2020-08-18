@@ -2,7 +2,7 @@ service: go-echo
 
 provider:
   name: kubeless
-  runtime: go1.10
+  runtime: go1.14
 
 plugins:
   - serverless-kubeless

@@ -1,6 +1,6 @@
 # Simple Hello World function
 
-This function returns the given data capitalizing the first word.
+This function returns the given data.
 
 ```console
 $ npm install
