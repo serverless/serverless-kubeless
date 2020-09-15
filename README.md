@@ -138,11 +138,12 @@ Putting this information in a secret is safer and more flexible than putting it 
 2. Add the secret key into the provider definition in the serverless.yml file below the `secrets` key. You can specify an array of secrets and they will be mounted at root level in the pod file system using the path `/<secret-name>`:
 
 ```yaml
-provider:
-  name: kubeless
-  ....
-  secrets:
-     - secret-file
+...
+functions:
+  my-handler:
+    secrets:
+      - secret-file
+    ...
 ```
 
 3. Now inside your pod, you will be able to access the route `/secret-file/secret.txt`.
