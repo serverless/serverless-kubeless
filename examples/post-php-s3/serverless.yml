@@ -2,7 +2,7 @@ service: php-echo-s3
 
 provider:
   name: kubeless
-  runtime: php7.2
+  runtime: php7.3
   deploy:
     strategy: S3ZipContent
     options:

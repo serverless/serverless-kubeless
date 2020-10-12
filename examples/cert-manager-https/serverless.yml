@@ -7,7 +7,7 @@ plugins:
 provider:
   name: kubeless
   hostname: example.com
-  runtime: nodejs8
+  runtime: python3.7
   ingress:
     additionalAnnotations:
       kubernetes.io/tls-acme: "true"

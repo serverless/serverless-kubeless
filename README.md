@@ -26,7 +26,7 @@ service: hello
 
 provider:
   name: kubeless
-  runtime: python2.7
+  runtime: python3.7
 
 plugins:
   - serverless-kubeless
@@ -98,9 +98,11 @@ Ports:
   Target Port:  8080
 Function Info
 Description: Hello function
+Labels:
+  created-by: kubeless
+  function: hello
 Handler:  handler.hello
-Runtime:  python2.7
-Trigger: HTTP
+Runtime:  python3.7
 Dependencies:
 ```
 

@@ -2,7 +2,7 @@ service: hello-http
 
 provider:
   name: kubeless
-  runtime: python2.7
+  runtime: python3.7
   defaultDNSResolution: 'xip.io'
 
 plugins:
