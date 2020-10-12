@@ -17,9 +17,9 @@ env:
   - REPO_NAME: serverless-kubeless
   - secure: s+L8ndj0uMNwqbLvbHePHeMJw2LI8DdEdcq1vJ98hNwHOWQc2mHVB4utG9EZFkaL+RAZYduldSJqr443d2BugxrkmzhLUlM5vDks+zHeKecwTah2uuaMUXVT/y/cWDDTVp3phqSqWbHBMG6u0ImvTVWHpnkux55S3QJTHevvhdodpO6VDTsJCEB3e1d2hHxi0L9tJrFXzQRpooV8IUuODwKBJyhK4CD7rvu0D1gBgHaUNnNLrCy4YTaFl19q5NdZUtrQDC7rpSPOhFI9CBFX8GiFq6nY3XzFASwq/JtKc3K7OLIC7Wqb6JpuvFhG6S1yhBzp73pnoE9U0Bi+YMa3L+nPoh58dCB2ldNCCCMbx7R6PWq/TwYzLvgZZ7queC2kbvCTrtU6JJfmb0CxmX1fnUIpCsNeyXaPuo4Ly6WJeAID32z79CwMo9NH0uOVTLy3LTrLcEfELhBRL5+WkMvKmXUt8yN/jEIa/H38pQN5Y/AnJ0KznO8RZ2nLhi1cR+xUkxfPVZ22Wr2XkbzJDZih/mZR+5GQBfUHWgpUChK+e8dOhplk+4PZJEO6Myja7ykXBPYtL9CV/Xi+1nQqLmfhyChiES201KusJr1IrFklslzCzgrSH8Dv2yaYUTe/Ub/I3gWIhKOXY66gkpmB6MSBJUfMK3uR4/wYfCvbtBTugsY=
 install:
-- apt-get update && apt-get install -y conntrack
 - npm install -g serverless
 - npm install
+- sudo apt-get update && sudo apt-get install -y conntrack
 after_success:
 - |
   if [[ "$TRAVIS_BRANCH" == master && \
