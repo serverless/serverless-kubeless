@@ -55,9 +55,7 @@ check_or_install_minikube
 MINIKUBE_BIN=$(which minikube)
 
 # Start minikube
-sudo -E ${MINIKUBE_BIN} start --vm-driver=none \
-    --extra-config=apiserver.Authorization.Mode=RBAC \
-    --memory 4096
+sudo -E ${MINIKUBE_BIN} start --vm-driver=none
 
 # Wait til settles
 echo "INFO: Waiting for minikube cluster to be ready ..."
@@ -66,10 +64,6 @@ until kubectl --context=minikube get pods >& /dev/null; do
     ((cnt=cnt-1)) || exit 1
     sleep 1
 done
-
-kubectl --context=minikube get clusterrolebinding kube-dns-admin >& /dev/null || \
-    kubectl --context=minikube create clusterrolebinding kube-dns-admin --serviceaccount=kube-system:default --clusterrole=cluster-admin
-kubectl create clusterrolebinding cluster-admin:kube-system --clusterrole=cluster-admin --serviceaccount=kube-system:default
 
 # Enable Nginx Ingress
 echo "INFO: Enabling ingress addon to minikube..."
