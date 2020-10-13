@@ -20,7 +20,7 @@ Clone this repo and check the example function
 
 ```bash
 $ git clone https://github.com/serverless/serverless-kubeless
-$ cd examples/get-python
+$ cd serverless-kubeless/examples/get-python
 $ cat serverless.yml
 service: hello
 
