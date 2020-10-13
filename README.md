@@ -57,8 +57,8 @@ The function will be deployed to k8s via kubeless.
 
 ```bash
 $ kubectl get function
-NAME      KIND
-hello     Function.v1.k8s.io
+NAME      AGE
+hello     50s
 
 $ kubectl get pod
 NAME                     READY     STATUS    RESTARTS   AGE
