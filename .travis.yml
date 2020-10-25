@@ -7,7 +7,7 @@ services:
 env:
   global:
   - KUBELESS_VERSION: v1.0.7
-  - KUBELESS_KAFKA_VERSION: v1.0.2
+  - KUBELESS_KAFKA_VERSION: v1.1.0
   - MINIKUBE_VERSION: v1.11.0
   - REPO_DOMAIN: serverless
   - REPO_NAME: serverless-kubeless
