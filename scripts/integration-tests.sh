@@ -12,7 +12,7 @@ install_minikube() {
 }
 
 install_kubecfg() {
-    curl -LO https://github.com/ksonnet/kubecfg/releases/download/v0.5.0/kubecfg-linux-amd64
+    curl -LO https://github.com/ksonnet/kubecfg/releases/download/v0.16.0/kubecfg-linux-amd64
     chmod +x ./kubecfg-linux-amd64
     sudo mv ./kubecfg-linux-amd64 /usr/local/bin/kubecfg
     chmod +x  /usr/local/bin/kubecfg
