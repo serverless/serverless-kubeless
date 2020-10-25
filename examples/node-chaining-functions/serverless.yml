@@ -2,7 +2,7 @@ service: chain
 
 provider:
   name: kubeless
-  runtime: node6
+  runtime: nodejs6
 
 plugins:
   - serverless-kubeless

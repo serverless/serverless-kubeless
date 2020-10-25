@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-KUBECTL_VERSION=${KUBECTL_VERSION:?}
-KUBECFG_VERSION=${KUBECFG_VERSION:?}
 KSONNET_VERSION=${KSONNET_VERSION:?}
+KUBECFG_VERSION=${KUBECFG_VERSION:?}
+KUBECTL_VERSION=${KUBECTL_VERSION:?}
 
 install_kubectl() {
     which kubectl || {
@@ -32,19 +32,37 @@ install_kubeless() {
     kubectl create ns kubeless
     kubectl create -f https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless-$KUBELESS_VERSION.yaml
     kubectl create -f https://github.com/kubeless/kafka-trigger/releases/download/$KUBELESS_KAFKA_VERSION/kafka-zookeeper-$KUBELESS_KAFKA_VERSION.yaml
-    curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
-    unzip kubeless_linux-amd64.zip
-    sudo mv ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/kubeless
+    which kubeless || {
+        curl -fLsSO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
+        unzip kubeless_linux-amd64.zip
+        sudo install ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/
+        rm -rf bundles kubeless_linux-amd64.zip
+    }
+
+    typeset -i cnt=12
+    until kubectl get pods -l kubeless=controller -n kubeless | grep Running; do
+        ((cnt=cnt-1)) || exit 1
+        sleep 5;
+    done
+
+    typeset -i cnt=12
+    until kubectl get pods -l kubeless=kafka-trigger-controller -n kubeless | grep Running; do
+        ((cnt=cnt-1)) || exit 1
+        sleep 5;
+    done
+
+    typeset -i cnt=12
     until kubectl get pods -l kubeless=kafka -n kubeless | grep Running; do
-        echo -n ".";
+        ((cnt=cnt-1)) || exit 1
         sleep 5;
     done
 }
 
 install_minio() {
     kubectl create -f `dirname $0`/../test/minio.yml
+    typeset -i cnt=12
     until kubectl get pods -l app=minio -n kubeless | grep Running; do
-        echo -n ".";
+        ((cnt=cnt-1)) || exit 1
         sleep 5;
     done
 }
@@ -67,8 +85,5 @@ set +e
 npm run examples
 result=$?
 set -e
-
-# Clean up
-minikube delete
 
 exit $result
