@@ -31,6 +31,18 @@ jobs:
     - name: Integration tests k8s v1.15.11
       env: MINIKUBE_KUBERNETES_VERSION=v1.15.11
       script: ./scripts/integration-tests.sh
+    - name: Integration tests k8s v1.16.13
+      env: MINIKUBE_KUBERNETES_VERSION=v1.16.13
+      script: ./scripts/integration-tests.sh
+    - name: Integration tests k8s v1.17.9
+      env: MINIKUBE_KUBERNETES_VERSION=v1.17.9
+      script: ./scripts/integration-tests.sh
+    - name: Integration tests k8s v1.18.9
+      env: MINIKUBE_KUBERNETES_VERSION=v1.18.9
+      script: ./scripts/integration-tests.sh
+    - name: Integration tests k8s v1.19.3
+      env: MINIKUBE_KUBERNETES_VERSION=v1.19.3
+      script: ./scripts/integration-tests.sh
 after_success:
 - |
   if [[ "$TRAVIS_BRANCH" == master && \
