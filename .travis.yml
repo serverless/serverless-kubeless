@@ -6,8 +6,11 @@ services:
 - docker
 env:
   global:
-  - KUBELESS_VERSION: v1.0.7
+  - KSONNET_VERSION: v0.1.12
+  - KUBECFG_VERSION: v0.16.0
+  - KUBECTL_VERSION: v1.19.2
   - KUBELESS_KAFKA_VERSION: v1.1.0
+  - KUBELESS_VERSION: v1.0.7
   - MINIKUBE_VERSION: v1.11.0
   - REPO_DOMAIN: serverless
   - REPO_NAME: serverless-kubeless

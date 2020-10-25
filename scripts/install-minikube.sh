@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+MINIKUBE_KUBERNETES_VERSION=${MINIKUBE_KUBERNETES_VERSION:?}
+
 # From minikube howto
 export MINIKUBE_WANTUPDATENOTIFICATION=false
 export MINIKUBE_WANTREPORTERRORPROMPT=false

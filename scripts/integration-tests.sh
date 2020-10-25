@@ -1,10 +1,15 @@
 #!/bin/bash
 set -e
 
+KUBECTL_VERSION=${KUBECTL_VERSION:?}
+KUBECFG_VERSION=${KUBECFG_VERSION:?}
+KSONNET_VERSION=${KSONNET_VERSION:?}
+
 install_kubectl() {
-    curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.19.2/bin/linux/amd64/kubectl
-    chmod +x ./kubectl
-    sudo mv ./kubectl /usr/local/bin/kubectl
+    which kubectl || {
+        curl -fLsSO https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
+        sudo install kubectl /usr/local/bin/
+    }
 }
 
 install_minikube() {
@@ -12,12 +17,13 @@ install_minikube() {
 }
 
 install_kubecfg() {
-    curl -LO https://github.com/ksonnet/kubecfg/releases/download/v0.16.0/kubecfg-linux-amd64
-    chmod +x ./kubecfg-linux-amd64
-    sudo mv ./kubecfg-linux-amd64 /usr/local/bin/kubecfg
-    chmod +x  /usr/local/bin/kubecfg
+    which kubecfg || {
+        curl -fLsS -o kubecfg https://github.com/ksonnet/kubecfg/releases/download/${KUBECFG_VERSION}/kubecfg-linux-amd64
+        sudo install kubecfg /usr/local/bin/
+    }
+
     if [ ! -d "ksonnet-lib" ]; then
-      git clone --depth=1 https://github.com/ksonnet/ksonnet-lib.git ksonnet-lib
+        git clone --branch=${KSONNET_VERSION} --depth=1 https://github.com/ksonnet/ksonnet-lib.git ksonnet-lib
     fi
     export KUBECFG_JPATH=$PWD/ksonnet-lib
 }
@@ -29,13 +35,18 @@ install_kubeless() {
     curl -LO https://github.com/kubeless/kubeless/releases/download/$KUBELESS_VERSION/kubeless_linux-amd64.zip
     unzip kubeless_linux-amd64.zip
     sudo mv ./bundles/kubeless_linux-amd64/kubeless /usr/local/bin/kubeless
-    # Wait for Kafka pod to be running
-    until kubectl get all --all-namespaces | sed -n 's/po\/kafka-0//p' | grep Running; do kubectl -n kubeless describe pod kafka-0; sleep 10; done
+    until kubectl get pods -l kubeless=kafka -n kubeless | grep Running; do
+        echo -n ".";
+        sleep 5;
+    done
 }
 
 install_minio() {
-  kubectl create -f `dirname $0`/../test/minio.yml
-  until kubectl get -n kubeless deployment minio -o jsonpath="{.status.readyReplicas}" | grep 1; do sleep 5; done
+    kubectl create -f `dirname $0`/../test/minio.yml
+    until kubectl get pods -l app=minio -n kubeless | grep Running; do
+        echo -n ".";
+        sleep 5;
+    done
 }
 
 # Install dependencies
