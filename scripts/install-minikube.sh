@@ -73,7 +73,7 @@ sudo -E ${MINIKUBE_BIN} config set WantUpdateNotification false
 # Give some time for the cluster to become healthy
 echo "Waiting until Nginx pod is ready ..."
 typeset -i cnt=300
-until kubectl get pods -l name=nginx-ingress-controller -n kube-system | grep -q Running; do
+until kubectl get pods -l app.kubernetes.io/name=ingress-nginx -n kube-system | grep -q Running; do
     ((cnt=cnt-1)) || exit 1
     sleep 1
 done
