@@ -2,10 +2,6 @@ dist: bionic
 language: node_js
 node_js:
 - '12'
-script:
-- npm run lint
-- npm test
-- ./scripts/integration-tests.sh
 services:
 - docker
 env:
@@ -20,6 +16,10 @@ install:
 - npm install -g serverless
 - npm install
 - sudo apt-get update && sudo apt-get install -y conntrack
+script:
+  - npm run lint
+  - npm test
+  - ./scripts/integration-tests.sh
 after_success:
 - |
   if [[ "$TRAVIS_BRANCH" == master && \
