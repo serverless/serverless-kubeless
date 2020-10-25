@@ -46,7 +46,7 @@ function deployExample(cwd, callback, retries = 0) {
       callback();
     });
   } else {
-    callback(new Error('Falied to deploy after 3 retries'));
+    callback(new Error('Failed to deploy after 3 retries'));
   }
 }
 function removeExample(cwd, callback) {

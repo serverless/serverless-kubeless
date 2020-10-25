@@ -290,8 +290,8 @@ describe('Helper functions', () => {
           {
             name: 'cluster-user',
             user: {
-              'client-certificate-data': new Buffer('cert1234').toString('base64'),
-              'client-key-data': new Buffer('abcdef1234').toString('base64'),
+              'client-certificate-data': Buffer.from('cert1234').toString('base64'),
+              'client-key-data': Buffer.from('abcdef1234').toString('base64'),
             },
           },
         ],

@@ -111,7 +111,7 @@ describe('KubelessDeploy', () => {
     const functionRawText = 'function code';
     const functionChecksum =
       'sha256:ce182d715b42b27f1babf8b4196cd4f8c900ca6593a4293d455d1e5e2296ebee';
-    const functionText = new Buffer(functionRawText).toString('base64');
+    const functionText = Buffer.from(functionRawText).toString('base64');
     let serverlessWithFunction = null;
 
     let kubelessDeploy = null;
@@ -1529,7 +1529,7 @@ describe('KubelessDeploy', () => {
         package: path.join(cwd, 'package.zip'),
       });
       const content = 'different function content';
-      const contentBase64 = new Buffer(content).toString('base64');
+      const contentBase64 = Buffer.from(content).toString('base64');
       const newChecksum = 'sha256:ec8a289c00b7789bc86115947f453bac88a40796b35e79ed5d5ef437b6579605';
       fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), content);
       mocks.createDeploymentNocks(config.clusters[0].cluster.server, functionName, defaultFuncSpec({
@@ -1557,7 +1557,7 @@ describe('KubelessDeploy', () => {
         package: path.join(cwd, 'package.zip'),
       });
       const content = 'different function content';
-      const contentBase64 = new Buffer(content).toString('base64');
+      const contentBase64 = Buffer.from(content).toString('base64');
       const newChecksum = 'sha256:ec8a289c00b7789bc86115947f453bac88a40796b35e79ed5d5ef437b6579605';
       fs.writeFileSync(path.join(path.join(cwd, 'package.zip')), content);
       sinon.stub(kubelessDeploy, 'loadZip').returns({

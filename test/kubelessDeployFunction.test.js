@@ -67,7 +67,7 @@ describe('KubelessDeployFunction', () => {
     const functionRawText = 'function code';
     const functionChecksum =
       'sha256:ce182d715b42b27f1babf8b4196cd4f8c900ca6593a4293d455d1e5e2296ebee';
-    const functionText = new Buffer(functionRawText).toString('base64');
+    const functionText = Buffer.from(functionRawText).toString('base64');
 
     let kubelessDeployFunction = null;
     let defaultFuncSpec = null;
