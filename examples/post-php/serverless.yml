@@ -2,7 +2,7 @@ service: php-echo
 
 provider:
   name: kubeless
-  runtime: php7.3
+  runtime: php7.4
 
 plugins:
   - serverless-kubeless
