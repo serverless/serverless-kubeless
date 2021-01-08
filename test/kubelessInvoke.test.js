@@ -33,16 +33,16 @@ const serverless = require('./lib/serverless')({ service: { functions: { 'my-fun
 
 require('chai').use(chaiAsPromised);
 
-function nocksvc(url, funcs) {
+function nocksvc(url, funcs, namespace = 'default') {
   nock(url)
-    .get('/api/v1/namespaces/default/services')
+    .get(`/api/v1/namespaces/${namespace}/services`)
     .reply(200, {
       items: _.map(_.flatten([funcs]), f => ({
         metadata:
         {
           name: f,
           namespace: 'default',
-          selfLink: `/api/v1/namespaces/default/services/${f}`,
+          selfLink: `/api/v1/namespaces/${namespace}/services/${f}`,
           uid: '010a169d-618c-11e7-9939-080027abf356',
           resourceVersion: '248',
           creationTimestamp: '2017-07-05T14:12:39Z',
@@ -234,7 +234,7 @@ describe('KubelessInvoke', () => {
           statusMessage: 'OK',
         });
       });
-      nocksvc(kubeApiURL, func);
+      nocksvc(kubeApiURL, func, 'test');
       return kubelessInvoke.invokeFunction().then((res) => {
         expect(res).to.be.eql({
           statusCode: 200,
@@ -257,7 +257,7 @@ describe('KubelessInvoke', () => {
           statusMessage: 'OK',
         });
       });
-      nocksvc(kubeApiURL, func);
+      nocksvc(kubeApiURL, func, 'test');
       return kubelessInvoke.invokeFunction().then((res) => {
         expect(res).to.be.eql({
           statusCode: 200,
