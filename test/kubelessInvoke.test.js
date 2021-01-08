@@ -234,7 +234,7 @@ describe('KubelessInvoke', () => {
           statusMessage: 'OK',
         });
       });
-      nocksvc(kubeApiURL, func, 'test');
+      nocksvc(kubeApiURL, func, serverlessWithNS.service.functions[func].namespace);
       return kubelessInvoke.invokeFunction().then((res) => {
         expect(res).to.be.eql({
           statusCode: 200,
@@ -257,7 +257,7 @@ describe('KubelessInvoke', () => {
           statusMessage: 'OK',
         });
       });
-      nocksvc(kubeApiURL, func, 'test');
+      nocksvc(kubeApiURL, func, serverlessWithNS.service.functions[func].namespace);
       return kubelessInvoke.invokeFunction().then((res) => {
         expect(res).to.be.eql({
           statusCode: 200,
