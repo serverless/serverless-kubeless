@@ -1143,9 +1143,9 @@ describe('KubelessDeploy', () => {
                 containers: [{
                   name: functionName,
                 }],
+                tolerations,
               },
             },
-            tolerations,
           },
         },
       }));
@@ -1178,9 +1178,9 @@ describe('KubelessDeploy', () => {
                 containers: [{
                   name: functionName,
                 }],
+                tolerations,
               },
             },
-            tolerations,
           },
         },
       }));
